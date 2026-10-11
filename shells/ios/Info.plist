@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.wufour.turf</string>
+    <key>CFBundleName</key>
+    <string>Turf</string>
+    <key>CFBundleDisplayName</key>
+    <string>Turf</string>
+    <key>CFBundleExecutable</key>
+    <string>App</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.0.1</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>MinimumOSVersion</key>
+    <string>18.0</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UIDeviceFamily</key>
+    <array>
+        <integer>1</integer>
+        <integer>2</integer>
+    </array>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Turf uses your location to show where you are and, during a shift, to share it with your company.</string>
+    <key>UILaunchScreen</key>
+    <dict/>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+        <key>UISceneConfigurations</key>
+        <dict>
+            <key>UIWindowSceneSessionRoleApplication</key>
+            <array>
+                <dict>
+                    <key>UISceneConfigurationName</key>
+                    <string>Default</string>
+                    <key>UISceneDelegateClassName</key>
+                    <string>ZuiSceneDelegate</string>
+                </dict>
+            </array>
+        </dict>
+    </dict>
+</dict>
+</plist>
