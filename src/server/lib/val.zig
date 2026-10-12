@@ -502,6 +502,81 @@ fn writeJson(v: Val, w: *std.json.Stringify) std.Io.Writer.Error!void {
     }
 }
 
+/// JSON that keeps types (Extended JSON style: {"$date": ms}, {"$oid": hex}, {"$bin": base64}),
+/// for keeping a value outside the request arena (caches) and reading it back with
+/// `parseJsonDates`.
+pub fn toJsonTyped(a: Allocator, v: Val) ![]const u8 {
+    var out: std.Io.Writer.Allocating = .init(a);
+    try writeTyped(&out.writer, v);
+    return out.written();
+}
+
+fn writeTyped(w: *std.Io.Writer, v: Val) std.Io.Writer.Error!void {
+    switch (v) {
+        .undef => try w.writeAll("{\"$undef\":1}"),
+        .null => try w.writeAll("null"),
+        .bool => |b| try w.writeAll(if (b) "true" else "false"),
+        .num => |x| if (std.math.isFinite(x)) try writeNumber(w, x) else try w.writeAll("null"),
+        .str => |x| try std.json.Stringify.encodeJsonString(x, .{}, w),
+        .oid => |x| try w.print("{{\"$oid\":\"{s}\"}}", .{&x.toHex()}),
+        .date => |ms| try w.print("{{\"$date\":{d}}}", .{ms}),
+        .bin => |x| {
+            try w.writeAll("{\"$bin\":\"");
+            try std.base64.standard.Encoder.encodeWriter(w, x);
+            try w.writeAll("\"}");
+        },
+        .arr => |x| {
+            try w.writeByte('[');
+            for (x.items.items, 0..) |e, i| {
+                if (i > 0) try w.writeByte(',');
+                try writeTyped(w, e);
+            }
+            try w.writeByte(']');
+        },
+        .obj => |o| {
+            try w.writeByte('{');
+            for (o.keys.items, o.vals.items, 0..) |k, e, i| {
+                if (i > 0) try w.writeByte(',');
+                try std.json.Stringify.encodeJsonString(k, .{}, w);
+                try w.writeByte(':');
+                try writeTyped(w, e);
+            }
+            try w.writeByte('}');
+        },
+    }
+}
+
+/// Reads `toJsonTyped` output back.
+pub fn parseJsonDates(a: Allocator, text: []const u8) !Val {
+    return revive(a, try parseJson(a, text));
+}
+
+fn revive(a: Allocator, v: Val) !Val {
+    switch (v) {
+        .obj => |o| {
+            if (o.count() == 1) {
+                const k = o.keys.items[0];
+                const x = o.vals.items[0];
+                if (std.mem.eql(u8, k, "$date")) if (x.asNum()) |ms| return .{ .date = @intFromFloat(ms) };
+                if (std.mem.eql(u8, k, "$oid")) if (x.asStr()) |h| return .{ .oid = ObjectId.parse(h) catch return v };
+                if (std.mem.eql(u8, k, "$undef")) return .undef;
+                if (std.mem.eql(u8, k, "$bin")) if (x.asStr()) |b| {
+                    const out = try a.alloc(u8, std.base64.standard.Decoder.calcSizeForSlice(b) catch return v);
+                    std.base64.standard.Decoder.decode(out, b) catch return v;
+                    return .{ .bin = out };
+                };
+            }
+            for (o.vals.items) |*e| e.* = try revive(a, e.*);
+            return v;
+        },
+        .arr => |x| {
+            for (x.items.items) |*e| e.* = try revive(a, e.*);
+            return v;
+        },
+        else => return v,
+    }
+}
+
 /// A number the way JavaScript prints it (`String(x)`); NaN and infinities as `null` (JSON).
 pub fn writeNumber(w: *std.Io.Writer, x: f64) !void {
     if (!std.math.isFinite(x)) return w.writeAll("null");
@@ -849,6 +924,32 @@ pub fn strToNum(text: []const u8) f64 {
     }
     for (s) |c| if (!(std.ascii.isDigit(c) or c == '.' or c == 'e' or c == 'E' or c == '+' or c == '-')) return std.math.nan(f64);
     return std.fmt.parseFloat(f64, s) catch std.math.nan(f64);
+}
+
+/// `Math.max(a, b)`: NaN when either is NaN.
+pub fn jsMax(x: f64, y: f64) f64 {
+    if (std.math.isNan(x) or std.math.isNan(y)) return std.math.nan(f64);
+    return @max(x, y);
+}
+
+pub fn jsMin(x: f64, y: f64) f64 {
+    if (std.math.isNan(x) or std.math.isNan(y)) return std.math.nan(f64);
+    return @min(x, y);
+}
+
+/// `(v || 0)` for a number field.
+pub fn or0(v: Val) f64 {
+    return if (v.truthy()) toNum(v) else 0;
+}
+
+/// `(v ?? d)` for a number field.
+pub fn numOr(v: Val, d: f64) f64 {
+    return if (v.isNullish()) d else toNum(v);
+}
+
+/// A number as a Val, NaN included (JSON prints it as null, like JavaScript).
+pub fn numV(x: f64) Val {
+    return .{ .num = x };
 }
 
 /// `Math.round`: halves go up (towards +Infinity).

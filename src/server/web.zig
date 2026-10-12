@@ -57,6 +57,8 @@ pub const Req = struct {
     /// /api/v1: the API key document, its merchant and whether it is a test key.
     api_key: Val = .undef,
     merchant: Val = .undef,
+    /// Driver app routes: the courier's membership.
+    courier: Val = .undef,
     test_mode: bool = false,
     /// Domain events emitted while handling the request; listeners run after the response.
     events: std.ArrayList(Event) = .empty,

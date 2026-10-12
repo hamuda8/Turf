@@ -27,4 +27,15 @@ test {
     std.testing.refAllDecls(@import("barcode.zig"));
     std.testing.refAllDecls(@import("ratelimit.zig"));
     std.testing.refAllDecls(@import("realtime.zig"));
+    std.testing.refAllDecls(@import("services/routing.zig"));
+    std.testing.refAllDecls(@import("services/carriers.zig"));
+    std.testing.refAllDecls(@import("services/pricing.zig"));
+    std.testing.refAllDecls(@import("services/places.zig"));
+    std.testing.refAllDecls(@import("services/coverage.zig"));
+    std.testing.refAllDecls(@import("services/branding.zig"));
+    std.testing.refAllDecls(@import("services/members.zig"));
+    std.testing.refAllDecls(@import("services/orgs.zig"));
+    std.testing.refAllDecls(@import("services/moderation.zig"));
+    std.testing.refAllDecls(@import("services/platform.zig"));
+    std.testing.refAllDecls(@import("services/audit.zig"));
 }
