@@ -1086,3 +1086,16 @@ test "string helpers" {
     try testing.expect(std.math.isNan(strToNum("12px")));
     try testing.expectEqual(@as(f64, 0), strToNum(""));
 }
+
+/// `new Date(v).getTime()`: numbers are milliseconds, strings are parsed, null is the epoch;
+/// null result for an Invalid Date.
+pub fn newDate(v: Val) ?i64 {
+    return switch (v) {
+        .num => |x| if (std.math.isFinite(x)) @as(i64, @intFromFloat(@trunc(x))) else null,
+        .str => |s| parseDate(s),
+        .date => |ms| ms,
+        .null => 0,
+        .bool => |b| if (b) 1 else 0,
+        else => null,
+    };
+}
