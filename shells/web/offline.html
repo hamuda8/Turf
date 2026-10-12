@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Offline · Turf</title>
+  <meta name="theme-color" content="#030200">
+  <link rel="icon" href="/img/icon-192.png">
+  <link rel="apple-touch-icon" href="/img/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <!-- Shown by sw.js for a page that was never opened on this device while there is no connection.
+       The Wufour scheme colours of the app (base, core, accent). -->
+  <style>
+    html, body { margin: 0; min-height: 100%; }
+    body { display: grid; place-items: center; min-height: 100dvh; background: #D3DDE3; color: #030200;
+      font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", Tahoma, sans-serif; }
+    .card { box-sizing: border-box; max-width: 520px; margin: 1rem; padding: 2rem 1.5rem; border-radius: 22px; background: oklch(from #D3DDE3 calc(l + 0.045) c h); text-align: center; display: grid; gap: .8rem; justify-items: center; }
+    h1 { font-size: 1.4rem; margin: .4rem 0 0; } h2 { font-size: 1.1rem; margin: .4rem 0 0; } p { margin: 0; opacity: .7; }
+    a { display: inline-block; margin-top: .6rem; padding: .7rem 1.4rem; border-radius: 999px; background: #8A3324; color: oklch(from #8A3324 0.98 0.01 h); font-weight: 700; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="/img/icon-192.png" alt="" width="64" height="64">
+    <h1>لا يوجد اتصال بالإنترنت</h1>
+    <p>لم تُفتح هذه الصفحة على هذا الجهاز من قبل. ستعمل عند عودة الاتصال، والصفحات التي فتحتها سابقاً متاحة الآن.</p>
+    <h2 lang="en" dir="ltr">You are offline</h2>
+    <p lang="en" dir="ltr">This page has not been opened on this device before. It will work once you are back online; pages you opened earlier are still available.</p>
+    <a href="">حاول مجدداً · Try again</a>
+  </div>
+  <script>addEventListener('online', () => location.reload());</script>
+</body>
+</html>

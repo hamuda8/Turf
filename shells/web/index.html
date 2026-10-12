@@ -1,27 +1,147 @@
 <!doctype html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#2563eb">
+  <meta name="theme-color" content="#030200">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/img/icon-192.png">
+  <link rel="apple-touch-icon" href="/img/icon-192.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Turf">
   <title>Turf</title>
   <style>
-    /* Fonts zui uses for text (the same stack as Maps-js). Everything else is drawn by zui. */
+    /* Fonts zui uses for text (Turf-js's --font and --mono). Everything else is drawn by zui. */
     :root {
-      --zui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Noto Sans Arabic", Tahoma, sans-serif;
+      --zui-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", "Noto Sans", Tahoma, sans-serif;
       --zui-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
     }
-    html, body { margin: 0; height: 100%; }
-    body { font-family: var(--zui-font); -webkit-text-size-adjust: 100%; }
+    html, body { margin: 0; height: 100%; background: #D3DDE3; }
+    body { font-family: var(--zui-font); -webkit-text-size-adjust: 100%; font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
   <script type="module">
+    // The page around the app: what a web page can do that zui does not (yet) ask the platform
+    // for. The app asks with fx.post({type, ...}) and gets answers through its hostMessage:
+    //   clock       the wall clock and time zone (zui only has a frame clock)
+    //   push        a browser history entry for the page the app opened; Back comes back as popstate
+    //   online / visible   the connection and the tab coming and going (GPS upload, presence)
+    //   pick-photo  a photo from the camera or the files, shrunk to a JPEG under ~380 KB (proof of delivery)
+    //   pick-file   a text file (bulk CSV), as text
+    //   download    a file the app made (CSV export)
+    //   print       opens an address to print (shipping labels)
+    //   beep / vibrate     the SOS alarm and new-task alerts
+    //   wake        keep the screen on during a shift
     import { start } from '/zui.js';
-    start('/app.wasm');
+
+    let app;
+    const send = (msg) => app?.send(JSON.stringify(msg));
+    const clock = () => send({ type: 'clock', now: Date.now(), tz: -new Date().getTimezoneOffset() });
+
+    async function photo(id) {
+      const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', capture: 'environment' });
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; }).catch(() => null);
+        URL.revokeObjectURL(url);
+        if (!img) return send({ type: 'photo', id, data: '' });
+        for (const [side, q] of [[1280, 0.7], [1024, 0.6], [800, 0.5]]) {
+          const k = Math.min(1, side / Math.max(img.naturalWidth, img.naturalHeight));
+          const canvas = Object.assign(document.createElement('canvas'), { width: Math.round(img.naturalWidth * k), height: Math.round(img.naturalHeight * k) });
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          const data = canvas.toDataURL('image/jpeg', q);
+          if (data.length * 0.75 < 380_000) return send({ type: 'photo', id, data });
+        }
+        send({ type: 'photo', id, data: '' });
+      };
+      input.click();
+    }
+
+    function file(id, accept) {
+      const input = Object.assign(document.createElement('input'), { type: 'file', accept: accept || '.csv,text/csv,text/plain' });
+      input.onchange = async () => {
+        const f = input.files?.[0];
+        if (f) send({ type: 'file', id, name: f.name, data: await f.text() });
+      };
+      input.click();
+    }
+
+    let wakeLock = null;
+    async function wake(on) {
+      try {
+        if (on && !wakeLock && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+          wakeLock = await navigator.wakeLock.request('screen');
+          wakeLock.addEventListener('release', () => { wakeLock = null; });
+        } else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+      } catch { /* not allowed */ }
+    }
+    let wantWake = false;
+
+    function beep(freq = 880, times = 1) {
+      try {
+        const ac = new AudioContext();
+        for (let i = 0; i < times; i++) {
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+          osc.type = 'square';
+          osc.frequency.value = freq;
+          gain.gain.value = 0.08;
+          osc.connect(gain).connect(ac.destination);
+          osc.start(ac.currentTime + i * 0.25);
+          osc.stop(ac.currentTime + i * 0.25 + (times > 1 ? 0.18 : 0.6));
+        }
+      } catch { /* audio needs a gesture first */ }
+    }
+
+    function onPost(text) {
+      let m;
+      try { m = JSON.parse(text); } catch { return; }
+      switch (m.type) {
+        case 'push':
+          if (m.link && m.link !== location.pathname + location.search) history.pushState(null, '', m.link);
+          break;
+        case 'pick-photo': photo(m.id); break;
+        case 'pick-file': file(m.id, m.accept); break;
+        case 'download': {
+          const url = URL.createObjectURL(new Blob([m.text], { type: m.mime || 'text/csv;charset=utf-8' }));
+          const a = Object.assign(document.createElement('a'), { href: url, download: m.name || 'export.csv' });
+          document.body.append(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          break;
+        }
+        case 'print': window.open(m.url, '_blank', 'noopener'); break;
+        case 'beep': beep(m.freq || 880, m.times || 1); navigator.vibrate?.([300, 100, 300]); break;
+        case 'vibrate': navigator.vibrate?.(m.pattern || 200); break;
+        case 'wake': wantWake = Boolean(m.on); wake(wantWake); break;
+        case 'title': document.title = m.title || 'Turf'; break;
+        case 'theme': document.querySelector('meta[name="theme-color"]')?.setAttribute('content', m.color); break;
+        case 'lang': document.documentElement.lang = m.lang; document.documentElement.dir = m.lang === 'ar' ? 'rtl' : 'ltr'; break;
+      }
+    }
+
+    // The embed (/embed/t/<token>) sits in a store's page: it keeps that page's address alone.
+    app = await start('/app.wasm', document.body, { onPost });
+    clock();
+    setInterval(clock, 15_000);
+    addEventListener('popstate', () => send({ type: 'popstate', link: location.pathname + location.search }));
+    addEventListener('online', () => send({ type: 'online', on: true }));
+    addEventListener('offline', () => send({ type: 'online', on: false }));
+    document.addEventListener('visibilitychange', () => {
+      const on = document.visibilityState === 'visible';
+      send({ type: 'visible', on });
+      if (on) { clock(); if (wantWake) wake(true); }
+    });
+    if (!navigator.onLine) send({ type: 'online', on: false });
+  </script>
+  <script>
+    // Installable, and opens offline (not inside an embed).
+    if ('serviceWorker' in navigator && !location.pathname.startsWith('/embed/')) {
+      addEventListener('load', () => navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {}));
+    }
   </script>
 </body>
 </html>

@@ -858,6 +858,7 @@ test {
     _ = core;
     _ = labels;
     _ = @import("theme.zig");
+    _ = @import("widgets/map.zig");
 }
 
 /// Prints every text on screen (debugging tests).
