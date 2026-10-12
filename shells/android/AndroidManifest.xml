@@ -13,9 +13,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- A new dispatch rings over the lock screen (zui fx.notify urgent). -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:label="Turf"
+        android:icon="@mipmap/ic_launcher"
         android:hasCode="true"
         android:extractNativeLibs="false"
         android:usesCleartextTraffic="true">
@@ -37,5 +40,10 @@
             android:name="com.wufour.zui.ZuiLocationService"
             android:foregroundServiceType="location"
             android:exported="false" />
+        <!-- Home-screen widget: the courier's shift and next task (zui.widget). -->
+        <receiver android:name="com.wufour.zui.ZuiWidget" android:exported="false">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/zui_widget_info" />
+        </receiver>
     </application>
 </manifest>
