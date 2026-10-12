@@ -20,4 +20,11 @@ test {
     std.testing.refAllDecls(@import("web.zig"));
     std.testing.refAllDecls(@import("auth.zig"));
     std.testing.refAllDecls(@import("app.zig"));
+    std.testing.refAllDecls(@import("permissions.zig"));
+    std.testing.refAllDecls(@import("messages.zig"));
+    std.testing.refAllDecls(@import("geo.zig"));
+    std.testing.refAllDecls(@import("crypto.zig"));
+    std.testing.refAllDecls(@import("barcode.zig"));
+    std.testing.refAllDecls(@import("ratelimit.zig"));
+    std.testing.refAllDecls(@import("realtime.zig"));
 }
