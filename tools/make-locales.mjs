@@ -1,0 +1,39 @@
+// Builds the client's translation bundles (src/client/locales/ar.json, Lassan format: the
+// English text is the key) from Turf-js's dictionaries (public/js/i18n/en.js and ar.js), and
+// writes tools/i18n-keys.json (Turf-js key -> English) for porting code that used t('key').
+//
+//   node tools/make-locales.mjs [path/to/Turf-js]
+//
+// The same English text with two different Arabic translations cannot be told apart by an
+// English-keyed bundle: the first one wins and the clashes are listed.
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const js = path.resolve(process.argv[2] || path.join(root, '..', 'Turf-js'));
+const load = async name => (await import(pathToFileURL(path.join(js, 'public', 'js', 'i18n', name)))).default;
+const en = await load('en.js');
+const ar = await load('ar.js');
+
+const out = {};
+const clashes = [];
+for (const [key, english] of Object.entries(en)) {
+  const arabic = ar[key];
+  if (arabic === undefined) continue;
+  const k = english.trim();
+  if (k in out && out[k] !== arabic) clashes.push(`${key}: "${k}" -> "${arabic}" (kept "${out[k]}")`);
+  else out[k] = arabic;
+}
+// Extra strings written for the Zig client (no Turf-js key), kept in tools/extra-ar.json.
+const extraFile = path.join(root, 'tools', 'extra-ar.json');
+if (fs.existsSync(extraFile)) Object.assign(out, JSON.parse(fs.readFileSync(extraFile, 'utf8')));
+
+const sorted = Object.fromEntries(Object.entries(out).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+fs.writeFileSync(path.join(root, 'src', 'client', 'locales', 'ar.json'), `${JSON.stringify(sorted, null, 2)}\n`);
+const globalFile = path.join(root, 'src', 'client', 'locales', 'global.json');
+if (!fs.existsSync(globalFile)) fs.writeFileSync(globalFile, '{}\n');
+fs.writeFileSync(path.join(root, 'tools', 'i18n-keys.json'), `${JSON.stringify(en, null, 2)}\n`);
+console.log(`${Object.keys(sorted).length} strings; ${clashes.length} clashes`);
+for (const c of clashes) console.log(`  ${c}`);

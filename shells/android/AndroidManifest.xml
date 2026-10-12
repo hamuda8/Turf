@@ -9,6 +9,10 @@
     <!-- The device position (see the app for what it is used for). -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- A courier's shift keeps GPS running with the screen off (zui background location). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:label="Turf"
@@ -29,5 +33,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name="com.wufour.zui.ZuiLocationService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
     </application>
 </manifest>
