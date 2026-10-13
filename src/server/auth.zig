@@ -30,7 +30,7 @@ var cache: std.StringHashMapUnmanaged(CachedUser) = .empty;
 fn cookie(r: *Req, name: []const u8) ?[]const u8 {
     const c = r.ctx orelse return null;
     const raw = c.cookie(name) orelse return null;
-    return http.decode(r.a, raw) catch raw;
+    return web.uriDecode(r.a, raw);
 }
 
 fn cookieToken(r: *Req) ?[]const u8 {

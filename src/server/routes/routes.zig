@@ -63,7 +63,7 @@ pub fn contentType(path: []const u8) []const u8 {
 /// are always revalidated, so a new version reaches installed apps at once.
 fn staticFile(r: *Req) !bool {
     const ctx = r.ctx.?;
-    const rel_raw = http.decode(r.a, ctx.path) catch return false;
+    const rel_raw = web.uriDecode(r.a, ctx.path);
     const rel = std.mem.trimStart(u8, rel_raw, "/");
     if (rel.len == 0 or std.mem.endsWith(u8, rel, "/")) return false;
     var parts = std.mem.splitAny(u8, rel, "/\\");

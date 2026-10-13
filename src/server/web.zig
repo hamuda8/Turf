@@ -355,7 +355,7 @@ pub fn match(r: *Req, pattern: []const u8, path: []const u8) !bool {
     if (std.mem.trim(u8, pattern, "/").len == 0) return std.mem.trim(u8, path, "/").len == 0;
     while (pi.next()) |p| {
         if (p.len > 0 and p[0] == '*') {
-            try r.params.append(r.a, .{ .name = p[1..], .value = http.decode(r.a, si.rest()) catch si.rest() });
+            try r.params.append(r.a, .{ .name = p[1..], .value = uriDecode(r.a, si.rest()) });
             return true;
         }
         const s = si.next() orelse {
@@ -367,7 +367,7 @@ pub fn match(r: *Req, pattern: []const u8, path: []const u8) !bool {
                 r.params.shrinkRetainingCapacity(mark);
                 return false;
             }
-            try r.params.append(r.a, .{ .name = p[1..], .value = http.decode(r.a, s) catch s });
+            try r.params.append(r.a, .{ .name = p[1..], .value = uriDecode(r.a, s) });
         } else if (!std.ascii.eqlIgnoreCase(p, s)) {
             r.params.shrinkRetainingCapacity(mark);
             return false;
@@ -698,4 +698,23 @@ test "validators and matching" {
     try std.testing.expect(!isPhone("12"));
     try std.testing.expectEqualStrings("/me", under("/api/app/me", "/api/app").?);
     try std.testing.expect(under("/api/apple", "/api/app") == null);
+}
+
+/// decodeURIComponent: percent escapes only ('+' stays '+'); the text as it is when malformed.
+pub fn uriDecode(a: Allocator, s: []const u8) []const u8 {
+    if (std.mem.indexOfScalar(u8, s, '%') == null) return s;
+    const out = a.alloc(u8, s.len) catch return s;
+    var n: usize = 0;
+    var i: usize = 0;
+    while (i < s.len) : (n += 1) {
+        if (s[i] == '%') {
+            if (i + 3 > s.len) return s;
+            out[n] = std.fmt.parseInt(u8, s[i + 1 .. i + 3], 16) catch return s;
+            i += 3;
+        } else {
+            out[n] = s[i];
+            i += 1;
+        }
+    }
+    return out[0..n];
 }
