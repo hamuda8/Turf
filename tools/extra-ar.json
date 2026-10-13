@@ -1,1 +1,8 @@
-{}
+{
+  "Use your Wufour account.": "استخدم حسابك في وفور.",
+  "Enter your email and password.": "أدخل بريدك الإلكتروني وكلمة المرور.",
+  "The email or password is not right.": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+  "Password": "كلمة المرور",
+  "{n} open tasks": "{n} مهام مفتوحة",
+  "Taking a photo needs the web app for now.": "التقاط الصورة يحتاج حالياً إلى تطبيق الويب."
+}
