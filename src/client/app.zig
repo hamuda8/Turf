@@ -867,3 +867,38 @@ pub fn dump() void {
     while (it.next()) |e| if (e.value_ptr.kind == .text or e.value_ptr.kind == .input) std.debug.print("[{s}|{s}] ", .{ e.value_ptr.text.items, e.value_ptr.placeholder.items });
     std.debug.print("\n", .{});
 }
+
+test "a company opens on the member's main task, and pages need their permission" {
+    try startSignedIn("/o/acme/");
+    defer D.reset();
+    // A store member who may only manage the API opens on Developers.
+    try testing.expect(D.respond("/api/app/orgs/o1", 200,
+        \\{"id":"o1","type":"merchant","name":"Acme Store","slug":"acme","status":"active","branding":{"appName":"Acme Store"},
+        \\ "me":{"memberId":"m1","isOwner":false,"role":{"id":"r","name":"Developer"},"permissions":["api.manage"]}}
+    ));
+    try testing.expectEqualStrings("/developers", D.R.appState().route());
+    try testing.expect(std.mem.endsWith(u8, zui.host.link.items, "/o/acme/developers"));
+    // A page without its permission says so instead of failing.
+    D.R.dispatch(.{ .go = "/finance" });
+    try testing.expect(D.R.appState().no_permission);
+    try testing.expect(D.findText("You do not have permission to open this page.") != 0);
+}
+
+test "not a member of the company in the address" {
+    try startSignedIn("/o/nope/");
+    defer D.reset();
+    try testing.expect(D.R.appState().mode == .not_member);
+    try D.press("All my companies");
+    try testing.expect(D.R.appState().mode == .account);
+}
+
+test "the language switch turns the layout right to left" {
+    try startSignedIn("/app");
+    defer D.reset();
+    try testing.expect(D.respond("/api/app/me", 200, me_json));
+    D.R.dispatch(.{ .shell = .lang });
+    try testing.expect(zui.i18n.isRtl());
+    try testing.expect(D.findText("شركاتي") != 0);
+    D.R.dispatch(.{ .shell = .lang });
+    try testing.expect(!zui.i18n.isRtl());
+}
