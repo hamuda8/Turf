@@ -179,6 +179,10 @@ fn call(r: *Req, name: []const u8, args: Val) !Val {
         try dispatch.watchdog(r);
         return .undef;
     }
+    if (eq(name, "startWebhooks")) {
+        bus.enabled[@intFromEnum(bus.Service.webhooks)] = true;
+        return .undef;
+    }
     if (eq(name, "startEmails")) {
         bus.enabled[@intFromEnum(bus.Service.emails)] = true;
         return .undef;

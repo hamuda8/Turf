@@ -13,6 +13,7 @@ const crypto = @import("../crypto.zig");
 const messages = @import("../messages.zig");
 const audit = @import("audit.zig");
 const shipments = @import("shipments.zig");
+const bus = @import("../bus.zig");
 const Val = val.Val;
 const Req = web.Req;
 
@@ -184,7 +185,7 @@ fn post(a: std.mem.Allocator, url: []const u8, headers: []const std.http.Header,
         const addrs: []const []const u8 = if (isIp(host)) &.{host} else try resolveAll(a, host);
         for (addrs) |ip| if (isPrivateIp(ip)) return val.from(a, .{ .ok = false, .status = null, .@"error" = "Webhook URLs must point to a public server" });
     }
-    const res = a_.upstreamTimeout(a, url, .{ .method = .POST, .body = body, .headers = headers, .retry = false, .max_body = 1 << 20 }, timeout_ms) catch |e| {
+    const res = a_.upstreamTimeout(a, url, .{ .method = .POST, .body = body, .headers = headers, .retry = false, .max_body = 1 << 20, .user_agent = "Turf-Webhooks/1" }, timeout_ms) catch |e| {
         return val.from(a, .{ .ok = false, .status = null, .@"error" = if (e == error.Timeout) "Timed out" else @errorName(e) });
     };
     const st = @intFromEnum(res.status);
@@ -196,7 +197,6 @@ fn deliver(a: std.mem.Allocator, url: []const u8, secret: []const u8, payload: V
     const t = @divFloor(a_.nowMs(), 1000);
     const signed = try std.fmt.allocPrint(a, "{d}.{s}", .{ t, body });
     return post(a, url, &.{
-        .{ .name = "user-agent", .value = "Turf-Webhooks/1" },
         .{ .name = "turf-event", .value = payload.s("type") orelse "" },
         .{ .name = "turf-delivery", .value = payload.s("id") orelse "" },
         .{ .name = "turf-signature", .value = try std.fmt.allocPrint(a, "t={d},v1={s}", .{ t, try crypto.hmacHex(a, secret, signed) }) },
@@ -258,6 +258,7 @@ pub fn loop() void {
     }
     while (true) {
         a_.app.io.sleep(.fromSeconds(5), .awake) catch return;
+        if (!bus.enabled[@intFromEnum(bus.Service.webhooks)]) continue;
         var arena = std.heap.ArenaAllocator.init(a_.app.gpa);
         defer arena.deinit();
         processQueue(arena.allocator()) catch |e| std.log.err("Webhook queue failed: {t}", .{e});

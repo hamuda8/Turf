@@ -174,6 +174,8 @@ pub const UpstreamOptions = struct {
     /// Repeat once on a broken pooled connection; only for requests that are safe to repeat.
     retry: bool = true,
     max_body: usize = 16 << 20,
+    /// Replaces std.http's own User-Agent.
+    user_agent: ?[]const u8 = null,
 };
 
 /// One request to another service. Errors when it cannot be reached.
@@ -190,7 +192,7 @@ fn upstreamOnce(arena: std.mem.Allocator, url: []const u8, o: UpstreamOptions) !
         .extra_headers = o.headers,
         .redirect_behavior = .unhandled,
         .keep_alive = true,
-        .headers = .{ .accept_encoding = .omit },
+        .headers = .{ .accept_encoding = .omit, .user_agent = if (o.user_agent) |u| .{ .override = u } else .default },
     });
     defer req.deinit();
     if (o.body) |b| {
