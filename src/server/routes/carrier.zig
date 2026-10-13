@@ -469,7 +469,7 @@ fn cancel(r: *Req) !void {
 fn taskInput(r: *Req, b: Val) !Val {
     const a = r.a;
     const ids = try val.newArr(a);
-    for ((try V.arr(r, b.get("shipmentIds"), "shipmentIds", .{ .max = 500 })).?, 0..) |v, i| try ids.push(.{ .oid = (try V.id(r, v, try std.fmt.allocPrint(a, "shipmentIds[{d}]", .{i}), .{})).? });
+    for ((try V.arr(r, b.get("shipmentIds"), "shipmentIds", .{ .max = 500 })).?, 0..) |v, i| try ids.push(Val{ .oid = (try V.id(r, v, try std.fmt.allocPrint(a, "shipmentIds[{d}]", .{i}), .{})).? });
     const out = try val.from(a, .{ .type = (try V.oneOf(r, b.get("type"), "type", &tasks.task_types, .{})).?, .shipmentIds = ids });
     if (try V.id(r, b.get("toHubId"), "toHubId", .{ .optional = true })) |h| try out.set("toHubId", h) else try out.set("toHubId", Val.undef);
     return out;
@@ -757,7 +757,7 @@ fn codSummary(r: *Req) !void {
 
 fn shipmentIds(r: *Req) !Val {
     const ids = try val.newArr(r.a);
-    for ((try V.arr(r, r.body.get("shipmentIds"), "shipmentIds", .{ .max = 2000 })).?, 0..) |v, i| try ids.push(.{ .oid = (try V.id(r, v, try std.fmt.allocPrint(r.a, "shipmentIds[{d}]", .{i}), .{})).? });
+    for ((try V.arr(r, r.body.get("shipmentIds"), "shipmentIds", .{ .max = 2000 })).?, 0..) |v, i| try ids.push(Val{ .oid = (try V.id(r, v, try std.fmt.allocPrint(r.a, "shipmentIds[{d}]", .{i}), .{})).? });
     return ids;
 }
 

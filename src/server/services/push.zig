@@ -194,10 +194,24 @@ pub fn sendToUserOpts(a: std.mem.Allocator, user_id: Val, payload: Val, o: SendO
     return sent;
 }
 
+/// "vapid t=<jwt>, k=<public key>". The audience is the endpoint's origin with its port, like
+/// new URL(endpoint).origin (zig-core's vapidHeader leaves the port out).
+fn vapidHeader(a: std.mem.Allocator, v: zpush.Vapid, endpoint: []const u8, now_s: i64) ![]const u8 {
+    const uri = try std.Uri.parse(endpoint);
+    const host = (uri.host orelse return error.BadEndpoint).percent_encoded;
+    const default_port: u16 = if (std.ascii.eqlIgnoreCase(uri.scheme, "https")) 443 else 80;
+    const aud = if (uri.port) |p| (if (p != default_port) try std.fmt.allocPrint(a, "{s}://{s}:{d}", .{ uri.scheme, host, p }) else try std.fmt.allocPrint(a, "{s}://{s}", .{ uri.scheme, host })) else try std.fmt.allocPrint(a, "{s}://{s}", .{ uri.scheme, host });
+    const claims = try val.toJson(a, try val.from(a, .{ .aud = aud, .exp = now_s + 12 * 3600, .sub = v.subject }));
+    var key: [32]u8 = undefined;
+    try b64url.Decoder.decode(&key, v.private_key);
+    const token = try zpush.jwt.es256(a, claims, key);
+    return std.fmt.allocPrint(a, "vapid t={s}, k={s}", .{ token, v.public_key });
+}
+
 fn sendOne(a: std.mem.Allocator, vapid: zpush.Vapid, sub: Val, plaintext: []const u8, payload: Val, ttl: u32) !u16 {
     const endpoint = sub.s("endpoint") orelse return error.BadEndpoint;
     const body = try zpush.encrypt(a, a_.app.io, .{ .endpoint = endpoint, .p256dh = sub.path("keys.p256dh").asStr() orelse "", .auth = sub.path("keys.auth").asStr() orelse "" }, plaintext, null);
-    const auth = try zpush.vapidHeader(a, vapid, endpoint, @divFloor(a_.nowMs(), 1000));
+    const auth = try vapidHeader(a, vapid, endpoint, @divFloor(a_.nowMs(), 1000));
     var headers: std.ArrayList(std.http.Header) = .empty;
     try headers.append(a, .{ .name = "authorization", .value = auth });
     try headers.append(a, .{ .name = "content-encoding", .value = "aes128gcm" });

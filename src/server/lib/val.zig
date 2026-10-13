@@ -349,6 +349,11 @@ pub fn from(a: Allocator, x: anytype) error{OutOfMemory}!Val {
     const T = @TypeOf(x);
     switch (T) {
         Val => return x,
+        // `Val.undef` / `Val.null` on their own are tag values, not Vals.
+        std.meta.Tag(Val) => return switch (x) {
+            .undef => .undef,
+            else => .null,
+        },
         ObjectId => return .{ .oid = x },
         Date => return .{ .date = x.ms },
         bson.DateTime => return .{ .date = x.ms },
