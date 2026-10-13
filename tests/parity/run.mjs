@@ -47,5 +47,11 @@ for (const name of NODE ? [] : fs.readdirSync(HERE).filter(n => n.endsWith('.tes
   files.push(path.join(HERE, name));
 }
 
+// Tests that hold for both servers (and can be compared with --node).
+for (const name of fs.readdirSync(path.join(HERE, 'both')).filter(n => n.endsWith('.test.mjs')).sort()) {
+  if (filter && !name.includes(filter)) continue;
+  files.push(path.join(HERE, 'both', name));
+}
+
 const res = spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...files], { stdio: 'inherit', env: process.env });
 process.exit(res.status ?? 1);

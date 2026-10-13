@@ -39,6 +39,8 @@ process.env.AUTO_APPROVE_CARRIERS = 'true';
 process.env.MERCHANT_SIGNUP = 'open';
 process.env.NODE_ENV = 'test';
 process.env.PLATFORM_ADMIN_USER_IDS = 'admin0000000000000000001';
+// Enables /api/internal (Turf-js's own tests leave it off; the extra tests use it).
+process.env.INTERNAL_API_KEY = 'internal-test-key-internal-test-key-0001';
 // Never read an env file (the Zig server would otherwise look for .env.production).
 process.env.TURF_ENV_FILE = '';
 process.env.TURF_PUBLIC_DIR = path.join(TURF_JS, 'public');
