@@ -663,3 +663,8 @@ test "address: a search result fills the address and the pin" {
     try testing.expect(app.D.respond("/api/v1/reverse?lat=33.5", 200, "{\"success\":true,\"place\":{\"street\":\"Main st\",\"city\":\"Other\"}}"));
     try testing.expect(app.D.findText("Main st, Mazzeh, Damascus, Damascus") != 0);
 }
+
+test {
+    _ = address;
+    _ = @import("../widgets/places.zig");
+}
