@@ -9,7 +9,9 @@ const Val = val.Val;
 /// Appends an entry. Never fails into the caller. `actor` is a user ({ id, email }), a
 /// membership ({ userId, email }) or null for the system.
 pub fn audit(a: std.mem.Allocator, org_id: Val, actor: Val, action: []const u8, details: anytype) void {
-    const d = val.from(a, details) catch return;
+    const raw = val.from(a, details) catch return;
+    // Details are always an object (an empty `.{}` literal arrives as an empty list).
+    const d = if (raw == .arr and raw.items().len == 0) (val.newObj(a) catch return) else raw;
     const actor_doc: Val = if (actor.isNullish())
         (val.from(a, .{ .system = true }) catch return)
     else blk: {

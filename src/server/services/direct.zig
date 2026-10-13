@@ -149,7 +149,7 @@ pub fn createDirectRequest(r: *Req, user: Val, org: Val, input: Val) !Val {
     });
     _ = try db.col("shipments").insertOne(a, shipment);
     _ = try db.col("shipment_events").insertOne(a, .{
-        .shipmentId = shipment.get("_id"), .code = "request_sent", .status = "awaiting_carrier", .params = .{}, .actor = created_by, .at = now, .internal = false,
+        .shipmentId = shipment.get("_id"), .code = "request_sent", .status = "awaiting_carrier", .params = try val.newObj(a), .actor = created_by, .at = now, .internal = false,
     });
     notifyOffer(r, shipment);
     return shipment;

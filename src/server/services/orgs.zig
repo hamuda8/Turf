@@ -22,7 +22,7 @@ pub const default_accent = "#030200";
 pub fn defaultCarrierSettings(a: std.mem.Allocator) !Val {
     return val.from(a, .{
         .coverage = .{},
-        .areas = .{},
+        .areas = try val.newObj(a),
         .visibility = "network",
         .clientMerchants = .{},
         .acceptMarketplace = true,
