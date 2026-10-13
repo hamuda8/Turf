@@ -182,7 +182,7 @@ pub fn begin(ui: *Ui, c: *const Cx, ch: *const Chrome, o: FrameOpts) void {
     }
     // The body: one column, at most 720 wide, room at the bottom for SOS.
     kit.width = @min(w, 720) - 32;
-    ui.beginScroll(.{ .grow = 1, .width = .fill, .align_items = .center, .padding = .{ .top = 16, .bottom = 104 + ui.env.safe.bottom, .start = 16, .end = 16 } }, zui.key(c.pathStr()));
+    ui.beginScroll(.{ .grow = 1, .width = .fill, .height = .fill, .align_items = .center, .padding = .{ .top = 16, .bottom = 104 + ui.env.safe.bottom, .start = 16, .end = 16 } }, zui.key(c.pathStr()));
     ui.begin(.{ .width = .{ .px = kit.width }, .gap = 16 }, .{});
 }
 

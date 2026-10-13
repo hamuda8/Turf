@@ -272,12 +272,12 @@ fn content(c: *const Cx, ui: *Ui, full: bool, pad: f32, phone: bool) void {
     defer a.deinit();
     const key = zui.key(app.fullLink(c, a.allocator()));
     if (full) {
-        ui.begin(.{ .grow = 1, .width = .fill, .padding = .{ .bottom = if (phone) 68 + 12 + ui.env.safe.bottom else 0 } }, .{ .key = key });
+        ui.begin(.{ .grow = 1, .width = .fill, .height = .fill, .padding = .{ .bottom = if (phone) 68 + 12 + ui.env.safe.bottom else 0 } }, .{ .key = key });
         pageBody(c, ui);
         ui.end();
         return;
     }
-    ui.beginScroll(.{ .grow = 1, .width = .fill, .padding = .{ .top = 8, .bottom = bottom, .start = pad, .end = pad }, .align_items = .center }, key);
+    ui.beginScroll(.{ .grow = 1, .width = .fill, .height = .fill, .padding = .{ .top = 8, .bottom = bottom, .start = pad, .end = pad }, .align_items = .center }, key);
     ui.begin(.{ .width = .{ .px = kit.width } }, .{});
     pageBody(c, ui);
     ui.end();
@@ -340,7 +340,7 @@ fn rail(c: *const Cx, ui: *Ui, items: []const NavItem) void {
     ui.end();
     ui.end();
     // The pages.
-    ui.beginScroll(.{ .grow = 1, .padding = .xy(12.8, 6.4), .gap = 3.2 }, zui.key("rail-nav"));
+    ui.beginScroll(.{ .grow = 1, .height = .fill, .padding = .xy(12.8, 6.4), .gap = 3.2 }, zui.key("rail-nav"));
     const active = activePath(c, items);
     for (items) |it| {
         if (it.section) {
@@ -537,7 +537,7 @@ pub fn modalBegin(ui: *Ui, o: ModalOpts) void {
     ui.text(o.title, .{ .font_size = 18.4, .weight = 800, .color = k.ink, .grow = 1 });
     kit.iconButton(ui, icons.close, o.close, .{ .variant = .ghost });
     ui.end();
-    ui.beginScroll(.{ .padding = .{ .top = 5.6, .bottom = 20, .start = 20, .end = 20 }, .gap = 16, .max_height = ui.env.height - 180 }, o.key +% 3);
+    ui.beginScroll(.{ .height = .fill, .padding = .{ .top = 5.6, .bottom = 20, .start = 20, .end = 20 }, .gap = 16, .max_height = ui.env.height - 180 }, o.key +% 3);
 }
 
 /// The dialog's buttons row.
