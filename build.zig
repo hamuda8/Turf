@@ -8,7 +8,7 @@ pub fn build(b: *std.Build) void {
     options.addOption([]const u8, "server", b.option([]const u8, "server", "Turf server for the phone apps") orelse "https://turf.wreseal.com");
     // Wufour, the account service (Turf-js's AUTH_HOST): the phones sign in there
     // (POST /api/auth/login) and the web links to its devices page.
-    options.addOption([]const u8, "auth", b.option([]const u8, "auth", "Wufour (accounts) for sign-in") orelse "https://wufour.wreseal.com");
+    options.addOption([]const u8, "auth", b.option([]const u8, "auth", "Wufour (accounts) for sign-in") orelse "https://www.wreseal.com");
     // Wufour Maps (Turf-js's MAPS_URL): the map tiles.
     options.addOption([]const u8, "maps", b.option([]const u8, "maps", "Wufour Maps, for map tiles") orelse "https://maps.wreseal.com");
 
