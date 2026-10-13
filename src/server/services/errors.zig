@@ -4,7 +4,7 @@
 //! optionally ALERT_WEBHOOK_URL.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -47,7 +47,8 @@ fn recordErrorInner(a: std.mem.Allocator, source: []const u8, message: []const u
     _ = try db.col("error_log").updateOne(a, .{ .fingerprint = fingerprint }, .{ .@"$set" = .{ .alertedAt = now } }, .{});
     const text = try std.fmt.allocPrint(a, "{s} error: {s}{s}{s}{s}", .{
         if (std.mem.eql(u8, source, "browser")) "Browser" else "Server", msg,
-        if (where != null) " (" else "", where orelse "", if (where != null) ")" else "",
+        if (where != null) " (" else "",                                 where orelse "",
+        if (where != null) ")" else "",
     });
     alert(a, text);
 }

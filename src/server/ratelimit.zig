@@ -1,47 +1,14 @@
-//! Fixed-window in-memory rate limiter (src/ratelimit.js): one process, same headers and 429.
+//! Fixed-window in-memory rate limiter (src/ratelimit.js) on zig-core's http.RateLimiter: one
+//! process, the same headers and 429.
 
 const std = @import("std");
-const Io = std.Io;
+const http = @import("http");
 const web = @import("web.zig");
 const a_ = @import("app.zig");
 const Req = web.Req;
 
-const Entry = struct { count: u32, reset_at: i64 };
-
-var lock: Io.Mutex = .init;
-/// "name:key" (owned) -> window
-var hits: std.StringHashMapUnmanaged(Entry) = .empty;
-
-fn prune(now: i64) void {
-    const gpa = a_.app.gpa;
-    var dead: std.ArrayList([]const u8) = .empty;
-    defer dead.deinit(gpa);
-    var it = hits.iterator();
-    while (it.next()) |e| if (e.value_ptr.reset_at <= now) dead.append(gpa, e.key_ptr.*) catch {};
-    for (dead.items) |k| {
-        _ = hits.remove(k);
-        gpa.free(k);
-    }
-}
-
-/// Counts one request; returns the window after counting it.
-fn count(key: []const u8, window_ms: i64) Entry {
-    const io = a_.app.io;
-    const gpa = a_.app.gpa;
-    const now = a_.nowMs();
-    lock.lockUncancelable(io);
-    defer lock.unlock(io);
-    if (hits.getPtr(key)) |e| {
-        if (e.reset_at <= now) e.* = .{ .count = 0, .reset_at = now + window_ms };
-        e.count += 1;
-        return e.*;
-    }
-    if (hits.count() > 50_000) prune(now);
-    const k = gpa.dupe(u8, key) catch return .{ .count = 1, .reset_at = now + window_ms };
-    const e: Entry = .{ .count = 1, .reset_at = now + window_ms };
-    hits.put(gpa, k, e) catch gpa.free(k);
-    return e;
-}
+/// One store for every limit; keys are "name:key".
+var limiter: http.RateLimiter = .{};
 
 pub const KeyFn = *const fn (r: *Req) []const u8;
 
@@ -55,8 +22,8 @@ pub fn limit(comptime name: []const u8, comptime window_ms: i64, comptime max: u
         fn f(r: *Req) anyerror!void {
             const k = (key orelse byIp)(r);
             const full = try std.fmt.allocPrint(r.a, "{s}:{s}", .{ name, k });
-            const e = count(full, window_ms);
             const now = a_.nowMs();
+            const e = limiter.hit(a_.app.io, a_.app.gpa, full, window_ms, now);
             const reset_s = @divFloor(e.reset_at - now + 999, 1000);
             try r.setHeader("ratelimit-limit", try std.fmt.allocPrint(r.a, "{d}", .{max}));
             try r.setHeader("ratelimit-remaining", try std.fmt.allocPrint(r.a, "{d}", .{if (e.count >= max) 0 else max - e.count}));

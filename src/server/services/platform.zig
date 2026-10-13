@@ -3,7 +3,7 @@
 
 const std = @import("std");
 const Io = std.Io;
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -102,7 +102,7 @@ pub fn update(r: *Req, patch: Val) !Val {
         const o = fs.asObj() orelse return r.badRequest("features must be an object", "features", null, null);
         for (o.keys.items, o.vals.items) |k, v| {
             if (!val.contains([]const u8, &features, k)) return r.badRequest(try std.fmt.allocPrint(r.a, "Unknown feature: {s}", .{k}), "features", null, null);
-            const b = v.boolean() orelse return r.badRequest("Features are switched with true or false", try std.fmt.allocPrint(r.a, "features.{s}", .{k}), null, null);
+            const b = v.asBool() orelse return r.badRequest("Features are switched with true or false", try std.fmt.allocPrint(r.a, "features.{s}", .{k}), null, null);
             try set.set(try std.fmt.allocPrint(r.a, "features.{s}", .{k}), b);
         }
     }

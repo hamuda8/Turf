@@ -4,7 +4,7 @@
 //! Practice (test) shipments never send emails.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -287,7 +287,7 @@ pub fn sendDailySummaries(a: Allocator, now_ms: i64) !void {
 pub fn loop() void {
     while (true) {
         a_.app.io.sleep(.fromSeconds(60), .awake) catch return;
-        if (!bus.enabled[@intFromEnum(bus.Service.emails)]) continue;
+        if (!bus.enabled[@backingInt(bus.Service.emails)]) continue;
         var arena = std.heap.ArenaAllocator.init(a_.app.gpa);
         defer arena.deinit();
         const a = arena.allocator();

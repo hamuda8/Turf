@@ -2,7 +2,7 @@
 //! shipments, dispatch, fleet, safety, finance.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -97,7 +97,7 @@ fn ok(r: *Req) !void {
 }
 
 fn idParam(r: *Req, name: []const u8) !Val {
-    return .{ .oid = (try V.id(r, .{ .str = r.param(name) }, name, .{})).? };
+    return .{ .id = (try V.id(r, .{ .str = r.param(name) }, name, .{})).? };
 }
 
 fn view(r: *Req, s: Val) !void {
@@ -469,7 +469,7 @@ fn cancel(r: *Req) !void {
 fn taskInput(r: *Req, b: Val) !Val {
     const a = r.a;
     const ids = try val.newArr(a);
-    for ((try V.arr(r, b.get("shipmentIds"), "shipmentIds", .{ .max = 500 })).?, 0..) |v, i| try ids.push(Val{ .oid = (try V.id(r, v, try std.fmt.allocPrint(a, "shipmentIds[{d}]", .{i}), .{})).? });
+    for ((try V.arr(r, b.get("shipmentIds"), "shipmentIds", .{ .max = 500 })).?, 0..) |v, i| try ids.push(Val{ .id = (try V.id(r, v, try std.fmt.allocPrint(a, "shipmentIds[{d}]", .{i}), .{})).? });
     const out = try val.from(a, .{ .type = (try V.oneOf(r, b.get("type"), "type", &tasks.task_types, .{})).?, .shipmentIds = ids });
     if (try V.id(r, b.get("toHubId"), "toHubId", .{ .optional = true })) |h| try out.set("toHubId", h) else try out.set("toHubId", Val.undef);
     return out;
@@ -542,7 +542,7 @@ fn taskSuggestions(r: *Req) !void {
 
 fn assignTask(r: *Req) !void {
     const task = try tasks.getTask(r, orgId(r), try idParam(r, "taskId"));
-    const updated = try tasks.assignTask(r, r.orgCtx().org, task, .{ .oid = (try V.id(r, r.body.get("courierId"), "courierId", .{})).? }, try staff(r));
+    const updated = try tasks.assignTask(r, r.orgCtx().org, task, .{ .id = (try V.id(r, r.body.get("courierId"), "courierId", .{})).? }, try staff(r));
     return r.json(200, (try withNames(r.a, &.{updated})).at(0));
 }
 
@@ -713,7 +713,7 @@ fn listBlocked(r: *Req) !void {
 /// A blocked store can no longer give this company new shipments; ones in progress continue.
 fn block(r: *Req) !void {
     const a = r.a;
-    const merchant_id: Val = .{ .oid = (try V.id(r, r.body.get("merchantId"), "merchantId", .{})).? };
+    const merchant_id: Val = .{ .id = (try V.id(r, r.body.get("merchantId"), "merchantId", .{})).? };
     // Only stores this company has worked with can be blocked (no guessing other ids).
     const proj = try val.from(a, .{ ._id = 1 });
     const known = (try db.col("shipments").findOne(a, .{ .carrierIds = orgId(r), .merchantId = merchant_id }, .{ .projection = proj })) orelse
@@ -742,7 +742,7 @@ fn financeStatements(r: *Req) !void {
 
 fn financeStatement(r: *Req) !void {
     const p = try statements.periodOf(r, r.qs("from"), r.qs("to"));
-    const merchant_id: Val = .{ .oid = (try V.id(r, r.q("merchantId"), "merchantId", .{})).? };
+    const merchant_id: Val = .{ .id = (try V.id(r, r.q("merchantId"), "merchantId", .{})).? };
     const st = try statements.statement(r.a, orgId(r), merchant_id, p.from, p.to);
     if (std.mem.eql(u8, r.qs("format") orelse "", "csv")) {
         const name = try std.fmt.allocPrint(r.a, "statement-{s}-{s}-{s}.csv", .{ if (st.t("merchantName")) try val.toStr(r.a, st.get("merchantName")) else "store", p.from_text, p.to_text });
@@ -757,7 +757,7 @@ fn codSummary(r: *Req) !void {
 
 fn shipmentIds(r: *Req) !Val {
     const ids = try val.newArr(r.a);
-    for ((try V.arr(r, r.body.get("shipmentIds"), "shipmentIds", .{ .max = 2000 })).?, 0..) |v, i| try ids.push(Val{ .oid = (try V.id(r, v, try std.fmt.allocPrint(r.a, "shipmentIds[{d}]", .{i}), .{})).? });
+    for ((try V.arr(r, r.body.get("shipmentIds"), "shipmentIds", .{ .max = 2000 })).?, 0..) |v, i| try ids.push(Val{ .id = (try V.id(r, v, try std.fmt.allocPrint(r.a, "shipmentIds[{d}]", .{i}), .{})).? });
     return ids;
 }
 

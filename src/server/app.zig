@@ -5,7 +5,9 @@
 const std = @import("std");
 const Io = std.Io;
 const env_mod = @import("env");
-const val = @import("lib/val.zig");
+const fetch_mod = @import("fetch");
+const wufour_mod = @import("wufour");
+const val = @import("mongo").val;
 
 pub const Config = struct {
     port: u16,
@@ -137,7 +139,9 @@ pub const App = struct {
     gpa: std.mem.Allocator,
     config: Config,
     /// Outgoing requests: Wufour, Maps, Moderation, webhooks, push services.
-    client: std.http.Client,
+    fetch: fetch_mod.Client,
+    /// Wufour token checks (cached 30 s).
+    wufour: wufour_mod.Verifier,
     started_ms: i64,
     /// The public folder is Turf-js's (app.html templates) rather than the zui web build.
     legacy_pages: bool = false,
@@ -181,70 +185,24 @@ pub const UpstreamOptions = struct {
     user_agent: ?[]const u8 = null,
 };
 
-/// One request to another service. Errors when it cannot be reached.
+/// One request to another service, with the default time limit (30 s). Errors when it cannot
+/// be reached.
 pub fn upstream(arena: std.mem.Allocator, url: []const u8, o: UpstreamOptions) !Upstream {
-    // A pooled connection the other side closed while idle fails at once: try again on a new one.
-    return upstreamOnce(arena, url, o) catch |e| switch (e) {
-        error.OutOfMemory => e,
-        else => if (o.retry) upstreamOnce(arena, url, o) else e,
-    };
+    return upstreamTimeout(arena, url, o, 30_000);
 }
 
-fn upstreamOnce(arena: std.mem.Allocator, url: []const u8, o: UpstreamOptions) !Upstream {
-    var req = try app.client.request(o.method, try std.Uri.parse(url), .{
-        .extra_headers = o.headers,
-        .redirect_behavior = .unhandled,
-        .keep_alive = true,
-        .headers = .{ .accept_encoding = .omit, .user_agent = if (o.user_agent) |u| .{ .override = u } else .default },
-    });
-    defer req.deinit();
-    if (o.body) |b| {
-        req.transfer_encoding = .{ .content_length = b.len };
-        req.headers.content_type = .{ .override = o.content_type };
-        var w = try req.sendBodyUnflushed(&.{});
-        try w.writer.writeAll(b);
-        try w.end();
-        try req.connection.?.flush();
-    } else try req.sendBodiless();
-    var res = try req.receiveHead(&.{});
-    const content_type = try arena.dupe(u8, res.head.content_type orelse "");
-    const status = res.head.status;
-    var transfer: [64]u8 = undefined;
-    const body = try res.reader(&transfer).allocRemaining(arena, .limited(o.max_body));
-    return .{ .status = status, .content_type = content_type, .body = body };
-}
-
-/// Runs `upstream` with a deadline, like fetch with AbortSignal.timeout: error.Timeout when the
-/// other side is too slow.
+/// One request through zig-core's fetch, like fetch with AbortSignal.timeout: error.Timeout
+/// when the other side is too slow. A failed request's connection is never reused.
 pub fn upstreamTimeout(arena: std.mem.Allocator, url: []const u8, o: UpstreamOptions, timeout_ms: i64) !Upstream {
-    const Call = struct {
-        fn run(a: std.mem.Allocator, u: []const u8, opts: UpstreamOptions) anyerror!Upstream {
-            return upstream(a, u, opts);
-        }
-    };
-    const U = union(enum) { done: anyerror!Upstream, slept: void };
-    var buf: [2]U = undefined;
-    var sel = Io.Select(U).init(app.io, &buf);
-    sel.concurrent(.done, Call.run, .{ arena, url, o }) catch return upstream(arena, url, o);
-    sel.concurrent(.slept, sleepMs, .{timeout_ms}) catch {
-        const r = sel.await() catch |e| {
-            sel.cancelDiscard();
-            return e;
-        };
-        sel.cancelDiscard();
-        return r.done;
-    };
-    const first = sel.await() catch |e| {
-        sel.cancelDiscard();
-        return e;
-    };
-    sel.cancelDiscard();
-    return switch (first) {
-        .done => |r| r,
-        .slept => error.Timeout,
-    };
-}
-
-fn sleepMs(ms: i64) void {
-    app.io.sleep(.fromMilliseconds(ms), .awake) catch {};
+    const res = try app.fetch.fetch(arena, url, .{
+        .method = o.method,
+        .headers = o.headers,
+        .body = o.body,
+        .content_type = if (o.body != null) o.content_type else null,
+        .user_agent = o.user_agent,
+        .timeout_ms = timeout_ms,
+        .max_bytes = o.max_body,
+        .retry = o.retry,
+    });
+    return .{ .status = @fromBackingInt(@as(u10, @intCast(res.status))), .content_type = res.content_type, .body = res.body };
 }

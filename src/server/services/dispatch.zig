@@ -8,7 +8,7 @@
 //! Watchdog (every minute): signal-lost, tracking-paused and long-stop alerts.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -214,7 +214,7 @@ fn step(comptime name: []const u8, f: *const fn (*Req) anyerror!void) void {
 pub fn loop() void {
     while (true) {
         a_.app.io.sleep(.fromSeconds(60), .awake) catch return;
-        if (!bus.enabled[@intFromEnum(bus.Service.dispatch)]) continue;
+        if (!bus.enabled[@backingInt(bus.Service.dispatch)]) continue;
         step("Watchdog", watchdog);
         step("Auto-dispatch retry", retryPendingAutoTasks);
         step("Scheduled deliveries", planScheduledDeliveries);

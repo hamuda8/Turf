@@ -3,7 +3,7 @@
 //! Zig client replaces it).
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -280,15 +280,16 @@ fn labelHtml(a: Allocator, s: Val) ![]const u8 {
         \\  {s}{s}</footer>
         \\</main>
     , .{
-        if (s.t("carrierName")) try e(a, s.get("carrierName")) else "", try e(a, s.get("merchantName")),
-        try barcode.code128Svg(a, s.s("trackingNumber") orelse "", .{}),                                  try e(a, s.get("trackingNumber")),
-        try e(a, d.get("name")),                                                                           try e(a, d.get("phone")),
-        try addressLine(a, d),                                                                             if (d.t("details")) try std.fmt.allocPrint(a, "<div class=\"details\">{s}</div>", .{try e(a, d.get("details"))}) else "",
-        try escapeHtml(a, govAr(d.get("governorate"))),                                                    try e(a, p.get("name")),
-        try e(a, p.get("phone")),                                                                          try addressLine(a, p),
-        try e(a, parcel.get("weightKg")),                                                                  try e(a, parcel.get("pieces")),
-        if (parcel.t("fragile")) " · قابل للكسر FRAGILE" else "",                                       cod_html,
-        if (ref.truthy()) try std.fmt.allocPrint(a, "<span>Ref: {s}</span>", .{try e(a, ref)}) else "", if (s.t("test")) "<span>TEST</span>" else "",
+        if (s.t("carrierName")) try e(a, s.get("carrierName")) else "",  try e(a, s.get("merchantName")),
+        try barcode.code128Svg(a, s.s("trackingNumber") orelse "", .{}), try e(a, s.get("trackingNumber")),
+        try e(a, d.get("name")),                                         try e(a, d.get("phone")),
+        try addressLine(a, d),                                           if (d.t("details")) try std.fmt.allocPrint(a, "<div class=\"details\">{s}</div>", .{try e(a, d.get("details"))}) else "",
+        try escapeHtml(a, govAr(d.get("governorate"))),                  try e(a, p.get("name")),
+        try e(a, p.get("phone")),                                        try addressLine(a, p),
+        try e(a, parcel.get("weightKg")),                                try e(a, parcel.get("pieces")),
+        if (parcel.t("fragile")) " · قابل للكسر FRAGILE" else "",
+        cod_html,                                                        if (ref.truthy()) try std.fmt.allocPrint(a, "<span>Ref: {s}</span>", .{try e(a, ref)}) else "",
+        if (s.t("test")) "<span>TEST</span>" else "",
     });
 }
 

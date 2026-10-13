@@ -3,7 +3,7 @@
 //! come from our own pages.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -86,7 +86,7 @@ fn withOrg(r: *Req, raw_id: []const u8) !void {
     const a = r.a;
     const id_text = @import("http").decode(a, raw_id) catch raw_id;
     const org_id = web.oidStr(id_text) orelse return r.notFound("Organization");
-    const org = (try orgs.getOrg(a, .{ .oid = org_id })) orelse return r.notFound("Organization");
+    const org = (try orgs.getOrg(a, .{ .id = org_id })) orelse return r.notFound("Organization");
     const oc = (try members.loadContext(a, org, r.user.get("id"))) orelse return r.notFound("Organization");
     if (std.mem.eql(u8, oc.member.s("status") orelse "", "suspended")) return r.fail(403, "member_suspended", "Your access to this company is suspended", .{});
     try orgs.assertOrgUsable(r, org);
@@ -422,19 +422,19 @@ fn listMembers(r: *Req) !void {
 }
 
 fn patchMember(r: *Req) !void {
-    const member_id: Val = .{ .oid = (try V.id(r, .{ .str = r.param("memberId") }, "memberId", .{})).? };
-    if (r.body.get("roleId") != .undef) try members.changeRole(r, r.orgCtx(), member_id, .{ .oid = (try V.id(r, r.body.get("roleId"), "roleId", .{})).? });
+    const member_id: Val = .{ .id = (try V.id(r, .{ .str = r.param("memberId") }, "memberId", .{})).? };
+    if (r.body.get("roleId") != .undef) try members.changeRole(r, r.orgCtx(), member_id, .{ .id = (try V.id(r, r.body.get("roleId"), "roleId", .{})).? });
     if (r.body.get("status") != .undef) try members.setMemberStatus(r, r.orgCtx(), member_id, (try V.oneOf(r, r.body.get("status"), "status", &.{ "active", "suspended" }, .{})).?);
     return ok(r);
 }
 
 fn courierProfile(r: *Req) !void {
-    const member_id: Val = .{ .oid = (try V.id(r, .{ .str = r.param("memberId") }, "memberId", .{})).? };
+    const member_id: Val = .{ .id = (try V.id(r, .{ .str = r.param("memberId") }, "memberId", .{})).? };
     return r.json(200, try members.updateCourierProfile(r, r.orgCtx(), member_id, (try V.obj(r, r.body, "body", .{})).?));
 }
 
 fn removeMember(r: *Req) !void {
-    try members.removeMember(r, r.orgCtx(), .{ .oid = (try V.id(r, .{ .str = r.param("memberId") }, "memberId", .{})).? });
+    try members.removeMember(r, r.orgCtx(), .{ .id = (try V.id(r, .{ .str = r.param("memberId") }, "memberId", .{})).? });
     return ok(r);
 }
 
@@ -449,7 +449,7 @@ fn createRole(r: *Req) !void {
 }
 
 fn updateRole(r: *Req) !void {
-    const role_id: Val = .{ .oid = (try V.id(r, .{ .str = r.param("roleId") }, "roleId", .{})).? };
+    const role_id: Val = .{ .id = (try V.id(r, .{ .str = r.param("roleId") }, "roleId", .{})).? };
     const name = try V.str(r, r.body.get("name"), "name", .{ .max = 40, .optional = true });
     const perms = try V.arr(r, r.body.get("permissions"), "permissions", .{ .max = 50, .optional = true });
     try members.updateRole(r, r.orgCtx(), role_id, name, perms);
@@ -457,7 +457,7 @@ fn updateRole(r: *Req) !void {
 }
 
 fn deleteRole(r: *Req) !void {
-    try members.deleteRole(r, r.orgCtx(), .{ .oid = (try V.id(r, .{ .str = r.param("roleId") }, "roleId", .{})).? });
+    try members.deleteRole(r, r.orgCtx(), .{ .id = (try V.id(r, .{ .str = r.param("roleId") }, "roleId", .{})).? });
     return ok(r);
 }
 
@@ -485,14 +485,14 @@ fn createInvitation(r: *Req) !void {
         r,
         r.orgCtx(),
         (try V.email(r, r.body.get("email"), "email", .{})).?,
-        .{ .oid = (try V.id(r, r.body.get("roleId"), "roleId", .{})).? },
+        .{ .id = (try V.id(r, r.body.get("roleId"), "roleId", .{})).? },
         try V.obj(r, r.body.get("courier"), "courier", .{ .optional = true }),
     );
     return r.json(201, try inviteView(r.a, inv));
 }
 
 fn revokeInvitation(r: *Req) !void {
-    try members.revokeInvitation(r, r.orgCtx(), .{ .oid = (try V.id(r, .{ .str = r.param("invitationId") }, "invitationId", .{})).? });
+    try members.revokeInvitation(r, r.orgCtx(), .{ .id = (try V.id(r, .{ .str = r.param("invitationId") }, "invitationId", .{})).? });
     return ok(r);
 }
 

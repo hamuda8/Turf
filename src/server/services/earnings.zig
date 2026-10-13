@@ -3,7 +3,7 @@
 //! finished task stores what it paid (task.pay), so later rate changes don't rewrite history.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const Val = val.Val;

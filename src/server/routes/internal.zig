@@ -5,7 +5,7 @@
 //! POST /api/internal/track { query, lang }: one tracking number, for the Wufour start page.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -107,8 +107,19 @@ fn track(r: *Req) !void {
     const number = (try shipments.normalizeTrackingNumber(a, raw)) orelse return r.json(200, .{ .results = .{} });
     const ar = std.mem.eql(u8, r.body.s("lang") orelse "", "ar");
     const s = try db.col("shipments").findOne(a, .{ .trackingNumber = number }, .{ .projection = try val.from(a, .{
-        .trackingNumber = 1, .status = 1, .statusAt = 1, .service = 1, .promisedBy = 1, .scheduledFor = 1, .deliveredAt = 1,
-        .carrierName = 1, .merchantName = 1, .@"pickup.governorate" = 1, .@"pickup.city" = 1, .@"dropoff.governorate" = 1, .@"dropoff.city" = 1,
+        .trackingNumber = 1,
+        .status = 1,
+        .statusAt = 1,
+        .service = 1,
+        .promisedBy = 1,
+        .scheduledFor = 1,
+        .deliveredAt = 1,
+        .carrierName = 1,
+        .merchantName = 1,
+        .@"pickup.governorate" = 1,
+        .@"pickup.city" = 1,
+        .@"dropoff.governorate" = 1,
+        .@"dropoff.city" = 1,
     }) });
     const more_url = try std.fmt.allocPrint(a, "/track?n={s}", .{try @import("../auth.zig").encodeUriComponent(a, number)});
     const more = try val.from(a, .{ .label = if (ar) "افتح في طرف" else "Open in Turf", .url = more_url });

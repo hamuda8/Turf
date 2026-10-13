@@ -6,7 +6,7 @@
 //! services. Listener failures are logged, never passed back.
 
 const std = @import("std");
-const val = @import("lib/val.zig");
+const val = @import("mongo").val;
 const web = @import("web.zig");
 const Val = val.Val;
 const Req = web.Req;
@@ -40,7 +40,7 @@ pub fn flush(r: *Req) void {
         const e = r.events.items[i];
         for (bindings) |b| {
             if (!std.mem.eql(u8, b.event, e.name)) continue;
-            if (serviceOf(b.name)) |s| if (!enabled[@intFromEnum(s)]) continue;
+            if (serviceOf(b.name)) |s| if (!enabled[@backingInt(s)]) continue;
             const saved = r.err;
             b.listener(r, e.payload) catch |err| {
                 std.log.err("Listener for \"{s}\" failed: {t}", .{ e.name, err });

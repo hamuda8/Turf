@@ -3,7 +3,7 @@
 
 const std = @import("std");
 const Io = std.Io;
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
 const Val = val.Val;
@@ -38,7 +38,7 @@ pub fn route(r: *Req, vehicle: []const u8, from_lat: f64, from_lng: f64, to_lat:
     const res = a_.upstreamTimeout(a, url, .{ .headers = &.{.{ .name = "x-maps-api-key", .value = a_.cfg().maps_api_key }} }, 12_000) catch
         return r.fail(502, "routing_unavailable", "The routing service is not reachable right now", .{});
     const data = val.parseJson(a, res.body) catch return r.fail(502, "routing_unavailable", "The routing service is not reachable right now", .{});
-    const status = @intFromEnum(res.status);
+    const status = @backingInt(res.status);
     if (status == 422) return r.fail(422, "no_route", "No route was found between these points", .{});
     if (status < 200 or status >= 300 or !data.get("success").truthy()) {
         if (status == 401) std.log.err("Wufour Maps rejected the API key: check MAPS_API_KEY", .{});

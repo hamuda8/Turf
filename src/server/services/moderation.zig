@@ -10,7 +10,7 @@
 //! Without MODERATION_HOST / MODERATION_API_KEY checks are off and everything is allowed.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -85,7 +85,7 @@ pub fn check(r: *Req, subject: Val, context: anytype, texts: Val, images: []cons
         return r.fail(503, "moderation_unavailable", unavailable, .{ .retryable = true });
     };
     const json = val.parseJson(a, res.body) catch Val.null;
-    const status = @intFromEnum(res.status);
+    const status = @backingInt(res.status);
     if (!(status >= 200 and status < 300 and json.get("success").truthy())) {
         if (status == 400 or status == 413) {
             return r.fail(400, json.s("code") orelse "invalid_content", json.s("message") orelse "The content could not be checked", .{});

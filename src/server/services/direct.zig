@@ -6,7 +6,7 @@
 //! carrierId.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -53,8 +53,16 @@ pub fn personalOrg(r: *Req, user: Val) !Val {
         else => return e,
     };
     _ = try db.col("memberships").insertOne(a, .{
-        .orgId = org.get("_id"), .orgType = "merchant", .userId = user.get("id"), .email = user.get("email"), .name = user.get("username"),
-        .isOwner = true, .roleId = null, .status = "active", .courier = null, .joinedAt = now,
+        .orgId = org.get("_id"),
+        .orgType = "merchant",
+        .userId = user.get("id"),
+        .email = user.get("email"),
+        .name = user.get("username"),
+        .isOwner = true,
+        .roleId = null,
+        .status = "active",
+        .courier = null,
+        .joinedAt = now,
     });
     return org;
 }
@@ -149,7 +157,13 @@ pub fn createDirectRequest(r: *Req, user: Val, org: Val, input: Val) !Val {
     });
     _ = try db.col("shipments").insertOne(a, shipment);
     _ = try db.col("shipment_events").insertOne(a, .{
-        .shipmentId = shipment.get("_id"), .code = "request_sent", .status = "awaiting_carrier", .params = try val.newObj(a), .actor = created_by, .at = now, .internal = false,
+        .shipmentId = shipment.get("_id"),
+        .code = "request_sent",
+        .status = "awaiting_carrier",
+        .params = try val.newObj(a),
+        .actor = created_by,
+        .at = now,
+        .internal = false,
     });
     notifyOffer(r, shipment);
     return shipment;
@@ -273,7 +287,7 @@ pub fn cancelDirect(r: *Req, user: Val, shipment: Val) !Val {
 pub fn loop() void {
     while (true) {
         a_.app.io.sleep(.fromSeconds(30), .awake) catch return;
-        if (!bus.enabled[@intFromEnum(bus.Service.direct)]) continue;
+        if (!bus.enabled[@backingInt(bus.Service.direct)]) continue;
         var arena = std.heap.ArenaAllocator.init(a_.app.gpa);
         defer arena.deinit();
         var r = Req.background(arena.allocator());

@@ -1,7 +1,7 @@
 //! Small pieces several route files share: report routes, query helpers, photo and CSV answers.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const reports = @import("../services/reports.zig");

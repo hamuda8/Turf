@@ -3,7 +3,7 @@
 //! validated and created on its own, and its result names the field that was wrong.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const web = @import("../web.zig");
 const geo = @import("../geo.zig");
 const shipments_ = @import("shipments.zig");
@@ -16,9 +16,9 @@ const Allocator = std.mem.Allocator;
 pub const max_rows = 500;
 
 pub const csv_columns = [_][]const u8{
-    "reference",   "recipient_name", "recipient_phone", "governorate", "city",   "area",     "street",   "details", "lat", "lng",
-    "weight_kg",   "pieces",         "description",     "value",       "cod_amount", "fragile", "notes",  "carrier", "strategy",
-    "length_cm",   "width_cm",       "height_cm",       "pickup",      "service",
+    "reference", "recipient_name", "recipient_phone", "governorate", "city",       "area",    "street", "details", "lat",      "lng",
+    "weight_kg", "pieces",         "description",     "value",       "cod_amount", "fragile", "notes",  "carrier", "strategy", "length_cm",
+    "width_cm",  "height_cm",      "pickup",          "service",
 };
 
 fn norm(a: Allocator, v: Val) ![]const u8 {

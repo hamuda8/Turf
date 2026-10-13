@@ -6,7 +6,7 @@
 //! failures as {"$error": { status, code, message, extra }}.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
 const env_mod = @import("env");
@@ -60,7 +60,7 @@ pub fn cliCall(init: std.process.Init, argv: anytype) !void {
     try env.file.put(arena, "MONGO_DB", "Turf_cli");
     try env.file.put(arena, "APP_SECRET", "cli");
     const config = a_.Config.load(arena, &env) catch std.process.exit(2);
-    var state: a_.App = .{ .io = init.io, .gpa = init.gpa, .config = config, .client = .{ .allocator = init.gpa, .io = init.io }, .started_ms = 0 };
+    var state: a_.App = .{ .io = init.io, .gpa = init.gpa, .config = config, .fetch = .init(init.io, init.gpa), .wufour = undefined, .started_ms = 0 };
     a_.app = &state;
     var r = Req.background(arena);
     const args = try val.parseJsonDates(arena, args_text);
@@ -180,11 +180,11 @@ fn call(r: *Req, name: []const u8, args: Val) !Val {
         return .undef;
     }
     if (eq(name, "startWebhooks")) {
-        bus.enabled[@intFromEnum(bus.Service.webhooks)] = true;
+        bus.enabled[@backingInt(bus.Service.webhooks)] = true;
         return .undef;
     }
     if (eq(name, "startEmails")) {
-        bus.enabled[@intFromEnum(bus.Service.emails)] = true;
+        bus.enabled[@backingInt(bus.Service.emails)] = true;
         return .undef;
     }
     if (eq(name, "processEmailQueue")) {

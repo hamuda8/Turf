@@ -2,7 +2,7 @@
 //! API next to machine-readable codes (src/messages.js).
 
 const std = @import("std");
-const val = @import("lib/val.zig");
+const val = @import("mongo").val;
 const Val = val.Val;
 
 pub const Text = struct { code: []const u8, en: []const u8, ar: []const u8 };

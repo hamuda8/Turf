@@ -7,7 +7,7 @@
 
 const std = @import("std");
 const Io = std.Io;
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -42,7 +42,7 @@ pub fn reverseGeocode(a: std.mem.Allocator, point: Val) !Val {
         const url = try std.fmt.allocPrint(a, "{s}/api/v1/reverse?lat={s}&lng={s}", .{ a_.cfg().maps_internal_url, try val.numStr(a, lat), try val.numStr(a, lng) });
         const headers: []const std.http.Header = if (a_.cfg().maps_api_key.len > 0) &.{.{ .name = "x-maps-api-key", .value = a_.cfg().maps_api_key }} else &.{};
         const res = a_.upstreamTimeout(a, url, .{ .headers = headers }, reverse_timeout_ms) catch break :fetch;
-        if (@intFromEnum(res.status) < 200 or @intFromEnum(res.status) >= 300) break :fetch;
+        if (@backingInt(res.status) < 200 or @backingInt(res.status) >= 300) break :fetch;
         const data = val.parseJson(a, res.body) catch break :fetch;
         if (data.get("success").truthy() and data.get("place").truthy()) value = data.get("place");
     }

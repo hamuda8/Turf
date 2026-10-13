@@ -9,7 +9,7 @@
 //! Arithmetic follows JavaScript: a missing number is NaN and makes the total NaN (null in JSON).
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const geo = @import("../geo.zig");
 const Val = val.Val;
 

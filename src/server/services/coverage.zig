@@ -6,7 +6,7 @@
 //! list there, they are accepted.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const geo = @import("../geo.zig");

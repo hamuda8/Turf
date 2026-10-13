@@ -2,7 +2,7 @@
 //! vehicle profiles, and distance math.
 
 const std = @import("std");
-const val = @import("lib/val.zig");
+const val = @import("mongo").val;
 const Val = val.Val;
 
 pub const Governorate = struct { code: []const u8, en: []const u8, ar: []const u8, center: [2]f64, aliases: []const []const u8 };

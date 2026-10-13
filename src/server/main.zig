@@ -9,11 +9,12 @@ const std = @import("std");
 const http = @import("http");
 const mongo = @import("mongo");
 const env_mod = @import("env");
-const val = @import("lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("lib/db.zig");
 const a_ = @import("app.zig");
 const web = @import("web.zig");
 const bus = @import("bus.zig");
+const realtime = @import("realtime.zig");
 const routes = @import("routes/routes.zig");
 const testhooks = @import("routes/testhooks.zig");
 const errors = @import("services/errors.zig");
@@ -37,7 +38,7 @@ pub fn main(init: std.process.Init) !void {
     _ = argv.next();
     if (argv.next()) |first| if (std.mem.eql(u8, first, "--call")) return testhooks.cliCall(init, &argv);
 
-    const env = try loadEnv(arena, io, init.environ_map);
+    const env = try env_mod.Env.loadApp(arena, io, init.environ_map, "turf");
     var config = a_.Config.load(arena, &env) catch std.process.exit(1);
     if (config.public_dir.len == 0) {
         const exe_dir = std.process.executableDirPathAlloc(io, arena) catch ".";
@@ -53,11 +54,15 @@ pub fn main(init: std.process.Init) !void {
         .io = io,
         .gpa = gpa,
         .config = config,
-        .client = .{ .allocator = gpa, .io = io },
+        .fetch = .init(io, gpa),
+        .wufour = undefined,
         .started_ms = std.Io.Timestamp.now(io, .real).toMilliseconds(),
     };
-    defer state.client.deinit();
+    defer state.fetch.deinit();
+    state.wufour = .{ .fetch = &state.fetch, .host = config.auth_host, .ttl_ms = 0 };
+    defer state.wufour.deinit();
     a_.app = &state;
+    realtime.init();
     state.legacy_pages = if (std.Io.Dir.cwd().statFile(io, try std.fs.path.join(arena, &.{ config.public_dir, "app.html" }), .{})) |_| true else |_| false;
     std.log.info("Pages from {s} ({s})", .{ config.public_dir, if (state.legacy_pages) "Turf-js public folder" else "zui web build" });
     web.errors_hook = errors.fromRequest;
@@ -68,7 +73,7 @@ pub fn main(init: std.process.Init) !void {
         bus.enabled = @splat(false);
         var it = std.mem.splitScalar(u8, list, ',');
         while (it.next()) |name| if (bus.serviceOf(std.mem.trim(u8, name, " "))) |s| {
-            bus.enabled[@intFromEnum(s)] = true;
+            bus.enabled[@backingInt(s)] = true;
         };
     }
 
@@ -100,18 +105,6 @@ pub fn main(init: std.process.Init) !void {
         // Logo sets and delivery photos arrive as data URLs; each group checks its own limit.
         .max_body = 3 * 1024 * 1024 + 1,
     });
-}
-
-/// Real environment variables win over the file. TURF_ENV_FILE names the file ("" = none);
-/// otherwise .env.local comes first, so a developer machine that also keeps a copy of
-/// .env.production never starts against the production database by accident.
-fn loadEnv(arena: std.mem.Allocator, io: std.Io, environ: *const std.process.Environ.Map) !env_mod.Env {
-    if (environ.get("TURF_ENV_FILE")) |f| {
-        if (f.len == 0) return .{ .environ = environ };
-        return env_mod.Env.load(arena, io, environ, &.{f});
-    }
-    if (environ.get("NODE_ENV")) |e| if (std.mem.eql(u8, e, "test")) return .{ .environ = environ };
-    return env_mod.Env.load(arena, io, environ, &.{ ".env.local", ".env.production", ".env" });
 }
 
 /// Every listener, in Turf-js's start order: live, webhooks, dispatch, push, direct, emails.
@@ -240,18 +233,18 @@ fn ensureIndexes(arena: std.mem.Allocator) !void {
 test {
     std.testing.refAllDecls(@This());
     inline for (.{
-        @import("lib/val.zig"),               @import("lib/db.zig"),                @import("web.zig"),                     @import("auth.zig"),
-        @import("app.zig"),                   @import("permissions.zig"),           @import("messages.zig"),                @import("geo.zig"),
-        @import("crypto.zig"),                @import("barcode.zig"),               @import("ratelimit.zig"),               @import("realtime.zig"),
-        @import("mailer.zig"),                @import("bus.zig"),                   @import("routes/routes.zig"),           @import("routes/testhooks.zig"),
-        @import("services/emails.zig"),       @import("services/bulk.zig"),         @import("services/accounts.zig"),       @import("services/verification.zig"),
-        @import("services/reports.zig"),      @import("services/statements.zig"),   @import("services/feedback.zig"),       @import("services/claims.zig"),
-        @import("services/testmode.zig"),     @import("services/direct.zig"),       @import("services/dispatch.zig"),       @import("services/tracking.zig"),
-        @import("services/operations.zig"),   @import("services/earnings.zig"),     @import("services/tasks.zig"),          @import("services/errors.zig"),
-        @import("services/relay.zig"),        @import("services/allocation.zig"),   @import("services/shipments.zig"),      @import("services/apikeys.zig"),
-        @import("services/live.zig"),         @import("services/webhooks.zig"),     @import("services/push.zig"),           @import("services/routing.zig"),
-        @import("services/carriers.zig"),     @import("services/pricing.zig"),      @import("services/places.zig"),         @import("services/coverage.zig"),
-        @import("services/branding.zig"),     @import("services/members.zig"),     @import("services/orgs.zig"),           @import("services/moderation.zig"),
-        @import("services/platform.zig"),     @import("services/audit.zig"),
+        @import("mongo").val,               @import("lib/db.zig"),              @import("web.zig"),                @import("auth.zig"),
+        @import("app.zig"),                 @import("permissions.zig"),         @import("messages.zig"),           @import("geo.zig"),
+        @import("crypto.zig"),              @import("barcode.zig"),             @import("ratelimit.zig"),          @import("realtime.zig"),
+        @import("mailer.zig"),              @import("bus.zig"),                 @import("routes/routes.zig"),      @import("routes/testhooks.zig"),
+        @import("services/emails.zig"),     @import("services/bulk.zig"),       @import("services/accounts.zig"),  @import("services/verification.zig"),
+        @import("services/reports.zig"),    @import("services/statements.zig"), @import("services/feedback.zig"),  @import("services/claims.zig"),
+        @import("services/testmode.zig"),   @import("services/direct.zig"),     @import("services/dispatch.zig"),  @import("services/tracking.zig"),
+        @import("services/operations.zig"), @import("services/earnings.zig"),   @import("services/tasks.zig"),     @import("services/errors.zig"),
+        @import("services/relay.zig"),      @import("services/allocation.zig"), @import("services/shipments.zig"), @import("services/apikeys.zig"),
+        @import("services/live.zig"),       @import("services/webhooks.zig"),   @import("services/push.zig"),      @import("services/routing.zig"),
+        @import("services/carriers.zig"),   @import("services/pricing.zig"),    @import("services/places.zig"),    @import("services/coverage.zig"),
+        @import("services/branding.zig"),   @import("services/members.zig"),    @import("services/orgs.zig"),      @import("services/moderation.zig"),
+        @import("services/platform.zig"),   @import("services/audit.zig"),
     }) |m| std.testing.refAllDecls(m);
 }

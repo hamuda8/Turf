@@ -8,11 +8,12 @@
 
 const std = @import("std");
 const Io = std.Io;
-const val = @import("lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("lib/db.zig");
 const web = @import("web.zig");
 const a_ = @import("app.zig");
 const http = @import("http");
+const wufour = @import("wufour");
 const Val = val.Val;
 const Req = web.Req;
 
@@ -26,51 +27,33 @@ var cache_lock: Io.Mutex = .init;
 /// token (owned) -> user (owned strings)
 var cache: std.StringHashMapUnmanaged(CachedUser) = .empty;
 
-/// Cookie values are URI-decoded (wufour-auth's parseCookies).
-fn cookie(r: *Req, name: []const u8) ?[]const u8 {
-    const c = r.ctx orelse return null;
-    const raw = c.cookie(name) orelse return null;
-    return web.uriDecode(r.a, raw);
-}
-
-fn cookieToken(r: *Req) ?[]const u8 {
-    const t = cookie(r, "wufour_token") orelse cookie(r, "auth_token") orelse return null;
-    return if (t.len > 0) t else null;
+/// The session token: the cookie (web) first, else a Bearer header (native apps). Cookie values
+/// are percent-decoded by zig-core, as wufour-auth's parseCookies does.
+fn readToken(r: *Req) ?[]const u8 {
+    const ctx = r.ctx orelse return null;
+    const t = wufour.token(ctx, .cookie_first) orelse return null;
+    if (t.bearer) r.bearer = true;
+    return t.value;
 }
 
 fn bearerToken(r: *Req) ?[]const u8 {
-    const h = r.header("authorization") orelse return null;
-    const t = std.mem.trim(u8, h, " ");
-    if (t.len < 7 or !std.ascii.eqlIgnoreCase(t[0..7], "bearer ")) return null;
-    const tok = std.mem.trim(u8, t[7..], " ");
-    return if (tok.len > 0) tok else null;
+    return wufour.bearerOf(r.header("authorization") orelse return null);
 }
 
-/// The session token: the cookie (web) first, else a Bearer header (native apps).
-fn readToken(r: *Req) ?[]const u8 {
-    if (cookieToken(r)) |t| return t;
-    if (bearerToken(r)) |t| {
-        r.bearer = true;
-        return t;
-    }
-    return null;
+/// A cookie, percent-decoded (wufour-auth's parseCookies).
+fn cookie(r: *Req, name: []const u8) ?[]const u8 {
+    return (r.ctx orelse return null).cookie(name);
 }
 
 /// wufour-auth swaps "localhost" for 127.0.0.1 in server-to-server calls.
 pub fn backendHost(a: std.mem.Allocator) []const u8 {
-    const h = a_.cfg().auth_host;
-    if (std.mem.indexOf(u8, h, "localhost") == null) return h;
-    return std.mem.replaceOwned(u8, a, h, "localhost", "127.0.0.1") catch h;
+    return wufour.backendHost(a, a_.cfg().auth_host);
 }
 
 /// Wufour's answer for `token`: the raw user object, or null (invalid, or Wufour unreachable).
+/// Turf caches the decorated user itself (below), so this always asks.
 pub fn verifyToken(a: std.mem.Allocator, token: []const u8) ?Val {
-    const body = val.toJson(a, val.from(a, .{ .token = token }) catch return null) catch return null;
-    const url = std.fmt.allocPrint(a, "{s}/api/auth/verify", .{backendHost(a)}) catch return null;
-    const res = a_.upstream(a, url, .{ .method = .POST, .body = body }) catch return null;
-    const data = val.parseJson(a, res.body) catch return null;
-    if (!data.get("success").truthy()) return null;
-    return data.get("user");
+    return a_.app.wufour.verifyUncached(a, token);
 }
 
 fn isAdmin(user: Val) bool {

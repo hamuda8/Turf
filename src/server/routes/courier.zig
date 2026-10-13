@@ -2,7 +2,7 @@
 //! proof of delivery, SOS, navigation.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -63,7 +63,7 @@ fn clientAt(b: Val) Val {
 }
 
 fn myTask(r: *Req) !Val {
-    const task = try tasks.getTask(r, r.orgCtx().org.get("_id"), .{ .oid = (try V.id(r, .{ .str = r.param("taskId") }, "taskId", .{})).? });
+    const task = try tasks.getTask(r, r.orgCtx().org.get("_id"), .{ .id = (try V.id(r, .{ .str = r.param("taskId") }, "taskId", .{})).? });
     if (!task.get("courierId").truthy() or !task.get("courierId").sameId(r.courier.get("_id"))) return r.forbidden("This task is not assigned to you");
     return task;
 }
@@ -197,7 +197,7 @@ fn startTask(r: *Req) !void {
     const location = try loc(r, r.body);
     var missing: std.ArrayList(Val) = .empty;
     if (try V.arr(r, r.body.get("missingShipmentIds"), "missingShipmentIds", .{ .max = 500, .optional = true })) |list| {
-        for (list, 0..) |v, i| try missing.append(a, .{ .oid = (try V.id(r, v, try std.fmt.allocPrint(a, "missingShipmentIds[{d}]", .{i}), .{})).? });
+        for (list, 0..) |v, i| try missing.append(a, .{ .id = (try V.id(r, v, try std.fmt.allocPrint(a, "missingShipmentIds[{d}]", .{i}), .{})).? });
     }
     _ = try tasks.startTask(r, task, r.courier, location, missing.items);
     return ok(r);

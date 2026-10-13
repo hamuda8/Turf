@@ -5,7 +5,7 @@
 
 const std = @import("std");
 const Io = std.Io;
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -67,11 +67,11 @@ pub fn recentDeliveries(a: std.mem.Allocator, org_id: Val) ![]Val {
 // In production webhooks may only reach public addresses.
 
 const blocked_v4 = [_]struct { base: [4]u8, bits: u5 }{
-    .{ .base = .{ 0, 0, 0, 0 }, .bits = 8 },        .{ .base = .{ 10, 0, 0, 0 }, .bits = 8 },      .{ .base = .{ 100, 64, 0, 0 }, .bits = 10 },
-    .{ .base = .{ 127, 0, 0, 0 }, .bits = 8 },      .{ .base = .{ 169, 254, 0, 0 }, .bits = 16 },  .{ .base = .{ 172, 16, 0, 0 }, .bits = 12 },
-    .{ .base = .{ 192, 0, 0, 0 }, .bits = 24 },     .{ .base = .{ 192, 0, 2, 0 }, .bits = 24 },    .{ .base = .{ 192, 88, 99, 0 }, .bits = 24 },
-    .{ .base = .{ 192, 168, 0, 0 }, .bits = 16 },   .{ .base = .{ 198, 18, 0, 0 }, .bits = 15 },   .{ .base = .{ 198, 51, 100, 0 }, .bits = 24 },
-    .{ .base = .{ 203, 0, 113, 0 }, .bits = 24 },   .{ .base = .{ 224, 0, 0, 0 }, .bits = 4 },     .{ .base = .{ 240, 0, 0, 0 }, .bits = 4 },
+    .{ .base = .{ 0, 0, 0, 0 }, .bits = 8 },      .{ .base = .{ 10, 0, 0, 0 }, .bits = 8 },     .{ .base = .{ 100, 64, 0, 0 }, .bits = 10 },
+    .{ .base = .{ 127, 0, 0, 0 }, .bits = 8 },    .{ .base = .{ 169, 254, 0, 0 }, .bits = 16 }, .{ .base = .{ 172, 16, 0, 0 }, .bits = 12 },
+    .{ .base = .{ 192, 0, 0, 0 }, .bits = 24 },   .{ .base = .{ 192, 0, 2, 0 }, .bits = 24 },   .{ .base = .{ 192, 88, 99, 0 }, .bits = 24 },
+    .{ .base = .{ 192, 168, 0, 0 }, .bits = 16 }, .{ .base = .{ 198, 18, 0, 0 }, .bits = 15 },  .{ .base = .{ 198, 51, 100, 0 }, .bits = 24 },
+    .{ .base = .{ 203, 0, 113, 0 }, .bits = 24 }, .{ .base = .{ 224, 0, 0, 0 }, .bits = 4 },    .{ .base = .{ 240, 0, 0, 0 }, .bits = 4 },
 };
 
 fn parseV4(s: []const u8) ?u32 {
@@ -161,7 +161,14 @@ fn enqueue(a: std.mem.Allocator, org_id: Val, kind: []const u8, data: Val) !void
     if (!w.get("enabled").truthy()) return;
     const now = a_.now();
     const id = try db.col("webhook_deliveries").insertOne(a, .{
-        .orgId = org_id, .type = kind, .url = w.get("url"), .status = "pending", .attempts = 0, .nextAttemptAt = now, .createdAt = now, .payload = null,
+        .orgId = org_id,
+        .type = kind,
+        .url = w.get("url"),
+        .status = "pending",
+        .attempts = 0,
+        .nextAttemptAt = now,
+        .createdAt = now,
+        .payload = null,
     });
     const payload = try val.from(a, .{ .id = try val.toStr(a, id), .type = kind, .createdAt = try val.isoAlloc(a, now.date), .data = data });
     _ = try db.col("webhook_deliveries").updateOne(a, .{ ._id = id }, .{ .@"$set" = .{ .payload = payload } }, .{});
@@ -188,7 +195,7 @@ fn post(a: std.mem.Allocator, url: []const u8, headers: []const std.http.Header,
     const res = a_.upstreamTimeout(a, url, .{ .method = .POST, .body = body, .headers = headers, .retry = false, .max_body = 1 << 20, .user_agent = "Turf-Webhooks/1" }, timeout_ms) catch |e| {
         return val.from(a, .{ .ok = false, .status = null, .@"error" = if (e == error.Timeout) "Timed out" else @errorName(e) });
     };
-    const st = @intFromEnum(res.status);
+    const st = @backingInt(res.status);
     return val.from(a, .{ .ok = st >= 200 and st < 300, .status = st });
 }
 
@@ -258,7 +265,7 @@ pub fn loop() void {
     }
     while (true) {
         a_.app.io.sleep(.fromSeconds(5), .awake) catch return;
-        if (!bus.enabled[@intFromEnum(bus.Service.webhooks)]) continue;
+        if (!bus.enabled[@backingInt(bus.Service.webhooks)]) continue;
         var arena = std.heap.ArenaAllocator.init(a_.app.gpa);
         defer arena.deinit();
         processQueue(arena.allocator()) catch |e| std.log.err("Webhook queue failed: {t}", .{e});

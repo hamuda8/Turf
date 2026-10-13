@@ -8,7 +8,7 @@
 //! shipment.carrierIds lists every carrier on the route. Returns go back the same way.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");

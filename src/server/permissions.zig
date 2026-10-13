@@ -3,7 +3,7 @@
 //! membership that can never be granted, transferred or removed.
 
 const std = @import("std");
-const val = @import("lib/val.zig");
+const val = @import("mongo").val;
 const web = @import("web.zig");
 const Val = val.Val;
 

@@ -2,7 +2,7 @@
 //! state machine, the event timeline, and the views for merchants, carriers and public tracking.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -697,8 +697,8 @@ pub fn trackingView(a: Allocator, shipment: Val, events: []const Val, live: ?Liv
 
 /// Milestones anyone holding the tracking number may see.
 const lookup_events = [_][]const u8{
-    "created",          "carrier_assigned", "pickup_assigned", "picked_up", "arrived_at_hub", "departed_hub", "out_for_delivery",
-    "delivered",        "delivery_failed",  "return_started",  "returned",  "cancelled",      "request_sent", "carrier_accepted",
+    "created",          "carrier_assigned", "pickup_assigned", "picked_up",   "arrived_at_hub", "departed_hub", "out_for_delivery",
+    "delivered",        "delivery_failed",  "return_started",  "returned",    "cancelled",      "request_sent", "carrier_accepted",
     "no_carrier_found", "rescheduled",      "lost",            "handed_over", "handed_back",
 };
 
@@ -868,7 +868,7 @@ pub fn carrierView(a: Allocator, s: Val, viewer_id: Val) !Val {
     rest.del("publicToken");
     rest.del("labelToken");
     if (relay.isRelay(s)) {
-        const viewer = if (viewer_id == .oid) viewer_id else s.get("carrierId");
+        const viewer = if (viewer_id == .id) viewer_id else s.get("carrierId");
         const legs = try val.newArr(a);
         for (s.get("legs").items()) |l| {
             const copy = try l.copy(a);

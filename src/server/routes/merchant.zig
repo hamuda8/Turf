@@ -2,7 +2,7 @@
 //! places, shipments, quotes, API keys, webhooks, statements, settings.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -113,7 +113,7 @@ fn addPlace(r: *Req) !void {
 }
 
 fn placeId(r: *Req) !Val {
-    return .{ .oid = (try V.id(r, .{ .str = r.param("id") }, "id", .{})).? };
+    return .{ .id = (try V.id(r, .{ .str = r.param("id") }, "id", .{})).? };
 }
 
 fn updatePlace(r: *Req) !void {
@@ -254,7 +254,7 @@ fn openClaim(r: *Req) !void {
 }
 
 fn withdrawClaim(r: *Req) !void {
-    try claims.withdrawClaim(r, org(r).get("_id"), .{ .oid = (try V.id(r, .{ .str = r.param("claimId") }, "claimId", .{})).? });
+    try claims.withdrawClaim(r, org(r).get("_id"), .{ .id = (try V.id(r, .{ .str = r.param("claimId") }, "claimId", .{})).? });
     return ok(r);
 }
 
@@ -267,7 +267,7 @@ fn listStatements(r: *Req) !void {
 
 fn statement(r: *Req) !void {
     const p = try statements.periodOf(r, r.qs("from"), r.qs("to"));
-    const carrier_id: Val = .{ .oid = (try V.id(r, r.q("carrierId"), "carrierId", .{})).? };
+    const carrier_id: Val = .{ .id = (try V.id(r, r.q("carrierId"), "carrierId", .{})).? };
     const st = try statements.statement(r.a, carrier_id, org(r).get("_id"), p.from, p.to);
     if (std.mem.eql(u8, r.qs("format") orelse "", "csv")) {
         const name = try std.fmt.allocPrint(r.a, "statement-{s}-{s}-{s}.csv", .{ if (st.t("carrierName")) try val.toStr(r.a, st.get("carrierName")) else "carrier", p.from_text, p.to_text });
@@ -288,7 +288,7 @@ fn createKey(r: *Req) !void {
 }
 
 fn revokeKey(r: *Req) !void {
-    try apikeys.revokeApiKey(r, r.orgCtx(), .{ .oid = (try V.id(r, .{ .str = r.param("keyId") }, "keyId", .{})).? });
+    try apikeys.revokeApiKey(r, r.orgCtx(), .{ .id = (try V.id(r, .{ .str = r.param("keyId") }, "keyId", .{})).? });
     return ok(r);
 }
 

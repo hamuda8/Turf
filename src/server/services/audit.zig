@@ -1,7 +1,7 @@
 //! An organization's audit log (src/services/audit.js).
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const a_ = @import("../app.zig");
 const Val = val.Val;

@@ -1,7 +1,7 @@
 //! Bridges domain events to live browser streams (src/services/live.js).
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const realtime = @import("../realtime.zig");

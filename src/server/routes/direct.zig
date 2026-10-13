@@ -2,7 +2,7 @@
 //! Every endpoint answers 404 while the feature is switched off in Control.
 
 const std = @import("std");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const web = @import("../web.zig");
 const shipments = @import("../services/shipments.zig");
 const direct = @import("../services/direct.zig");

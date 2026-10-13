@@ -7,7 +7,7 @@
 const std = @import("std");
 const Io = std.Io;
 const zpush = @import("push");
-const val = @import("../lib/val.zig");
+const val = @import("mongo").val;
 const db = @import("../lib/db.zig");
 const web = @import("../web.zig");
 const a_ = @import("../app.zig");
@@ -223,7 +223,7 @@ fn sendOne(a: std.mem.Allocator, vapid: zpush.Vapid, sub: Val, plaintext: []cons
         try headers.append(a, .{ .name = "topic", .value = topic.items[0..@min(topic.items.len, 32)] });
     };
     const res = try a_.upstreamTimeout(a, endpoint, .{ .method = .POST, .body = body, .content_type = "application/octet-stream", .headers = headers.items, .retry = false }, 10_000);
-    return @intFromEnum(res.status);
+    return @backingInt(res.status);
 }
 
 /// User ids of active members holding `permission`.

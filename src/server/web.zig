@@ -8,7 +8,7 @@
 
 const std = @import("std");
 const http = @import("http");
-const val = @import("lib/val.zig");
+const val = @import("mongo").val;
 const Val = val.Val;
 const Allocator = std.mem.Allocator;
 const a_ = @import("app.zig");
@@ -191,7 +191,7 @@ pub const Req = struct {
         if (c.responded) return;
         if (r.allow_framing) r.removeHeader("x-frame-options");
         if (r.allow_framing or r.script_extra.len > 0) try c.setHeader("content-security-policy", try csp(r.a, r.allow_framing, r.script_extra));
-        return c.send(@enumFromInt(status), content_type, body);
+        return c.send(@fromBackingInt(@intCast(status)), content_type, body);
     }
 
     pub fn html(r: *Req, status: u16, body: []const u8) !void {
@@ -203,7 +203,7 @@ pub const Req = struct {
         const c = r.ctx orelse return;
         if (c.responded) return;
         c.responded = true;
-        try c.request.respond("", .{ .status = @enumFromInt(status), .extra_headers = c.response_headers.items });
+        try c.request.respond("", .{ .status = @fromBackingInt(@intCast(status)), .extra_headers = c.response_headers.items });
     }
 
     pub fn redirect(r: *Req, status: u16, location: []const u8) !void {
@@ -521,7 +521,7 @@ pub const V = struct {
             if (o.optional) return null;
             return invalid(r, field, "required", msg(r, "{s} is required", .{field}), null);
         }
-        return value.boolean() orelse invalid(r, field, "boolean", msg(r, "{s} must be true or false", .{field}), null);
+        return value.asBool() orelse invalid(r, field, "boolean", msg(r, "{s} must be true or false", .{field}), null);
     }
 
     pub fn oneOf(r: *Req, value: Val, field: []const u8, allowed: []const []const u8, o: struct { optional: bool = false }) Error!?[]const u8 {
@@ -672,7 +672,7 @@ fn normalizeUrl(a: Allocator, s: []const u8, u: std.Uri) ![]const u8 {
 /// oid(): an ObjectId from a 24-character hex string (or an ObjectId), else null.
 pub fn oid(v: Val) ?val.ObjectId {
     return switch (v) {
-        .oid => |x| x,
+        .id => |x| x,
         .str => |s| if (s.len == 24) val.ObjectId.parse(s) catch null else null,
         else => null,
     };
