@@ -15,6 +15,7 @@ const labels = @import("../labels.zig");
 const parts = @import("../widgets/parts.zig");
 const mapw = @import("../widgets/map.zig");
 const edit = @import("../widgets/shipment_edit.zig");
+const claim = @import("../widgets/claim_dialog.zig");
 
 const Cx = core.Cx;
 const Ui = core.Ui;
@@ -29,6 +30,7 @@ const T = enum(u16) { poll = 1 };
 pub const S = struct {
     m: mapw.Map = .{},
     edit: edit.Edit = .{},
+    claim: claim.Dialog = .{ .cfg = .{ .slot = 420, .act = 420 } },
     fitted: bool = false,
 };
 
@@ -53,6 +55,15 @@ pub fn enter(_: *S, c: *Cx) void {
     c.after(15_000, @intFromEnum(T.poll));
 }
 
+/// Events of the claim dialog (ids 420 and 421).
+fn claim_ids(e: core.Ev) bool {
+    return switch (e) {
+        .act => |a| a.id == 420 or a.id == 421,
+        .done => |d| d.id == 420 or d.id == 421,
+        else => false,
+    };
+}
+
 fn mapSize(c: *const Cx) [2]f32 {
     _ = c;
     const two = kit.width >= 2 * 280 + 16;
@@ -65,6 +76,10 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             s.edit.saved = false;
             c.load(d_ship, c.orgUrl(path(c)));
         }
+        return;
+    }
+    if (claim_ids(e)) {
+        if (s.claim.update(c, e)) c.go("/claims");
         return;
     }
     const size = mapSize(c);
@@ -90,7 +105,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             .edit_day => edit.openDay(&s.edit, c, c.print("/merchant/shipments/{s}", .{json.str(ship(c), "id")}), json.str(ship(c), "scheduledFor")),
             .return_ask => c.ask(L("returns.request_confirm"), .{ .act = .{ .id = @intFromEnum(A.return_req) } }),
             .return_req => c.send(@intFromEnum(A.return_req), .POST, c.orgUrl(c.print("/merchant/shipments/{s}/return-request", .{json.str(ship(c), "id")})), "{}"),
-            .claim_open => c.go("/claims"), // CLAIM: the open-claim dialog (widgets/claim_dialog.zig) once merged
+            .claim_open => s.claim.open(c, ship(c)),
         },
         .done => |d| switch (@as(A, @enumFromInt(d.id))) {
             .cancel => if (d.ok) {
@@ -285,6 +300,7 @@ fn share(ui: *Ui, sh: ?V) void {
 
 pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
     edit.overlay(&s.edit, c, ui);
+    s.claim.overlay(ui);
 }
 
 // ---- Tests --------------------------------------------------------------------------------

@@ -4,5 +4,9 @@
   "The email or password is not right.": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
   "Password": "كلمة المرور",
   "{n} open tasks": "{n} مهام مفتوحة",
-  "Taking a photo needs the web app for now.": "التقاط الصورة يحتاج حالياً إلى تطبيق الويب."
+  "Taking a photo needs the web app for now.": "التقاط الصورة يحتاج حالياً إلى تطبيق الويب.",
+  "Choose a CSV file": "اختر ملف CSV",
+  "Choosing a file works in the web app only.": "اختيار ملف متاح في تطبيق الويب فقط.",
+  "Attach the documents from Turf on the web.": "أرفق المستندات من Turf على الويب.",
+  "Uploading a new logo is not available in this app yet.": "رفع شعار جديد غير متاح في هذا التطبيق بعد."
 }

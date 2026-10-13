@@ -11,6 +11,7 @@ const json = @import("../json.zig");
 const labels = @import("../labels.zig");
 const cm = @import("../widgets/common.zig");
 const CloseCompany = @import("../widgets/close_company.zig").CloseCompany;
+const places = @import("../widgets/places.zig");
 
 const Cx = core.Cx;
 const Ui = core.Ui;
