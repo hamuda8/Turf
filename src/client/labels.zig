@@ -63,3 +63,8 @@ test "families" {
     try std.testing.expectEqualStrings("Delivered", status("delivered"));
     try std.testing.expectEqualStrings("odd", status("odd"));
 }
+
+/// A Turf-js template key translated and filled: `tf(a, "driver.since", .{ .when = x })`.
+pub fn tf(a: std.mem.Allocator, key: []const u8, args: anytype) []const u8 {
+    return zui.i18n.tf(a, keys.map.get(key) orelse key, args);
+}
