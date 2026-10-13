@@ -36,3 +36,31 @@ test('a shipment stream gets the tracking snapshot, then every status change', a
   assert.match(text, /"status":"picked_up"/);
   ctrl.abort();
 });
+
+test('at most 30 live streams per address; a closed stream frees its place at once', async () => {
+  const owner = makeUser('Watcher');
+  const org = (await as(owner).post('/api/app/orgs', { acceptTerms: true, type: 'merchant', name: 'Watch Shop', slug: 'watch-shop' })).data;
+  const key = (await as(owner).post(`/api/app/orgs/${org.id}/merchant/api-keys`, { name: 'test', mode: 'test' })).data.secret;
+  const ship = (await withKey(key).post('/shipments', {
+    pickup: { name: 'Shop', phone: '0944000001', governorate: 'DI', city: 'Damascus' },
+    dropoff: { name: 'Rana', phone: '0944000002', governorate: 'DI', city: 'Damascus' },
+    parcel: { weightKg: 1 },
+  })).data;
+  const url = `${baseUrl}/api/public/track/${ship.trackingToken}/stream`;
+  const open = async () => {
+    const ctrl = new AbortController();
+    const res = await fetch(url, { signal: ctrl.signal });
+    return { res, ctrl };
+  };
+  const streams = [];
+  for (let i = 0; i < 30; i++) streams.push(await open());
+  assert.ok(streams.every(s => s.res.status === 200));
+  const extra = await open();
+  assert.equal(extra.res.status, 429);
+  assert.equal((await extra.res.json()).error.code, 'too_many_streams');
+  for (const s of streams) s.ctrl.abort();
+  await new Promise(r => setTimeout(r, 300));
+  const again = await open();
+  assert.equal(again.res.status, 200);
+  again.ctrl.abort();
+});

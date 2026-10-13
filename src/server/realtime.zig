@@ -21,7 +21,21 @@ const Stream = struct {
     cond: Io.Condition = .init,
     /// Encoded events waiting to be written (owned by gpa).
     pending: std.ArrayList([]u8) = .empty,
+    /// The client went away (seen by the watcher task).
+    closed: bool = false,
 };
+
+/// Waits for the client to close the connection (a stream client never sends anything else), so
+/// its place is freed at once, as Node does on "close", not only at the next heartbeat.
+fn watchClose(io: Io, net_stream: Io.net.Stream, s: *Stream) void {
+    var buf: [256]u8 = undefined;
+    var reader = net_stream.reader(io, &buf);
+    while (true) _ = reader.interface.takeByte() catch break;
+    s.lock.lockUncancelable(io);
+    s.closed = true;
+    s.lock.unlock(io);
+    s.cond.signal(io);
+}
 
 var lock: Io.Mutex = .init;
 /// channel (owned) -> streams
@@ -65,10 +79,12 @@ pub fn subscribe(r: *Req, channel_names: []const []const u8, initial_event: ?[]c
 
     try join(channel_names, &stream);
     defer leave(channel_names, &stream);
+    var watcher = io.concurrent(watchClose, .{ io, ctx.stream, &stream }) catch null;
+    defer if (watcher) |*f| f.cancel(io);
 
     while (true) {
         stream.lock.lockUncancelable(io);
-        if (stream.pending.items.len == 0) {
+        if (stream.pending.items.len == 0 and !stream.closed) {
             stream.cond.waitTimeout(io, &stream.lock, .{ .duration = .{ .raw = .fromMilliseconds(heartbeat_ms), .clock = .awake } }) catch |e| switch (e) {
                 error.Timeout => {},
                 error.Canceled => {
@@ -76,6 +92,10 @@ pub fn subscribe(r: *Req, channel_names: []const []const u8, initial_event: ?[]c
                     return;
                 },
             };
+        }
+        if (stream.closed) {
+            stream.lock.unlock(io);
+            return;
         }
         const batch = stream.pending.toOwnedSlice(gpa) catch &.{};
         stream.lock.unlock(io);
