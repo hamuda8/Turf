@@ -60,6 +60,7 @@ pub fn subscribe(r: *Req, channel_names: []const []const u8, initial_event: ?[]c
     var w = try ctx.request.respondStreaming(&buf, .{ .respond_options = .{ .extra_headers = ctx.response_headers.items, .keep_alive = false } });
     try w.writer.writeAll("retry: 5000\n\n");
     if (initial_event) |ev| try w.writer.writeAll(try encode(r.a, ev, initial_data));
+    try w.writer.flush();
     try w.flush();
 
     try join(channel_names, &stream);
@@ -85,6 +86,7 @@ pub fn subscribe(r: *Req, channel_names: []const []const u8, initial_event: ?[]c
         if (batch.len == 0) {
             w.writer.writeAll(": ping\n\n") catch return;
         } else for (batch) |m| w.writer.writeAll(m) catch return;
+        w.writer.flush() catch return;
         w.flush() catch return;
     }
 }
