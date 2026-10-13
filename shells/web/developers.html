@@ -1,0 +1,521 @@
+<!doctype html>
+<!-- The merchant API documentation, served as a static page (copied from Turf-js public/developers.html with its
+     stylesheets and docs.js). The server answers /developers with this file. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Turf API documentation</title>
+  <meta name="description" content="Create shipments, get live tracking and webhooks, and embed a tracking map — the Turf merchant API.">
+  <meta name="theme-color" content="#8A3324">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Turf">
+  <link rel="icon" href="/img/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/img/icon-192.png">
+  <script src="/js/register-sw.js" defer></script>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/docs.css">
+</head>
+<body>
+<div class="docs">
+  <nav class="docs-nav" aria-label="Contents">
+    <a class="logo" href="/"><img src="/img/icon-192.png" alt="" width="28" height="28"> Turf API</a>
+    <a href="#overview">Overview</a>
+    <a href="#auth">Authentication</a>
+    <a href="#quickstart">Quick start</a>
+    <a href="#create">Create a shipment</a>
+    <a href="#allocation">Choosing a carrier</a>
+    <a href="#quotes">Quotes</a>
+    <a href="#express">Express delivery</a>
+    <a href="#get">Retrieve shipments</a>
+    <a href="#tracking">Tracking</a>
+    <a href="#live">Live updates</a>
+    <a href="#statuses">Statuses</a>
+    <a href="#webhooks">Webhooks</a>
+    <a href="#embed">Tracking widget</a>
+    <a href="#public">Public tracking API</a>
+    <a href="#change">Change a shipment</a>
+    <a href="#cancel">Cancel</a>
+    <a href="#bulk">Many shipments at once</a>
+    <a href="#returns">Returns &amp; claims</a>
+    <a href="#testmode">Test mode</a>
+    <a href="#reference">Reference data</a>
+    <a href="#errors">Errors &amp; limits</a>
+    <a href="/app" class="btn primary sm">Open dashboard</a>
+  </nav>
+
+  <main class="docs-main">
+    <section id="overview">
+      <h1>Turf merchant API</h1>
+      <p class="lead">Ship anywhere Turf's shipping companies cover in Syria with one integration. Create a shipment, and Turf assigns a shipping company <strong>immediately</strong> — the one you choose, or the best one by price, speed, distance or reliability. Then follow every step: status texts in Arabic and English, the courier's live position on a map, signed webhooks, and an embeddable tracking widget.</p>
+      <p><a href="#ar">ملخص بالعربية في الأسفل</a></p>
+      <div class="table-wrap"><table class="table">
+        <tr><th>Base URL</th><td><code class="base-url">https://YOUR-TURF-HOST/api/v1</code></td></tr>
+        <tr><th>Format</th><td>JSON over HTTPS. Send <code>Content-Type: application/json</code>.</td></tr>
+        <tr><th>Times</th><td>ISO 8601 in UTC, e.g. <code>2026-10-04T12:30:00.000Z</code>.</td></tr>
+        <tr><th>Money</th><td>Whole units in the carrier's currency (e.g. <code>SYP</code>).</td></tr>
+        <tr><th>Locations</th><td><code>{ "lat": 33.5138, "lng": 36.2765 }</code></td></tr>
+      </table></div>
+    </section>
+
+    <section id="auth">
+      <h2>Authentication</h2>
+      <p>Create a secret key in your dashboard under <strong>Developers → API keys</strong> and send it in the <code>Authorization</code> header:</p>
+      <pre><code>Authorization: Bearer turf_sk_…</code></pre>
+      <p>Keys starting with <code>turf_test_</code> are <a href="#testmode">test keys</a>: same API, practice shipments only, nothing is sent to a shipping company.</p>
+      <div class="notice warn">Secret keys can create and cancel shipments. Use them only from your server — never in browser or mobile app code. For pages your customers see, use the <a href="#public">public tracking API</a> or the <a href="#embed">widget</a>, which need no key.</div>
+    </section>
+
+    <section id="quickstart">
+      <h2>Quick start</h2>
+      <p>Create a shipment and let Turf pick the best carrier:</p>
+<pre><code>curl -X POST https://YOUR-TURF-HOST/api/v1/shipments \
+  -H "Authorization: Bearer $TURF_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reference": "ORDER-1001",
+    "carrier": "auto",
+    "strategy": "balanced",
+    "dropoff": {
+      "name": "Lina Haddad",
+      "phone": "0944111222",
+      "governorate": "DI",
+      "city": "Damascus",
+      "area": "Malki",
+      "details": "Building 4, 2nd floor, next to the pharmacy"
+    },
+    "parcel": { "weightKg": 1.5, "description": "Books" },
+    "cod": { "amount": 150000 }
+  }'</code></pre>
+      <p>Node.js (built-in <code>fetch</code>):</p>
+<pre><code>const res = await fetch('https://YOUR-TURF-HOST/api/v1/shipments', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${process.env.TURF_KEY}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    reference: order.id,
+    carrier: 'auto',
+    dropoff: { name, phone, governorate: 'DI', city: 'Damascus', area: 'Malki' },
+    parcel: { weightKg: 1.5 },
+  }),
+});
+const shipment = await res.json();
+if (!res.ok) throw new Error(shipment.error.message);
+// Save shipment.id, shipment.trackingNumber and shipment.trackingUrl with the order.</code></pre>
+      <p>PHP:</p>
+<pre><code>$ch = curl_init('https://YOUR-TURF-HOST/api/v1/shipments');
+curl_setopt_array($ch, [
+  CURLOPT_POST => true,
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_HTTPHEADER => [
+    'Authorization: Bearer ' . getenv('TURF_KEY'),
+    'Content-Type: application/json',
+  ],
+  CURLOPT_POSTFIELDS => json_encode([
+    'reference' => $orderId,
+    'carrier' => 'auto',
+    'dropoff' => ['name' => $name, 'phone' => $phone, 'governorate' => 'DI', 'city' => 'Damascus'],
+    'parcel' => ['weightKg' => 1.5],
+  ]),
+]);
+$shipment = json_decode(curl_exec($ch), true);</code></pre>
+    </section>
+
+    <section id="create">
+      <h2>Create a shipment</h2>
+      <p class="endpoint"><span class="method post">POST</span> <code>/shipments</code></p>
+      <p>The shipment is allocated to a carrier in the same request. The response is <code>201</code> with the shipment, or <code>200</code> (header <code>Idempotent-Replayed: true</code>) if a shipment with the same <code>reference</code> already exists — so retrying after a timeout never creates duplicates.</p>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>reference</code></td><td>string, optional</td><td>Your order number (max 100). Makes creation idempotent.</td></tr>
+          <tr><td><code>carrier</code></td><td>string</td><td><code>"auto"</code> (default) or a carrier <code>id</code> from <a href="#reference">GET /carriers</a>.</td></tr>
+          <tr><td><code>strategy</code></td><td>string</td><td>With <code>"auto"</code>: <code>balanced</code> (default), <code>cheapest</code>, <code>fastest</code>, <code>nearest</code>, <code>reliable</code>. See <a href="#allocation">Choosing a carrier</a>.</td></tr>
+          <tr><td><code>service</code></td><td>string, optional</td><td><code>"standard"</code> (default) or <code>"express"</code>: same-hour delivery straight from the pickup to the recipient, for meals and fresh food. See <a href="#express">Express delivery</a>.</td></tr>
+          <tr><td><code>option</code></td><td>string, optional</td><td>With <code>"auto"</code>: the <code>id</code> of a route from <a href="#quotes">POST /quotes</a> (a company, or a chain of companies). Turf creates the shipment on exactly that route, or answers <code>422 option_unavailable</code> if it is no longer offered.</td></tr>
+          <tr><td><code>pickup</code></td><td>address or place id, optional</td><td>Where the courier collects the parcel: an address object, or the <code>id</code> of one of your saved pickup places (<a href="#places">GET /places</a>). Omit it to use your default place.</td></tr>
+          <tr><td><code>dropoff</code></td><td>address</td><td>The recipient.</td></tr>
+          <tr><td><code>parcel.weightKg</code></td><td>number</td><td>Weight in kg (0.01–20000).</td></tr>
+          <tr><td><code>parcel.description</code></td><td>string, optional</td><td>Contents.</td></tr>
+          <tr><td><code>parcel.pieces</code></td><td>integer, optional</td><td>Number of pieces (default 1).</td></tr>
+          <tr><td><code>parcel.value</code></td><td>number, optional</td><td>Declared value.</td></tr>
+          <tr><td><code>parcel.fragile</code></td><td>boolean, optional</td><td>Default <code>false</code>.</td></tr>
+          <tr><td><code>parcel.dimensionsCm</code></td><td>object, optional</td><td><code>{ "length": 60, "width": 40, "height": 30 }</code> in cm (all three). Some carriers charge large, light parcels by size (volumetric weight).</td></tr>
+          <tr><td><code>cod.amount</code></td><td>number, optional</td><td>Cash the courier collects from the recipient (cash on delivery).</td></tr>
+          <tr><td><code>notes</code></td><td>string, optional</td><td>Instructions shown to the courier.</td></tr>
+          <tr><td><code>requireDeliveryCode</code></td><td>boolean, optional</td><td>Default <code>true</code>: the recipient must give the courier a 4-digit code at handover (proof of delivery).</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Address object</h3>
+      <p>A map pin is enough: with <code>location</code>, Turf fills in the governorate, city, area and street itself. Without a pin, send <code>governorate</code> and <code>city</code>. A recipient needs a phone number; everything else is optional.</p>
+      <div class="table-wrap"><table class="table">
+        <tbody>
+          <tr><td><code>location</code></td><td>{lat, lng}</td><td>The exact point. It powers coverage, distance, ETA and the courier's navigation. Recipients can also set it themselves from the tracking page. Required unless <code>governorate</code> and <code>city</code> are given.</td></tr>
+          <tr><td><code>phone</code></td><td>string</td><td><code>09xxxxxxxx</code> or <code>+9639xxxxxxxx</code>. Required for <code>dropoff</code>; optional for a pickup address (the courier calls your company otherwise).</td></tr>
+          <tr><td><code>name</code></td><td>string, optional</td><td>Contact name.</td></tr>
+          <tr><td><code>governorate</code></td><td>string</td><td>Governorate code, see <a href="#reference">reference data</a> (e.g. <code>DI</code> Damascus, <code>HL</code> Aleppo); the English or Arabic name is accepted too. Required only without <code>location</code>.</td></tr>
+          <tr><td><code>city</code></td><td>string</td><td>City or town. Required only without <code>location</code>.</td></tr>
+          <tr><td><code>area</code>, <code>street</code></td><td>string, optional</td><td>Neighborhood and street.</td></tr>
+          <tr><td><code>details</code></td><td>string, optional</td><td>Directions: building, floor, landmarks.</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Response</h3>
+<pre><code>{
+  "id": "6ac1f3e4b4ad7d69e9b4541c",
+  "trackingNumber": "TRF4K7M9Q2XAB",
+  "reference": "ORDER-1001",
+  "status": "awaiting_pickup",
+  "statusText": "Awaiting pickup",
+  "statusTextAr": "بانتظار الاستلام من المتجر",
+  "carrier": { "id": "6ac1…", "name": "Sham Express" },
+  "allocation": { "mode": "auto", "strategy": "balanced", "alternatives": 2, "metrics": { … } },
+  "price": { "amount": 900, "currency": "SYP", "breakdown": { "base": 150, "weight": 0, "distance": 0, "cod": 750, "surcharges": 0, "chargeableKg": 1.5 } },
+  "route": null,
+  "promisedBy": "2026-10-05T12:30:00.000Z",
+  "deliveryCode": "0667",
+  "trackingUrl": "https://YOUR-TURF-HOST/t/Xk3…",
+  "embedUrl": "https://YOUR-TURF-HOST/embed/t/Xk3…",
+  "labelUrl": "https://YOUR-TURF-HOST/label/Pq9…",
+  "trackingToken": "Xk3…",
+  …
+}</code></pre>
+      <ul>
+        <li><strong>trackingUrl</strong> — a branded tracking page you can send to your customer (SMS, WhatsApp, email).</li>
+        <li><strong>labelUrl</strong> — a printable 100×150 mm label with a barcode. Stick it on the parcel before pickup.</li>
+        <li><strong>deliveryCode</strong> — the code the recipient gives the courier. It is shown on the tracking page; you may also send it to the customer yourself. Couriers and carrier staff never see it.</li>
+        <li><strong>trackingToken</strong> — use with the <a href="#public">public tracking API</a> and <a href="#embed">widget</a>.</li>
+        <li><strong>price.breakdown</strong> — <code>base</code> (the carrier may have a special price for this pair of governorates), <code>weight</code> (charged on <code>chargeableKg</code>: the real weight, or the size-based weight when the carrier uses it and it is more), <code>distance</code>, <code>cod</code>, and <code>surcharges</code> (fragile, extra pieces, cover for the declared value).</li>
+        <li><strong>route</strong> — <code>null</code>, or the legs when the parcel travels with more than one company (see <a href="#allocation">below</a>).</li>
+      </ul>
+      <p><strong>Turf does not message your customers.</strong> You decide how they hear from you: send the <code>trackingUrl</code> (and the <code>deliveryCode</code> if you like) by SMS, WhatsApp, email or inside your own app, and use <a href="#webhooks">webhooks</a> to tell them about status changes.</p>
+    </section>
+
+    <section id="allocation">
+      <h2>Choosing a carrier</h2>
+      <p>With <code>"carrier": "auto"</code>, Turf considers every active carrier that covers both governorates, accepts the weight, offers cash on delivery when you need it, and accepts automatic orders. Each is measured on:</p>
+      <ul>
+        <li><strong>price</strong> — from the carrier's published rates;</li>
+        <li><strong>ETA</strong> — the carrier's promised delivery time, blended with its real delivery times once it has history;</li>
+        <li><strong>distance</strong> — from the carrier's nearest hub to the pickup point;</li>
+        <li><strong>reliability</strong> — share of finished shipments that were delivered (not returned);</li>
+        <li><strong>load</strong> — open shipments per courier right now.</li>
+      </ul>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>strategy</th><th>Picks</th></tr></thead>
+        <tbody>
+          <tr><td><code>balanced</code></td><td>The best overall score (price 30%, ETA 25%, reliability 25%, distance 10%, load 10%).</td></tr>
+          <tr><td><code>cheapest</code></td><td>The lowest price.</td></tr>
+          <tr><td><code>fastest</code></td><td>The shortest ETA.</td></tr>
+          <tr><td><code>nearest</code></td><td>The closest hub to your pickup point.</td></tr>
+          <tr><td><code>reliable</code></td><td>The highest delivery success rate.</td></tr>
+        </tbody>
+      </table></div>
+      <p>Carriers can serve only some cities of a governorate, or only addresses near their hubs; an address outside that is not offered to them. Send <code>location</code> with the address for the best matches.</p>
+      <h3>More than one company on the way</h3>
+      <p>Turf also looks for <strong>chains</strong> of up to three companies: company A carries the parcel to a hub of company B in a governorate in between, B carries it on, and the last company delivers it (for example Aleppo to Homs with A, Homs to Damascus with B). Chains compete with single companies on price, time and reliability, so a chain can win even when one company covers the whole route. You still get one shipment, one tracking number, one price and one tracking page. The shipment then has a <code>route</code>:</p>
+<pre><code>"route": [
+  { "carrier": { "id": "…", "name": "North Express" }, "from": "HL", "to": "HI", "handoverHub": { "name": "Homs Central", "city": "Homs" }, "price": { "amount": 9000, "currency": "SYP" }, "status": "done" },
+  { "carrier": { "id": "…", "name": "Sham Express" }, "from": "HI", "to": null, "handoverHub": null, "price": { "amount": 6000, "currency": "SYP" }, "status": "active" }
+]</code></pre>
+      <p><code>carrier</code> on the shipment is always the company that has the parcel now. The handover appears in the events (<code>handed_over</code>), and cash on delivery is collected by the last company.</p>
+      <p>Ties are broken by the balanced score, then by fewer handovers. Routes that cost more than 2.5 times the cheapest one, or take more than twice as long as the fastest one (plus a day), are left out. To choose a specific carrier, pass its id as <code>carrier</code>; if it cannot take the shipment you get a <code>422</code> explaining why (e.g. <code>dropoff_not_covered</code>). To choose a specific route from a quote, pass its <code>id</code> as <code>option</code>.</p>
+    </section>
+
+    <section id="quotes">
+      <h2>Quotes</h2>
+      <p class="endpoint"><span class="method post">POST</span> <code>/quotes</code></p>
+      <p>Same body as <a href="#create">create</a>, except that the recipient's <code>phone</code> is optional, so a checkout can show prices as soon as the customer pins the address (it is still required to create the shipment). Returns every reasonable way to ship the parcel, ranked by the strategy, without creating anything: single companies and chains of companies side by side. Show them at checkout and let the customer pick, or just take the first one.</p>
+<pre><code>{
+  "strategy": "cheapest",
+  "excluded": 1,
+  "options": [
+    {
+      "id": "6ac1f3e4b4ad7d69e9b4541c",
+      "chain": false,
+      "carrier": { "id": "6ac1…", "name": "Fast Aleppo", "slug": "fast-aleppo", "logoUrl": null },
+      "price": { "amount": 600, "currency": "SYP", "breakdown": { … } },
+      "zone": "local",
+      "etaHours": 48,
+      "distanceKm": 3.2,
+      "reliability": 0.94,
+      "load": 1.5,
+      "score": 0.71
+    },
+    {
+      "id": "6ac1….6b2c…-6c3d…",
+      "chain": true,
+      "carrier": { "id": "6ac1…", "name": "North Express", "slug": "north-express" },
+      "legs": [
+        { "carrier": { "id": "6ac1…", "name": "North Express", "slug": "north-express" }, "from": "HL", "to": "HI", "handoverHub": { "name": "Homs Central", "city": "Homs" }, "price": { "amount": 9000, "currency": "SYP" }, "etaHours": 24 },
+        { "carrier": { "id": "6c3d…", "name": "Sham Express", "slug": "sham-express" }, "from": "HI", "to": null, "handoverHub": null, "price": { "amount": 6000, "currency": "SYP" }, "etaHours": 24 }
+      ],
+      "price": { "amount": 15000, "currency": "SYP", "breakdown": { "legs": [9000, 6000] } },
+      "zone": "national",
+      "etaHours": 48,
+      "distanceKm": 1.1,
+      "reliability": 0.81,
+      "load": 2,
+      "score": 0.58
+    }
+  ]
+}</code></pre>
+      <ul>
+        <li><strong>id</strong> — pass it as <code>option</code> to <a href="#create">create</a> to ship on exactly this route. Ids are stable while the companies and hubs on the route exist.</li>
+        <li><strong>chain</strong> — <code>true</code> when several companies carry the parcel in turn; <code>legs</code> lists each company, its governorates, the hub where it hands over, and its price and time. The total is the sum of the legs.</li>
+        <li><strong>excluded</strong> — how many routes were left out because they cost far more or take far longer than the best one (see <a href="#allocation">Choosing a carrier</a>).</li>
+        <li>Without <code>option</code>, create with <code>"carrier": "auto"</code> uses the first route of the list for the same strategy.</li>
+      </ul>
+    </section>
+
+    <section id="express">
+      <h2>Express delivery</h2>
+      <p>Send <code>"service": "express"</code> (in <a href="#quotes">quotes</a> and when <a href="#create">creating</a>) for orders that cannot wait: meals, fresh produce, urgent items. One courier takes the parcel straight from the pickup to the recipient, with no hub in between, and the shipment is promised within the carrier's express time (often an hour).</p>
+      <ul>
+        <li>Only carriers that offer express take part, within their express distance, weight limit and opening hours, and only while at least one of their couriers is on shift. Relay chains are never offered for express.</li>
+        <li>Both addresses need a map pin (<code>location</code>), or a saved pickup place with one. Otherwise: <code>400</code> with rule <code>express_needs_pin</code>.</li>
+        <li>The price comes from the carrier's express card (a price per trip plus a price per km); cash-on-delivery fees and surcharges are as usual.</li>
+        <li>Quote options and shipments carry <code>"service": "express"</code>, <code>etaHours</code> is the express time (e.g. <code>0.75</code>), and <code>promisedBy</code> is the time it is due. <a href="#reference">GET /carriers</a> lists each carrier's <code>express</code> offer (<code>minutes</code>, <code>maxKm</code>, <code>maxWeightKg</code>, <code>hours</code>) or <code>null</code>.</li>
+        <li>When nobody can take it right now: <code>422 no_express_available</code>; for a carrier you named: <code>express_not_offered</code>, <code>express_too_far</code>, <code>express_too_heavy</code>, <code>express_closed</code>, <code>express_no_courier</code>. Fall back to standard delivery.</li>
+      </ul>
+    </section>
+
+    <section id="get">
+      <h2>Retrieve shipments</h2>
+      <p class="endpoint"><span class="method get">GET</span> <code>/shipments/{id or trackingNumber}</code></p>
+      <p class="endpoint"><span class="method get">GET</span> <code>/shipments?limit=25&amp;status=out_for_delivery&amp;q=ORDER-1001&amp;before=…</code></p>
+      <p>The list is newest first: <code>{ "data": [...], "hasMore": true, "nextBefore": "2026-10-04T…" }</code>. Pass <code>nextBefore</code> as <code>before</code> to get the next page. <code>q</code> matches tracking number, reference or recipient phone/name.</p>
+    </section>
+
+    <section id="tracking">
+      <h2>Tracking</h2>
+      <p class="endpoint"><span class="method get">GET</span> <code>/shipments/{id}/tracking?lang=ar</code></p>
+      <p>The full tracking picture: status with text in both languages, the event history like a shipping company's tracking page, and the <strong>courier's live position</strong> whenever a courier is carrying the parcel — by truck, car, motorbike, bicycle or on foot.</p>
+<pre><code>{
+  "trackingNumber": "TRF4K7M9Q2XAB",
+  "status": "out_for_delivery",
+  "statusText": "خرجت للتوصيل",
+  "statusTextAr": "خرجت للتوصيل",
+  "statusTextEn": "Out for delivery",
+  "promisedBy": "2026-10-05T12:30:00.000Z",
+  "carrier": { "id": "…", "name": "Sham Express" },
+  "courier": {
+    "name": "Ali",
+    "vehicle": "motorbike",
+    "location": { "lat": 33.5102, "lng": 36.2611 },
+    "heading": 84,
+    "speedKmh": 31,
+    "updatedAt": "2026-10-04T12:41:07.000Z",
+    "etaMinutes": 9
+  },
+  "events": [
+    { "code": "created", "status": "awaiting_pickup", "textEn": "Shipment information received from Souq Sham", "textAr": "…", "at": "…" },
+    { "code": "arrived_at_hub", "status": "at_hub", "textEn": "Arrived at Mazzeh facility, Damascus", "textAr": "وصلت إلى مركز Mazzeh، Damascus", "at": "…" },
+    { "code": "out_for_delivery", "status": "out_for_delivery", "textEn": "Out for delivery with Ali by motorbike", "textAr": "خرجت للتوصيل مع Ali بالدراجة النارية", "at": "…" }
+  ],
+  "deliveryCode": "0667",
+  "trackingUrl": "…"
+}</code></pre>
+      <p><code>courier</code> is <code>null</code> when nobody is carrying the parcel (for example while it waits at a hub). Couriers' locations are shared only during the task carrying your parcel.</p>
+    </section>
+
+    <section id="live">
+      <h2>Live updates</h2>
+      <p class="endpoint"><span class="method get">GET</span> <code>/shipments/{id}/stream</code></p>
+      <p>A <a href="https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events" rel="noopener">Server-Sent Events</a> stream. The first event is <code>tracking</code> (the full tracking object), then:</p>
+      <ul>
+        <li><code>courier.position</code> — the courier moved (same shape as <code>courier</code> above);</li>
+        <li><code>tracking.event</code> — the status changed: <code>{ status, statusTextAr, statusTextEn, event }</code>.</li>
+      </ul>
+      <p>For browsers, use the public stream (<code>/api/public/track/{token}/stream</code>), which needs no key.</p>
+    </section>
+
+    <section id="statuses">
+      <h2>Statuses</h2>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>status</th><th>English</th><th>العربية</th></tr></thead>
+        <tbody id="status-table"></tbody>
+      </table></div>
+      <p>Final statuses: <code>delivered</code>, <code>returned</code>, <code>cancelled</code>, <code>lost</code> (the company reported the parcel lost: open a <a href="#returns">claim</a>). A failed attempt (<code>delivery_failed</code>) is retried; after the carrier's maximum attempts the parcel is returned. Failure reasons: <span id="reasons"></span>.</p>
+    </section>
+
+    <section id="webhooks">
+      <h2>Webhooks</h2>
+      <p>Set a URL under <strong>Developers → Webhooks</strong>. Turf sends a <code>POST</code> for every change to your shipments:</p>
+<pre><code>POST /your/webhook
+Turf-Event: shipment.updated
+Turf-Delivery: 6ac2…
+Turf-Signature: t=1791123456,v1=5f2b…
+
+{
+  "id": "6ac2…",
+  "type": "shipment.updated",          // or "shipment.created"
+  "createdAt": "2026-10-04T12:41:07.000Z",
+  "data": {
+    "shipment": { … same as GET /shipments/{id} … },
+    "event": { "code": "delivered", "at": "…", "textEn": "Delivered", "textAr": "تم التسليم" }
+  }
+}</code></pre>
+      <p>Besides status changes, <code>event.code</code> can be <code>details_updated</code>, <code>rescheduled</code>, <code>handed_over</code> (the next company took the parcel), <code>damage_reported</code>, <code>customer_return_requested</code>, <code>recipient_rated</code> and <code>recipient_problem</code> (after delivery the recipient rated it 1–5 or reported a problem from the tracking page; the shipment then has <code>feedback</code>).</p>
+      <p>Answer with any <code>2xx</code> within 10 seconds. Failed deliveries are retried after 1 min, 5 min, 30 min, 2 h, 6 h, 12 h and 24 h. Use <code>Turf-Delivery</code> to ignore duplicates.</p>
+      <h3>Verify the signature</h3>
+      <p>Compute HMAC-SHA256 of <code>"{t}.{raw request body}"</code> with your signing secret and compare it with <code>v1</code>. Reject requests older than 5 minutes.</p>
+<pre><code>// Node.js / Express
+import crypto from 'node:crypto';
+app.post('/turf/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const header = req.get('Turf-Signature') || '';
+  const { t, v1 } = Object.fromEntries(header.split(',').map(p => p.split('=')));
+  const expected = crypto.createHmac('sha256', process.env.TURF_WEBHOOK_SECRET)
+    .update(`${t}.${req.body}`).digest('hex');
+  const fresh = Math.abs(Date.now() / 1000 - Number(t)) < 300;
+  if (!fresh || !v1 || !crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected))) {
+    return res.sendStatus(400);
+  }
+  const event = JSON.parse(req.body);
+  // update your order with event.data.shipment.status …
+  res.sendStatus(200);
+});</code></pre>
+<pre><code>// PHP
+$body = file_get_contents('php://input');
+parse_str(str_replace(',', '&amp;', $_SERVER['HTTP_TURF_SIGNATURE'] ?? ''), $sig);
+$expected = hash_hmac('sha256', $sig['t'] . '.' . $body, getenv('TURF_WEBHOOK_SECRET'));
+if (abs(time() - (int)$sig['t']) > 300 || !hash_equals($expected, $sig['v1'] ?? '')) {
+  http_response_code(400); exit;
+}
+$event = json_decode($body, true);</code></pre>
+    </section>
+
+    <section id="embed">
+      <h2>Tracking widget</h2>
+      <p>Show a live tracking map with status history on your order page — no key needed, two lines:</p>
+<pre><code>&lt;div data-turf-tracking="TRACKING_TOKEN" data-lang="ar"&gt;&lt;/div&gt;
+&lt;script src="https://YOUR-TURF-HOST/embed.js" async&gt;&lt;/script&gt;</code></pre>
+      <p>Optional <code>data-height="560"</code>. If you add elements later (single-page apps), call <code>TurfTracking.refresh()</code>. You can also link to <code>trackingUrl</code> or put <code>embedUrl</code> in your own <code>&lt;iframe&gt;</code>.</p>
+    </section>
+
+    <section id="public">
+      <h2>Public tracking API</h2>
+      <p>For your own tracking UI in the browser or a mobile app. Authorized by the shipment's secret <code>trackingToken</code>; CORS is open.</p>
+      <p class="endpoint"><span class="method get">GET</span> <code>/api/public/track/{token}?lang=ar</code></p>
+      <p class="endpoint"><span class="method get">GET</span> <code>/api/public/lookup?n=TRF…,TRF…</code> — by tracking number, no token</p>
+      <p class="endpoint"><span class="method get">GET</span> <code>/api/public/track/{token}/stream</code> (Server-Sent Events, as above)</p>
+      <p class="endpoint"><span class="method post">POST</span> <code>/api/public/track/{token}/location</code> <code>{ "lat": 33.52, "lng": 36.27 }</code></p>
+      <p>The public view hides contact details and the exact address. The <code>location</code> endpoint lets the recipient share their exact location before delivery (the tracking page has a button for this).</p>
+      <p><code>/lookup</code> is the search on Turf's home page and <code>/track</code>: up to 10 tracking numbers (comma or new line between them; case, spaces and dashes don't matter), 20 requests per minute per IP. It answers <code>{ "results": [...] }</code> in the order asked: <code>{ "query", "found": false }</code>, or <code>found: true</code> with the status, <code>service</code>, <code>promisedBy</code>, the carrier, the store's name, the origin and destination city, and the milestones. It never shows the delivery code, the courier, the recipient's details or cash amounts: those need the token.</p>
+<pre><code>const es = new EventSource(`https://YOUR-TURF-HOST/api/public/track/${token}/stream`);
+es.addEventListener('courier.position', e => {
+  const c = JSON.parse(e.data);
+  marker.setLatLng([c.location.lat, c.location.lng]);
+});
+es.addEventListener('tracking.event', e => showStatus(JSON.parse(e.data).statusTextAr));</code></pre>
+    </section>
+
+    <section id="change">
+      <h2>Change a shipment</h2>
+      <p class="endpoint"><span class="method patch">PATCH</span> <code>/shipments/{id}</code></p>
+<pre><code>{ "dropoff": { "phone": "0944999888", "street": "Abu Rummaneh St", "area": null }, "notes": "Call before arriving" }</code></pre>
+      <p>Fix the recipient's <code>name</code>, <code>phone</code>, <code>city</code>, <code>area</code>, <code>street</code>, <code>details</code> or <code>location</code> (send <code>null</code> to clear an optional field), and <code>notes</code>. Possible until the parcel is out for delivery. The governorate cannot change (the price depends on it): cancel and create a new shipment instead. The change appears in the events as <code>details_updated</code>.</p>
+      <p class="endpoint"><span class="method post">POST</span> <code>/shipments/{id}/reschedule</code> <code>{ "date": "2026-10-09" }</code></p>
+      <p>The day the recipient can receive the parcel, from today up to 14 days ahead (Syria time). The carrier keeps the parcel until that day. <code>{ "date": null }</code> means "as soon as possible" again. Recipients can choose the day themselves on the tracking page, and couriers can record it after a failed attempt. The shipment shows it as <code>scheduledFor</code>.</p>
+    </section>
+
+    <section id="cancel">
+      <h2>Cancel</h2>
+      <p class="endpoint"><span class="method post">POST</span> <code>/shipments/{id}/cancel</code> <code>{ "reason": "Customer changed their mind" }</code></p>
+      <p>Only before pickup (<code>awaiting_pickup</code>). After pickup, contact the carrier to return the parcel.</p>
+    </section>
+
+    <section id="bulk">
+      <h2>Many shipments at once</h2>
+      <p class="endpoint"><span class="method post">POST</span> <code>/shipments/bulk</code></p>
+      <p>Up to 500 shipments per request, 10 requests per minute. Each row is either a normal shipment object (as in <a href="#create">create</a>) or a flat row with these columns — the same as the CSV upload in the dashboard:</p>
+      <p><code>reference, recipient_name, recipient_phone, governorate, city, area, street, details, lat, lng, weight_kg, pieces, description, value, cod_amount, fragile, notes, carrier, strategy, length_cm, width_cm, height_cm, pickup, service</code></p>
+      <p><code>lat</code> and <code>lng</code> pin the recipient; with a pin, <code>governorate</code> and <code>city</code> may be empty. <code>governorate</code> accepts the code, the English or the Arabic name (<code>DI</code>, <code>Damascus</code>, <code>دمشق</code>). <code>pickup</code> is the id or the name of a saved pickup place (empty: your default place). Rows are created one by one: a bad row doesn't stop the others.</p>
+<pre><code>{
+  "created": 2,
+  "failed": 1,
+  "results": [
+    { "row": 1, "ok": true, "shipment": { … } },
+    { "row": 2, "ok": true, "shipment": { … } },
+    { "row": 3, "ok": false, "error": { "code": "invalid_request", "message": "dropoff.phone must be a valid phone number", "field": "dropoff.phone", "rule": "phone" } }
+  ]
+}</code></pre>
+      <p>A failed row's <code>error</code> has the same shape as any other <a href="#errors">error</a>: a validation problem may also carry <code>rule</code> and <code>params</code>, so you can show your own message in your customer's language.</p>
+      <p>With a <code>reference</code> per row, sending the same file again is safe: existing shipments are returned, not duplicated.</p>
+    </section>
+
+    <section id="returns">
+      <h2>Returns &amp; claims</h2>
+      <p class="endpoint"><span class="method post">POST</span> <code>/shipments/{id}/return-request</code> <code>{ "reason": "Wrong size" }</code></p>
+      <p>Your customer sends a delivered parcel back (up to 30 days after delivery). Turf creates a linked return shipment from the customer to your pickup address, with the same company when it can take it. The new shipment has <code>"kind": "customer_return"</code> and <code>returnOf</code>; the original gets <code>returnShipmentId</code>.</p>
+      <p class="endpoint"><span class="method post">POST</span> <code>/shipments/{id}/claims</code></p>
+<pre><code>{ "type": "damaged", "amount": 150000, "description": "The screen arrived cracked" }</code></pre>
+      <p><code>type</code>: <code>lost</code> (picked up and not delivered), <code>damaged</code> (after delivery, or after the company reported damage) or <code>late</code> (delivered after <code>promisedBy</code>). Up to 60 days after the shipment, one open claim per parcel. The shipping company accepts (possibly for a different amount) or rejects it with a reason; accepted compensation appears in your statement with that company.</p>
+      <p class="endpoint"><span class="method get">GET</span> <code>/claims</code> — your claims and their status (<code>open</code>, <code>accepted</code>, <code>rejected</code>, <code>withdrawn</code>).</p>
+    </section>
+
+    <section id="testmode">
+      <h2>Test mode</h2>
+      <p>Create a <strong>test key</strong> under <strong>Developers → API keys</strong> (it starts with <code>turf_test_</code>). With it every endpoint works the same, but shipments are practice shipments: no shipping company sees them, they have no fees, and they never appear in your real lists or reports. Practice quotes come from a fixed test carrier.</p>
+      <p class="endpoint"><span class="method post">POST</span> <code>/shipments/{id}/simulate</code> <code>{ "to": "delivered" }</code></p>
+      <p>Moves a practice shipment forward, step by step, firing the same <a href="#webhooks">webhooks</a> as a real one. <code>to</code>: <code>picked_up</code>, <code>at_hub</code>, <code>in_transit</code>, <code>out_for_delivery</code>, <code>delivered</code>, <code>delivery_failed</code>, <code>returned</code>. Use it to test your integration end to end before going live.</p>
+    </section>
+
+    <section id="reference">
+      <h2>Reference data</h2>
+      <p class="endpoint"><span class="method get">GET</span> <code>/governorates</code> — no key needed</p>
+      <p class="endpoint"><span class="method get">GET</span> <code>/statuses</code> — statuses, failure reasons and strategies, no key needed</p>
+      <p class="endpoint"><span class="method get">GET</span> <code>/carriers?pickup=DI&amp;dropoff=HL</code> — carriers you can choose directly</p>
+      <p class="endpoint" id="places"><span class="method get">GET</span> <code>/places</code> — your saved pickup places (<code>id</code>, <code>label</code>, address, <code>isDefault</code>); manage them under Settings in the dashboard. Pass an <code>id</code> as <code>pickup</code> when creating a shipment.</p>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Code</th><th>Governorate</th><th>المحافظة</th></tr></thead>
+        <tbody id="gov-table"></tbody>
+      </table></div>
+    </section>
+
+    <section id="errors">
+      <h2>Errors &amp; limits</h2>
+<pre><code>HTTP/1.1 400 Bad Request
+{ "error": { "code": "invalid_request", "message": "dropoff.phone must be a valid phone number", "field": "dropoff.phone", "rule": "phone" } }</code></pre>
+      <p>Validation errors also say which <code>rule</code> failed (<code>required</code>, <code>number</code>, <code>between</code>, <code>max_length</code>, <code>phone</code>, <code>one_of</code>, …) with its <code>params</code> (e.g. <code>{ "min": 0, "max": 100 }</code>), so you can show your own message in any language. Other errors have a specific <code>code</code> (and sometimes <code>params</code>); <code>message</code> is always a readable English sentence.</p>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>HTTP</th><th>code</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>400</td><td><code>invalid_request</code>, <code>invalid_json</code></td><td>Fix the field named in <code>field</code>.</td></tr>
+          <tr><td>401</td><td><code>unauthenticated</code>, <code>invalid_api_key</code></td><td>Missing, wrong or revoked key.</td></tr>
+          <tr><td>403</td><td><code>org_suspended</code></td><td>Your account is suspended.</td></tr>
+          <tr><td>404</td><td><code>not_found</code></td><td>No such shipment (or not yours).</td></tr>
+          <tr><td>409</td><td><code>cancel_too_late</code>, <code>cannot_change</code>, <code>courier_on_the_way</code>, <code>return_too_late</code>, <code>claim_exists</code>, <code>wrong_status</code>, …</td><td>Not possible in the current state (e.g. cancelling after pickup).</td></tr>
+          <tr><td>422</td><td><code>no_carrier_available</code>, <code>pickup_not_covered</code>, <code>dropoff_not_covered</code>, <code>pickup_area_not_covered</code>, <code>dropoff_area_not_covered</code>, <code>too_heavy</code>, <code>cod_not_supported</code>, <code>merchant_blocked</code>, …</td><td>No (or not that) carrier can take the shipment.</td></tr>
+          <tr><td>422</td><td><code>no_express_available</code>, <code>express_not_offered</code>, <code>express_too_far</code>, <code>express_too_heavy</code>, <code>express_closed</code>, <code>express_no_courier</code></td><td>Nobody (or not that carrier) can deliver it express right now.</td></tr>
+          <tr><td>429</td><td><code>rate_limited</code></td><td>Slow down; see <code>Retry-After</code>.</td></tr>
+        </tbody>
+      </table></div>
+      <p>Limits: 600 requests per minute per key; public tracking 120 per minute per IP. Every response carries <code>RateLimit-Limit</code>, <code>RateLimit-Remaining</code> and <code>RateLimit-Reset</code>.</p>
+    </section>
+
+    <section id="ar" dir="rtl" lang="ar" class="card">
+      <h2>ملخص بالعربية</h2>
+      <p>يتيح لك الـ API إنشاء الشحنات من خادم متجرك، فيُسندها Turf فوراً إلى شركة شحن: التي تختارها (<code>carrier</code>)، أو الأفضل تلقائياً (<code>"auto"</code>) حسب استراتيجية <code>strategy</code>: الأفضل إجمالاً، الأرخص، الأسرع، الأقرب، أو الأكثر موثوقية.</p>
+      <ul>
+        <li>أرسل المفتاح السري في ترويسة <code>Authorization: Bearer turf_sk_…</code> ومن خادمك فقط.</li>
+        <li>استخدم <code>reference</code> برقم طلبك كي لا تتكرر الشحنة عند إعادة المحاولة.</li>
+        <li>يعيد الرد رابط تتبع (<code>trackingUrl</code>) لإرساله للزبون، ورابط ملصق للطباعة (<code>labelUrl</code>)، ورمز تسليم (<code>deliveryCode</code>) يعطيه المستلم للمندوب.</li>
+        <li>واجهة التتبع تعيد الحالة نصاً بالعربية والإنجليزية، وسجل الأحداث، وموقع المندوب المباشر أثناء حمله للطرد مهما كانت وسيلته.</li>
+        <li>اضبط Webhook لتصلك كل تغييرات الحالة موقّعة بـ HMAC-SHA256.</li>
+        <li>لعرض خريطة تتبع مباشرة في متجرك أضف سطرين: <code>&lt;div data-turf-tracking="…"&gt;</code> و <code>embed.js</code>.</li>
+        <li>مفاتيح <code>turf_test_</code> للتجربة: شحنات تجريبية لا تصل لأي شركة، ويمكنك تحريكها بـ <code>/simulate</code> لاختبار الـ Webhooks.</li>
+        <li>حتى 500 شحنة في طلب واحد عبر <code>/shipments/bulk</code>، وتعديل معلومات المستلم بـ <code>PATCH</code>، وتحديد يوم التسليم بـ <code>/reschedule</code>.</li>
+        <li>إرجاع الزبون للطرد بـ <code>/return-request</code>، والمطالبات (فقدان، تلف، تأخير) بـ <code>/claims</code>.</li>
+        <li>يعرض <code>POST /quotes</code> كل المسارات المعقولة: شركات منفردة وسلاسل من حتى ثلاث شركات تتسلّم الطرد بالتتابع (<code>route</code>)، بشحنة ورقم تتبع وسعر واحد. مرّر <code>id</code> المسار في الحقل <code>option</code> عند الإنشاء لاختياره.</li>
+        <li>للوجبات والمواد الطازجة أرسل <code>"service": "express"</code>: توصيل خلال الساعة تقريباً من مكان الاستلام إلى المستلم مباشرة، من الشركات التي تقدّمه ولديها مندوب في وردية. يحتاج العنوانان إلى موقع على الخريطة.</li>
+        <li>أخطاء التحقق تتضمن <code>rule</code> و<code>params</code> لعرض رسالة بلغتك.</li>
+      </ul>
+    </section>
+  </main>
+</div>
+<script type="module" src="/js/docs.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+/* Developer documentation page. */
+.docs { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 100dvh; }
+.docs-nav {
+  position: sticky; top: 0; height: 100dvh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: .15rem; padding: 1rem .8rem;
+  background: var(--rail); color: var(--rail-ink); scrollbar-width: thin;
+}
+.docs-nav a { color: var(--rail-ink-2); text-decoration: none; padding: .45rem .7rem; border-radius: 10px; font-size: .9rem; font-weight: 600; transition: background-color var(--fast), color var(--fast); }
+.docs-nav a:hover { background: var(--rail-hover); color: var(--rail-ink); }
+.docs-nav .logo { display: flex; align-items: center; gap: .5rem; font-weight: 800; font-size: 1.05rem; margin-bottom: .8rem; color: var(--rail-ink); letter-spacing: -.02em; }
+.docs-nav .logo img { width: 30px; height: 30px; border-radius: 9px; }
+.docs-nav .btn { margin-top: .8rem; color: var(--on-accent); }
+.docs-main { padding: 2rem clamp(1rem, 4vw, 3rem) 4rem; max-width: 900px; display: grid; gap: 2.5rem; animation: view-in .5s var(--ease-out) both; }
+.docs-main section { display: grid; gap: .75rem; scroll-margin-top: 1rem; }
+.docs-main h1 { font-size: 2.1rem; letter-spacing: -.04em; }
+.docs-main h2 { font-size: 1.4rem; border-bottom: 1px solid var(--line-soft); padding-bottom: .4rem; }
+.docs-main .lead { font-size: 1.08rem; color: var(--ink-2); }
+.docs-main pre {
+  margin: 0; padding: 1rem 1.1rem; border-radius: var(--r-md); overflow-x: auto;
+  background: var(--rail); color: var(--rail-ink); font-size: .84rem; line-height: 1.55; direction: ltr; text-align: left;
+  border: 1px solid var(--line-soft);
+}
+.docs-main code { font-family: var(--mono); font-size: .88em; }
+.docs-main :not(pre) > code { background: var(--panel-3); padding: .1rem .4rem; border-radius: 6px; }
+.docs-main ul { margin: 0; padding-inline-start: 1.3rem; display: grid; gap: .3rem; }
+.endpoint { margin: 0; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.method { font-family: var(--mono); font-weight: 800; font-size: .74rem; padding: .18rem .5rem; border-radius: 7px; }
+.method.get { background: var(--ok-bg); color: var(--ok-ink); }
+.method.post { background: var(--accent-soft); color: var(--color-a); }
+.method.patch { background: var(--warn-bg); color: var(--warn-ink); }
+@media (max-width: 800px) {
+  .docs { grid-template-columns: minmax(0, 1fr); }
+  .docs-main, .docs-main section { grid-template-columns: minmax(0, 1fr); }
+  .docs-main :not(pre) > code { overflow-wrap: anywhere; }
+  .docs-nav { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .docs-nav .logo { margin: 0 .5rem 0 0; }
+  .docs-nav .btn { margin: 0; }
+}
+.docs-main .notice { display: block; }
