@@ -39,7 +39,8 @@ pub const Config = struct {
     long_stop_minutes: i64,
     paused_alert_minutes: i64,
     trust_proxy: bool,
-    /// Static files of the web app (Turf-js's `public/` until the Zig client replaces it).
+    /// Static files of the web app: TURF_PUBLIC_DIR, else the zui web build next to the binary
+    /// (zig-out/web beside zig-out/bin). Turf-js's `public/` works too (its pages are kept).
     public_dir: []const u8,
     smtp: Smtp,
 
@@ -101,7 +102,7 @@ pub const Config = struct {
             .long_stop_minutes = intOr(e, "LONG_STOP_MINUTES", 25),
             .paused_alert_minutes = intOr(e, "PAUSED_ALERT_MINUTES", 3),
             .trust_proxy = std.mem.eql(u8, e.str("TRUST_PROXY", ""), "true"),
-            .public_dir = e.str("TURF_PUBLIC_DIR", "public"),
+            .public_dir = e.str("TURF_PUBLIC_DIR", ""),
             .smtp = .{
                 .host = e.str("SMTP_HOST", ""),
                 .port = @intCast(smtp_port),
@@ -138,6 +139,8 @@ pub const App = struct {
     /// Outgoing requests: Wufour, Maps, Moderation, webhooks, push services.
     client: std.http.Client,
     started_ms: i64,
+    /// The public folder is Turf-js's (app.html templates) rather than the zui web build.
+    legacy_pages: bool = false,
 };
 
 /// The one instance; set in main before serving.

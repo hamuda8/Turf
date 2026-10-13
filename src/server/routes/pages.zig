@@ -105,6 +105,7 @@ pub fn handle(r: *Req) !bool {
     if (get and try web.match(r, "/auth/callback", path)) return done(auth.authCallback(r));
     if ((get or post) and try web.match(r, "/auth/logout", path)) return done(auth.logout(r));
     if (!get) return false;
+    if (!a_.app.legacy_pages) if (try zuiPage(r, path)) return true;
     // Static pages
     if (try web.match(r, "/", path)) return done(sendPage(r, "index.html"));
     if (try web.match(r, "/developers", path)) return done(sendPage(r, "developers.html"));
@@ -145,6 +146,39 @@ pub fn handle(r: *Req) !bool {
     if (try web.match(r, "/label/:token", path)) return done(label(r));
     if (try web.match(r, "/labels", path)) return done(labels(r));
     return false;
+}
+
+/// The zui web build is one page that routes itself: index.html for the app, tracking and
+/// lookup paths, developers.html for the API documentation. Sign-in happens inside the app.
+fn zuiPage(r: *Req, path: []const u8) !bool {
+    if (try web.match(r, "/developers", path)) return done(sendSpa(r, "developers.html"));
+    // Served by the routes below in both modes.
+    if (try web.match(r, "/o/:slug/manifest.webmanifest", path) or try web.match(r, "/o/:slug/asset/:file", path)) return false;
+    r.params.clearRetainingCapacity();
+    const app_paths = [_][]const u8{ "/", "/app", "/app/*rest", "/o/:slug", "/o/:slug/*rest", "/invite/:token" };
+    for (app_paths) |pattern| if (try web.match(r, pattern, path)) return done(sendSpa(r, "index.html"));
+    // Tracking pages keep their privacy settings; the embed may be framed by stores' sites.
+    if (try web.match(r, "/track", path) or try web.match(r, "/t/:token", path)) {
+        try r.setHeader("referrer-policy", "no-referrer");
+        return done(sendSpa(r, "index.html"));
+    }
+    if (try web.match(r, "/embed/t/:token", path)) {
+        r.allow_framing = true;
+        try r.setHeader("referrer-policy", "no-referrer");
+        return done(sendSpa(r, "index.html"));
+    }
+    // Terms and privacy: the operator's templates when the build has them, else the app's own pages.
+    for ([_][]const u8{ "terms", "privacy" }) |page| if (try web.match(r, try std.fmt.allocPrint(r.a, "/{s}", .{page}), path)) {
+        if (template(r, try std.fmt.allocPrint(r.a, "legal/{s}.html", .{page}))) |_| return done(legal(r, page)) else |_| return done(sendSpa(r, "index.html"));
+    };
+    return false;
+}
+
+fn sendSpa(r: *Req, name: []const u8) !void {
+    const html = routes_mod.readPublic(r, name) catch return r.notFound("File");
+    r.script_extra = try web.zuiScriptSources(r.a, html);
+    try r.setHeader("cache-control", "no-cache");
+    return r.html(200, html);
 }
 
 fn done(result: anyerror!void) anyerror!bool {

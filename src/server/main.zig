@@ -38,7 +38,11 @@ pub fn main(init: std.process.Init) !void {
     if (argv.next()) |first| if (std.mem.eql(u8, first, "--call")) return testhooks.cliCall(init, &argv);
 
     const env = try loadEnv(arena, io, init.environ_map);
-    const config = a_.Config.load(arena, &env) catch std.process.exit(1);
+    var config = a_.Config.load(arena, &env) catch std.process.exit(1);
+    if (config.public_dir.len == 0) {
+        const exe_dir = std.process.executableDirPathAlloc(io, arena) catch ".";
+        config.public_dir = try std.fs.path.join(arena, &.{ exe_dir, "..", "web" });
+    }
 
     const client = try mongo.Client.init(io, gpa, config.mongo_uri);
     defer client.deinit();
@@ -54,6 +58,8 @@ pub fn main(init: std.process.Init) !void {
     };
     defer state.client.deinit();
     a_.app = &state;
+    state.legacy_pages = if (std.Io.Dir.cwd().statFile(io, try std.fs.path.join(arena, &.{ config.public_dir, "app.html" }), .{})) |_| true else |_| false;
+    std.log.info("Pages from {s} ({s})", .{ config.public_dir, if (state.legacy_pages) "Turf-js public folder" else "zui web build" });
     web.errors_hook = errors.fromRequest;
     bus.bindings = &bindings;
     // TURF_SERVICES=live,dispatch,push starts only those services (the test harness, like

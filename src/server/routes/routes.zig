@@ -78,6 +78,7 @@ fn staticFile(r: *Req) !bool {
     } else if (std.mem.eql(u8, name, "offline.html")) {
         try r.setHeader("cache-control", "no-cache");
     } else try r.setHeader("cache-control", if (a_.cfg().is_production) "public, max-age=3600" else "public, max-age=0");
+    if (!a_.app.legacy_pages and std.ascii.endsWithIgnoreCase(rel, ".html")) r.script_extra = try web.zuiScriptSources(r.a, data);
     try r.send(200, contentType(rel), data);
     return true;
 }

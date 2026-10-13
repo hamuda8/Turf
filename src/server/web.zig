@@ -64,6 +64,8 @@ pub const Req = struct {
     events: std.ArrayList(Event) = .empty,
     /// The embed page may be framed by other sites.
     allow_framing: bool = false,
+    /// More script-src sources for this answer (zui pages: inline script hashes, WebAssembly).
+    script_extra: []const u8 = "",
     params: std.ArrayList(http.Param) = .empty,
     query_cache: ?Val = null,
 
@@ -187,10 +189,8 @@ pub const Req = struct {
     pub fn send(r: *Req, status: u16, content_type: []const u8, body: []const u8) !void {
         const c = r.ctx orelse return;
         if (c.responded) return;
-        if (r.allow_framing) {
-            r.removeHeader("x-frame-options");
-            try c.setHeader("content-security-policy", try csp(r.a, true));
-        }
+        if (r.allow_framing) r.removeHeader("x-frame-options");
+        if (r.allow_framing or r.script_extra.len > 0) try c.setHeader("content-security-policy", try csp(r.a, r.allow_framing, r.script_extra));
         return c.send(@enumFromInt(status), content_type, body);
     }
 
@@ -309,11 +309,11 @@ fn tileOrigin(a: Allocator) ![]const u8 {
 }
 
 /// The Content-Security-Policy of src/server.js. Embed pages may be framed by any site.
-pub fn csp(a: Allocator, allow_framing: bool) ![]const u8 {
+pub fn csp(a: Allocator, allow_framing: bool, script_extra: []const u8) ![]const u8 {
     const maps = originOf(a_.cfg().maps_url);
     const tiles = try tileOrigin(a);
-    return std.fmt.allocPrint(a, "default-src 'self'; script-src 'self' {s}; style-src 'self' 'unsafe-inline' {s}; font-src 'self'; img-src 'self' data: blob: {s} {s}; connect-src 'self' {s} {s}; worker-src 'self' blob:; child-src blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors {s}", .{
-        maps, maps, tiles, maps, maps, tiles, if (allow_framing) "*" else "'none'",
+    return std.fmt.allocPrint(a, "default-src 'self'; script-src 'self'{s} {s}; style-src 'self' 'unsafe-inline' {s}; font-src 'self'; img-src 'self' data: blob: {s} {s}; connect-src 'self' {s} {s}; worker-src 'self' blob:; child-src blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors {s}", .{
+        script_extra, maps, maps, tiles, maps, maps, tiles, if (allow_framing) "*" else "'none'",
     });
 }
 
@@ -322,7 +322,7 @@ pub fn securityHeaders(c: *http.Context) !void {
     try c.setHeader("referrer-policy", "strict-origin-when-cross-origin");
     try c.setHeader("permissions-policy", "geolocation=(self), camera=(self), microphone=()");
     try c.setHeader("cross-origin-opener-policy", "same-origin");
-    try c.setHeader("content-security-policy", try csp(c.arena, false));
+    try c.setHeader("content-security-policy", try csp(c.arena, false, ""));
     try c.setHeader("x-frame-options", "DENY");
 }
 
@@ -717,4 +717,26 @@ pub fn uriDecode(a: Allocator, s: []const u8) []const u8 {
         }
     }
     return out[0..n];
+}
+
+/// script-src additions for a zui page: the hash of each inline <script> and WebAssembly
+/// compilation (Turf-js's own pages needed neither).
+pub fn zuiScriptSources(a: Allocator, html: []const u8) ![]const u8 {
+    var out: std.ArrayList(u8) = .empty;
+    try out.appendSlice(a, " 'wasm-unsafe-eval'");
+    var i: usize = 0;
+    while (std.mem.indexOfPos(u8, html, i, "<script")) |start| {
+        const tag_end = std.mem.indexOfScalarPos(u8, html, start, '>') orelse break;
+        const close = std.mem.indexOfPos(u8, html, tag_end, "</script>") orelse break;
+        i = close + 9;
+        if (std.mem.indexOf(u8, html[start..tag_end], "src=") != null) continue;
+        // Browsers hash the text after HTML newline normalization (CR LF and CR become LF).
+        const body = try std.mem.replaceOwned(u8, a, html[tag_end + 1 .. close], "\r\n", "\n");
+        std.mem.replaceScalar(u8, body, '\r', '\n');
+        var digest: [32]u8 = undefined;
+        std.crypto.hash.sha2.Sha256.hash(body, &digest, .{});
+        var b64: [44]u8 = undefined;
+        try out.print(a, " 'sha256-{s}'", .{std.base64.standard.Encoder.encode(&b64, &digest)});
+    }
+    return out.items;
 }
