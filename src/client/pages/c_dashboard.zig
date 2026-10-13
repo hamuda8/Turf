@@ -1,9 +1,8 @@
 //! Carrier dashboard (Turf-js views/carrier/dashboard.js): the setup checklist, today's numbers,
 //! live activity.
 //!
-//! Turf-js refreshed the numbers on the company's live events (Server-Sent Events) and listed
-//! those events in a feed; zui has no event stream, so the numbers are read again every 20
-//! seconds and the feed stays with its hint.
+//! The numbers are read again on the company's live events (Server-Sent Events), as in
+//! Turf-js; its feed of those events stays with its hint.
 
 const std = @import("std");
 const zui = @import("zui");
@@ -38,15 +37,15 @@ pub fn enter(_: *S, c: *Cx) void {
         c.load(d_hubs, c.orgUrl("/carrier/hubs"));
         if (c.can("members.view")) c.load(d_members, c.orgUrl("/members"));
     }
-    c.after(refresh_ms, T_STATS);
+    c.orgLive(T_STATS, &.{ "shipment.created", "shipment.updated", "courier.duty", "alert" });
 }
 
 pub fn update(_: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
         .timer => |id| if (id == T_STATS) {
             // A failed refresh keeps the last numbers.
+            c.liveDone();
             if (!c.slot(d_stats).reloading) c.load(d_stats, c.orgUrl("/carrier/stats"));
-            c.after(refresh_ms, T_STATS);
         },
         else => {},
     }

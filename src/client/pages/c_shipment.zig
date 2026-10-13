@@ -277,7 +277,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         if (json.str(pod, "note").len > 0) parts.kv(ui, L("shipment.note"), json.str(pod, "note"));
         if (json.has(pod, "photoId")) {
             ui.begin(.{ .radius = 16, .background = kit.k.panel_2, .clip = true, .height = .{ .px = 240 } }, .{});
-            ui.image(kit.f(ui, "{s}/api/app/orgs/{s}/carrier/shipments/{s}/pod-photo", .{ core.api_base, c.orgId(), json.str(sh, "_id") }), .{ .width = .fill, .height = .{ .px = 240 } }, zui.key("pod"));
+            ui.imageWith(kit.f(ui, "{s}/api/app/orgs/{s}/carrier/shipments/{s}/pod-photo", .{ core.api_base, c.orgId(), json.str(sh, "_id") }), .{ .headers = c.headers(ui.arena()) }, .{ .width = .fill, .height = .{ .px = 240 } }, zui.key("pod"));
             ui.end();
         }
         kit.endCard(ui, .{});

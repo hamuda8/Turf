@@ -110,10 +110,10 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 if (expected) {
                     if (s.seen.has(code.items)) c.toast(cm.txc(c, "hub.check_twice", .{ .code = code.items }), .info);
                     s.seen.add(c, code.items);
-                    c.post("{{\"type\":\"vibrate\",\"pattern\":40}}", .{});
+                    c.fx.vibrate(40);
                 } else {
                     s.strangers.add(c, code.items);
-                    c.post("{{\"type\":\"vibrate\",\"pattern\":[80,60,80]}}", .{});
+                    c.fx.vibrate(200);
                 }
             },
         },

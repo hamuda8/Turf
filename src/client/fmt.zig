@@ -1,8 +1,6 @@
 //! Dates, times, numbers, money, distances and durations as Turf-js's core/format.js shows them
 //! (Intl with "en-GB", or "ar-SY-u-nu-latn": Latin digits, Arabic words), written out by hand
-//! because zui has no Intl. Also the wall clock: zui only has a monotonic frame clock, so the
-//! web shell sends the time and the time zone (shells/web/index.html), and the phones read
-//! the system clock.
+//! because zui has no Intl. The wall clock and the time zone come from zui (zui.now).
 
 const std = @import("std");
 const zui = @import("zui");
@@ -10,57 +8,20 @@ const builtin = @import("builtin");
 
 // ---- Clock --------------------------------------------------------------------------------
 
-/// Wall time in ms (Unix epoch), as last told by the web shell, and the local offset in minutes
-/// east of UTC (Damascus: +180).
-var web_now_ms: i64 = 0;
-var web_told_at: f64 = 0;
-var tz_minutes: i32 = 180;
 /// Tests set the time.
 pub var fixed_now_ms: ?i64 = null;
 
-/// The web shell's clock message (every few seconds): `now` ms and `tz` minutes east of UTC.
-pub fn setClock(now_ms: i64, tz: i32) void {
-    web_now_ms = now_ms;
-    tz_minutes = tz;
-    web_told_at = 0;
-}
-
+/// Wall time in ms (Unix epoch), from zui on every platform (the tests: 2025-10-12T12:00:00Z).
 pub fn now() i64 {
     if (fixed_now_ms) |n| return n;
-    switch (zui.platform) {
-        .web => return web_now_ms,
-        .headless => return 1_760_270_400_000, // 2025-10-12T12:00:00Z
-        else => {
-            var ts: std.c.timespec = undefined;
-            if (std.c.clock_gettime(.REALTIME, &ts) != 0) return 0;
-            return @as(i64, ts.sec) * 1000 + @divTrunc(@as(i64, ts.nsec), 1_000_000);
-        },
-    }
+    return zui.now();
 }
 
+/// The local offset in minutes east of UTC (Damascus: +180; the tests use Damascus).
 pub fn offsetMinutes() i32 {
-    if (zui.platform == .android or zui.platform == .ios) {
-        var t: std.c.time_t = @intCast(@divTrunc(now(), 1000));
-        var tm: Tm = undefined;
-        if (localtime_r(&t, &tm) != null) return @intCast(@divTrunc(tm.tm_gmtoff, 60));
-    }
-    return tz_minutes;
+    if (zui.platform == .headless) return 180;
+    return zui.tzOffset();
 }
-
-const Tm = extern struct {
-    tm_sec: c_int,
-    tm_min: c_int,
-    tm_hour: c_int,
-    tm_mday: c_int,
-    tm_mon: c_int,
-    tm_year: c_int,
-    tm_wday: c_int,
-    tm_yday: c_int,
-    tm_isdst: c_int,
-    tm_gmtoff: c_long,
-    tm_zone: ?[*:0]const u8,
-};
-extern "c" fn localtime_r(t: *std.c.time_t, out: *Tm) ?*Tm;
 
 // ---- Parsing ------------------------------------------------------------------------------
 
@@ -282,7 +243,6 @@ test "iso dates and numbers" {
     const a = arena.allocator();
     const ms = parseIso("2026-10-12T11:05:00.000Z").?;
     try std.testing.expectEqual(@as(i64, 1_791_803_100_000), ms);
-    tz_minutes = 180;
     try std.testing.expectEqualStrings("12 Oct 2026, 14:05", dateTime(a, "2026-10-12T11:05:00.000Z"));
     try std.testing.expectEqualStrings("1,234,567.89", number(a, 1234567.891, 2));
     try std.testing.expectEqualStrings("12", number(a, 12, 2));

@@ -12,6 +12,7 @@ const theme = @import("theme.zig");
 const icons = @import("icons.zig");
 const json = @import("json.zig");
 const labels = @import("labels.zig");
+const fmt = @import("fmt.zig");
 
 const Ui = core.Ui;
 const Msg = core.Msg;
@@ -670,15 +671,6 @@ pub const InputOpts = struct {
     background: ?Color = null,
 };
 
-/// The value shown for a password: one dot per character.
-fn dots(ui: *Ui, s: []const u8) []const u8 {
-    const n = std.unicode.utf8CountCodepoints(s) catch s.len;
-    var out = ui.arena().alloc(u8, n * 3) catch return "";
-    var i: usize = 0;
-    while (i < n) : (i += 1) @memcpy(out[i * 3 ..][0..3], "\u{2022}");
-    return out;
-}
-
 /// A text field bound to form slot `slot` (`c.val(slot)`).
 pub fn input(ui: *Ui, slot: u16, o: InputOpts) void {
     const value = cx.val(slot);
@@ -701,8 +693,18 @@ pub fn input(ui: *Ui, slot: u16, o: InputOpts) void {
     }, .{ .key = zui.key(slot) +% 7 });
     ui.input(.{
         .key = slotKey(slot),
-        .value = if (o.kind == .password) dots(ui, value) else value,
+        .value = value,
         .placeholder = o.placeholder,
+        .secure = o.kind == .password,
+        .keyboard = switch (o.kind) {
+            .number => .number,
+            .decimal, .signed => .decimal,
+            .email => .email,
+            .phone => .phone,
+            else => .text,
+        },
+        .return_key = if (o.kind == .search) .search else if (o.on_submit != null) .go else .default,
+        .multiline = o.kind == .multiline,
         .on_change = if (o.disabled) null else changer(slot, o.kind),
         .on_focus = .{ .focus = slot },
         .on_blur = .{ .blur = slot },
@@ -785,6 +787,32 @@ pub fn select(ui: *Ui, slot: u16, options: []const core.Opt, o: struct { placeho
     ui.text(shown, .{ .font_size = 15.2, .color = if (chosen) k.ink else k.ink_3, .max_lines = 1, .grow = 1 });
     icon(ui, icons.expand_more, 20, k.ink_3);
     ui.end();
+}
+
+/// A day ("YYYY-MM-DD" in the slot) or a time ("HH:MM") chosen with the platform's picker;
+/// `min`/`max` bound the days.
+pub fn dateField(ui: *Ui, lbl: []const u8, slot: u16, o: struct { time: bool = false, min: []const u8 = "", max: []const u8 = "", required: bool = false, placeholder: []const u8 = "", name: []const u8 = "", hint: []const u8 = "" }) void {
+    fieldBegin(ui, lbl, o.required);
+    const value = cx.val(slot);
+    const has_err = o.name.len > 0 and cx.fieldError(o.name) != null;
+    ui.begin(.{
+        .direction = .row,
+        .align_items = .center,
+        .gap = 8,
+        .height = .{ .px = 48 },
+        .width = .fill,
+        .padding = .xy(16, 0),
+        .radius = 16,
+        .background = if (has_err) k.f.withAlpha(0.07) else k.panel_3,
+        .border_width = 1,
+        .border_color = if (has_err) k.f else k.well_line,
+        .pressed_background = k.press,
+    }, .{ .on_press = .{ .open_date = .{ .slot = slot, .time = o.time, .min = ui.arena().dupe(u8, o.min) catch "", .max = ui.arena().dupe(u8, o.max) catch "" } } });
+    const shown = if (value.len == 0) o.placeholder else if (o.time) value else fmt.date(ui.arena(), value);
+    ui.text(shown, .{ .font_size = 15.2, .color = if (value.len > 0) k.ink else k.ink_3, .max_lines = 1, .grow = 1 });
+    icon(ui, if (o.time) icons.schedule else icons.calendar_today, 20, k.ink_3);
+    ui.end();
+    fieldEnd(ui, o.name, o.hint);
 }
 
 pub fn selectField(ui: *Ui, lbl: []const u8, slot: u16, options: []const core.Opt, o: struct { required: bool = false, placeholder: []const u8 = "", name: []const u8 = "", hint: []const u8 = "" }) void {

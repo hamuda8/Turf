@@ -65,7 +65,7 @@ pub fn enter(s: *S, c: *Cx) void {
         s.view = @intCast(i);
     };
     load(s, c, 50);
-    c.after(20_000, @intFromEnum(T.poll));
+    c.orgLive(@intFromEnum(T.poll), &.{ "shipment.created", "shipment.updated" });
 }
 
 pub fn leave(s: *S, _: *Cx) void {
@@ -101,8 +101,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 load(s, c, 50);
             },
             .poll => {
+                c.liveDone();
                 if (s.shown > 200) s.changed = true else if (!c.isBusy(@intFromEnum(A.more))) load(s, c, @max(50, s.shown));
-                c.after(20_000, @intFromEnum(T.poll));
             },
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {

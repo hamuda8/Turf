@@ -162,5 +162,5 @@ test "carrier finance: settle a courier's cash, statements, CSV" {
     // The CSV comes through the page bridge.
     try app.D.press("Download CSV");
     try testing.expect(app.D.respond("format=csv&lang=en", 200, "a,b\r\n"));
-    try testing.expect(std.mem.indexOf(u8, zui.host.posted.items, "\"type\":\"download\"") != null);
+    try testing.expect(zui.host.saved_name.items.len > 0);
 }

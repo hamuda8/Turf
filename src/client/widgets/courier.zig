@@ -95,7 +95,7 @@ pub fn update(ch: *Chrome, c: *Cx, e: core.Ev) bool {
             if (d.ok) {
                 ch.sos = false;
                 c.toast(L("sos.sent"), .ok);
-                c.post("{{\"type\":\"vibrate\",\"pattern\":200}}", .{});
+                c.fx.vibrate(200);
             }
             return true;
         },

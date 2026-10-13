@@ -1,6 +1,6 @@
 //! Live fleet map (Turf-js views/carrier/fleet.js): every courier's position, the hubs, and a
-//! courier's route over the last hours. Turf-js moved the markers on live events (SSE); zui has
-//! none, so the fleet reloads every 15 seconds (the "no signal" badges follow on each draw).
+//! courier's route over the last hours. The fleet reloads on live events (Server-Sent
+//! Events: positions, duty); the "no signal" badges follow on each draw.
 
 const std = @import("std");
 const zui = @import("zui");
@@ -44,7 +44,7 @@ pub fn title(_: *const S, _: *const Cx) []const u8 {
 pub fn enter(_: *S, c: *Cx) void {
     c.load(d_fleet, c.orgUrl("/carrier/fleet"));
     c.load(d_hubs, c.orgUrl("/carrier/hubs"));
-    c.after(15_000, t_poll);
+    c.orgLive(t_poll, &.{ "courier.position", "courier.duty" });
 }
 
 fn isStale(x: V) bool {
@@ -81,8 +81,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             _ = n;
         },
         .timer => |id| if (id == t_poll) {
+            c.liveDone();
             c.load(d_fleet, c.orgUrl("/carrier/fleet"));
-            c.after(15_000, t_poll);
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .filter => s.all = a.arg == 1,

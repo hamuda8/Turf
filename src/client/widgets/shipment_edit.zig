@@ -152,8 +152,8 @@ pub fn overlay(e: *const Edit, c: *const Cx, ui: *Ui) void {
         .day => {
             shell.modalBegin(ui, .{ .title = L("edit.reschedule_title"), .close = kit.act(A.close, 0), .key = zui.key("edit-day") });
             kit.small(ui, L("edit.reschedule_intro"));
-            // zui has no date picker: the day as YYYY-MM-DD (today to 14 days ahead).
-            kit.field(ui, L("edit.delivery_day"), f_day, .{ .required = true, .input = .{ .name = "date", .ltr = true, .placeholder = "YYYY-MM-DD", .on_submit = kit.act(A.save_day, 0) } });
+            // The platform's date picker: today to 14 days ahead.
+            kit.dateField(ui, L("edit.delivery_day"), f_day, .{ .required = true, .name = "date", .min = fmt.isoDay(ui.arena(), fmt.now()), .max = fmt.isoDay(ui.arena(), fmt.now() + 14 * 86_400_000), .placeholder = L("common.choose") });
             if (e.current_day.len > 0) kit.text(ui, ui.tf(labels.english("edit.currently") orelse "{date}", .{ .date = fmt.date(ui.arena(), e.current_day) }), .{ .size = 13.6 });
             shell.modalFoot(ui);
             shell.modalButton(ui, L("common.cancel"), kit.act(A.close, 0), .{});

@@ -66,15 +66,9 @@ fn missingColumns(c: *Cx, tb: csv.Table) []const u8 {
     return out.items;
 }
 
-/// Offers a file to save (web: the page's "download").
+/// Offers a file to save (a download on the web, the share sheet on the phones).
 fn download(c: *Cx, name: []const u8, text: []const u8) void {
-    if (zui.platform != .web and zui.platform != .headless) return;
-    var b = json.Obj.init(c.arena());
-    b.str("type", "download");
-    b.str("name", name);
-    b.str("text", text);
-    b.str("mime", "text/csv;charset=utf-8");
-    c.fx.post(b.done());
+    c.saveFile(name, "text/csv", text);
 }
 
 /// A failed row's error in the user's language (the server's English text when there is no
@@ -93,7 +87,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
         .act => |x| switch (@as(A, @enumFromInt(x.id))) {
             .template => download(c, "turf-shipments-template.csv", csv.write(c.arena(), &.{ &columns, &example })),
-            .pick => c.post("{{\"type\":\"pick-file\",\"id\":{d},\"accept\":\".csv,text/csv\"}}", .{file_id}),
+            .pick => c.pickFile(file_id, ".csv,text/csv"),
             .upload => {
                 var b = json.Obj.init(c.arena());
                 b.beginArray("rows");
@@ -266,13 +260,13 @@ test "bulk upload: a file, the upload, the report" {
     try testing.expect(app.D.respond("/api/app/orgs/o1", 200, m_new.merchant_org));
     try testing.expect(app.D.respond("/api/app/orgs/o1", 200, m_new.merchant_org));
     try app.D.press(L("bulk.template"));
-    try testing.expect(m_new.has(zui.host.posted.items, "turf-shipments-template.csv"));
+    try testing.expectEqualStrings("turf-shipments-template.csv", zui.host.saved_name.items);
     try app.D.press(t("Choose a CSV file"));
-    try testing.expect(m_new.has(zui.host.posted.items, "\"type\":\"pick-file\""));
-    app.D.R.dispatch(.{ .host = .{ .file = .{ .id = file_id, .name = "x.csv", .data = "recipient_phone,city\n0944,Damascus\n" } } });
+    try testing.expectEqualStrings(".csv,text/csv", zui.host.file_accept.?);
+    app.D.R.dispatch(.{ .file_picked = .{ .name = "x.csv", .data = "recipient_phone,city\n0944,Damascus\n" } });
     try testing.expect(app.D.findText(app.D.R.appState().page.m_bulk.missing) == 0);
     try testing.expect(app.D.findText(L("bulk.upload")) == 0);
-    app.D.R.dispatch(.{ .host = .{ .file = .{ .id = file_id, .name = "x.csv", .data = "reference,recipient_phone,weight_kg,lat,lng\nA1,0944,1,33.5,36.3\nA2,0955,2,33.5,36.3\n" } } });
+    app.D.R.dispatch(.{ .file_picked = .{ .name = "x.csv", .data = "reference,recipient_phone,weight_kg,lat,lng\nA1,0944,1,33.5,36.3\nA2,0955,2,33.5,36.3\n" } });
     try app.D.press(L("bulk.upload"));
     const b = m_new.lastFetch("/merchant/shipments/bulk").?;
     try testing.expect(m_new.has(b.body, "{\"rows\":[{\"reference\":\"A1\",\"recipient_phone\":\"0944\""));
@@ -282,5 +276,5 @@ test "bulk upload: a file, the upload, the report" {
     try testing.expect(app.D.findText("TRF-1") != 0);
     try testing.expect(app.D.findText("Bad phone") != 0);
     try app.D.press(L("bulk.download_report"));
-    try testing.expect(m_new.has(zui.host.posted.items, "2,error,,A2,recipient_phone,Bad phone"));
+    try testing.expect(m_new.has(zui.host.saved_data.items, "2,error,,A2,recipient_phone,Bad phone"));
 }

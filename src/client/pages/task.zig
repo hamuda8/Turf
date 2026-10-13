@@ -96,7 +96,7 @@ pub fn enter(_: *S, c: *Cx) void {
     // The page follows the position for navigation, on shift or not.
     gps.want(c, true);
     c.fx.cancelNotify(driver.alarm_id);
-    c.after(20_000, @intFromEnum(T.poll));
+    c.orgLive(@intFromEnum(T.poll), &.{"task.changed"});
 }
 
 fn task(c: *const Cx) ?V {
@@ -326,8 +326,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
         },
         .located => onFix(s, c),
         .timer => |id| if (id == @intFromEnum(T.poll)) {
+            c.liveDone();
             reload(c);
-            c.after(20_000, @intFromEnum(T.poll));
         },
         .photo => |p| if (p.id == 1) {
             if (p.data.len == 0) c.toast(L("task.photo_too_large"), .err) else s.photo = c.dupe(p.data);
@@ -385,7 +385,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 const obj = b.done();
                 post(s, c, .deliver_send, "complete", obj[1 .. obj.len - 1]);
             },
-            .photo => c.post("{{\"type\":\"pick-photo\",\"id\":1}}", .{}),
+            .photo => c.pickPhoto(1),
             .cod_toggle => s.cod_collected = !s.cod_collected,
             .fail_open => {
                 s.dialog = .fail;
@@ -419,7 +419,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 if (c.field_err == null) c.toast(core.errorMessage(c.arena(), d.status, d.v, false), .err);
                 return;
             }
-            c.post("{{\"type\":\"vibrate\",\"pattern\":80}}", .{});
+            c.fx.vibrate(80);
             switch (kind) {
                 .accept, .start => {
                     s.dialog = .none;
@@ -631,9 +631,8 @@ fn deliverDialog(s: *const S, c: *const Cx, ui: *Ui) void {
     if (require_code) kit.field(ui, L("task.delivery_code"), f_code, .{ .required = true, .hint = L("task.delivery_code_hint"), .input = .{ .kind = .code, .name = "code", .ltr = true, .size = 33.6, .height = 64, .@"align" = .center, .weight = 700 } });
     kit.field(ui, L("shipment.receiver_name"), f_receiver, .{ .input = .{ .name = "pod.receiverName" } });
     kit.fieldBegin(ui, L("task.photo"), false);
-    if (zui.platform == .web or zui.platform == .headless) {
-        kit.button(ui, L("task.photo"), kit.act(A.photo, 0), .{ .icon = icons.photo_camera, .block = true });
-    } else kit.notice(ui, .warn, core.t("Taking a photo needs the web app for now."));
+    // The camera on every platform (Cx.pickPhoto); the photo shows below once taken.
+    kit.button(ui, L("task.photo"), kit.act(A.photo, 0), .{ .icon = icons.photo_camera, .block = true });
     kit.fieldEnd(ui, "pod.photo", if (require_code) L("task.photo_optional") else L("task.photo_recommended"));
     if (s.photo.len > 0) {
         ui.begin(.{ .radius = 16, .background = k.panel_2, .clip = true, .height = .{ .px = 240 } }, .{});
@@ -661,8 +660,8 @@ fn failDialog(s: *const S, c: *const Cx, ui: *Ui) void {
     shell.modalBegin(ui, .{ .title = if (isDelivery(c)) L("task.failed_attempt") else L("task.pickup_failed"), .close = kit.act(A.close_dialog, 0), .key = zui.key("fail") });
     kit.selectField(ui, L("task.fail_reason"), f_reason, opts.items, .{ .required = true, .name = "reason" });
     if (std.mem.eql(u8, c.val(f_reason), "reschedule_requested")) {
-        // zui has no date picker: the day as YYYY-MM-DD (today to 14 days ahead).
-        kit.field(ui, L("task.new_day"), f_day, .{ .hint = L("task.new_day_hint"), .input = .{ .placeholder = fmt.isoDay(ui.arena(), fmt.now() + 86_400_000), .ltr = true, .name = "rescheduleFor" } });
+        // The platform's date picker: today to 14 days ahead.
+        kit.dateField(ui, L("task.new_day"), f_day, .{ .hint = L("task.new_day_hint"), .min = fmt.isoDay(ui.arena(), fmt.now()), .max = fmt.isoDay(ui.arena(), fmt.now() + 14 * 86_400_000), .placeholder = L("common.choose"), .name = "rescheduleFor" });
     }
     kit.field(ui, L("task.fail_note"), f_note, .{ .input = .{ .name = "note" } });
     shell.modalFoot(ui);

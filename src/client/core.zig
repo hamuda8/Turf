@@ -64,6 +64,7 @@ pub const Shell = union(enum) {
 };
 
 pub const Picker = struct { slot: u16, title: []const u8, options: []const Opt };
+pub const DateAsk = struct { slot: u16, time: bool = false, min: []const u8 = "", max: []const u8 = "" };
 
 pub const Msg = union(enum) {
     boot,
@@ -81,6 +82,10 @@ pub const Msg = union(enum) {
     map: zui.Pointer,
     shell: Shell,
     open_picker: Picker,
+    /// Opens the platform's date or time picker for a form slot; the choice comes back as
+    /// `date_picked` ("YYYY-MM-DD" or "HH:MM").
+    open_date: DateAsk,
+    date_picked: []const u8,
     host: Host,
     socket: zui.SocketEvent,
     /// An input got or lost the keyboard (its form slot).
@@ -90,18 +95,19 @@ pub const Msg = union(enum) {
     copy: []const u8,
     /// Opens an address outside the app (tel:, a map app, a document).
     open: []const u8,
+    /// A photo (fx.pickPhoto) or a file (fx.pickFile) the user chose, for `photo_id`/`file_id`.
+    photo_picked: zui.File,
+    file_picked: zui.File,
+    /// The page's live events (Server-Sent Events, `Cx.liveEvents`).
+    live: zui.ServerEvent,
 };
 
-/// Messages from the web shell (shells/web/index.html).
+/// What the platform tells the app (zui's linkEvent and deviceEvent).
 pub const Host = union(enum) {
-    clock: struct { now: i64, tz: i32 },
+    /// Back or forward to an address (the browser's buttons, Android's Back, the iOS swipe).
     popstate: []const u8,
     online: bool,
     visible: bool,
-    /// A picture the user chose (data: URL), for `fx.post({type:"pick-photo"})`.
-    photo: struct { id: u16, data: []const u8 },
-    /// A text file the user chose (CSV import).
-    file: struct { id: u16, name: []const u8, data: []const u8 },
 };
 
 pub const Ev = union(enum) {
@@ -118,6 +124,8 @@ pub const Ev = union(enum) {
     photo: struct { id: u16, data: []const u8 },
     file: struct { id: u16, name: []const u8, data: []const u8 },
     socket: zui.SocketEvent,
+    /// An event of the page's stream (`Cx.liveEvents`).
+    live: zui.ServerEvent,
 };
 
 pub const Done = struct {
@@ -245,6 +253,19 @@ pub const Cx = struct {
     field_err: ?FieldError = null,
     /// Request data: action id -> argument (rows).
     act_args: std.AutoHashMapUnmanaged(u16, u32) = .empty,
+
+    /// The form slot of the date or time being chosen.
+    date_slot: u16 = 0,
+    /// Who asked for the photo or file being chosen (the page's id for it).
+    photo_id: u16 = 0,
+    file_id: u16 = 0,
+    /// The page's event stream (0: none), the page timer its events fire (once per burst), the
+    /// event names that do, and whether it has connected before (a reconnect reloads too).
+    live_stream: u32 = 0,
+    live_timer: u16 = 0,
+    live_names: []const []const u8 = &.{},
+    live_pending: bool = false,
+    live_opened: bool = false,
 
     // Shell.
     menu_open: bool = false,
@@ -398,7 +419,9 @@ pub const Cx = struct {
         return c.page_arena.allocator();
     }
 
-    fn headers(c: *const Cx, a: std.mem.Allocator) []const [2][]const u8 {
+    /// The session's headers (the phones' Bearer token), for requests, event streams and
+    /// pictures only the member may see (`ui.imageWith`).
+    pub fn headers(c: *const Cx, a: std.mem.Allocator) []const [2][]const u8 {
         if (c.token) |tok| {
             const h = a.alloc([2][]const u8, 2) catch return &.{};
             h[0] = .{ "X-Requested-With", "turf" };
@@ -607,8 +630,80 @@ pub const Cx = struct {
         c.toast(t("Copied"), .ok);
     }
 
-    /// Web: a request to the page around the app (shells/web/index.html): history, photos,
-    /// files, downloads, printing, sounds.
+    /// A photo from the camera (or the gallery), shrunk to a JPEG of at most 1280 points a
+    /// side; it arrives as the page's `.photo` event (a data: URL) with `id`.
+    pub fn pickPhoto(c: *Cx, id: u16) void {
+        c.photo_id = id;
+        c.fx.pickPhoto(.{ .camera = true, .max_size = 1280, .quality = 70 }, onPhoto);
+    }
+
+    /// A file (`accept`: MIME types and extensions); it arrives as the page's `.file` event.
+    pub fn pickFile(c: *Cx, id: u16, accept: []const u8) void {
+        c.file_id = id;
+        c.fx.pickFile(.{ .accept = accept }, onFile);
+    }
+
+    /// Offers a file the app made: a download on the web, Downloads and the share sheet on the
+    /// phones.
+    pub fn saveFile(c: *Cx, name: []const u8, mime: []const u8, bytes: []const u8) void {
+        c.fx.saveFile(.{ .name = name, .mime = mime, .data = bytes, .share = zui.platform != .web });
+    }
+
+    /// The page follows the company's live events (Turf-js core/live.js): one of `names`
+    /// fires the page's timer `timer` (its reload) once per burst, as does connecting again.
+    pub fn orgLive(c: *Cx, timer: u16, names: []const []const u8) void {
+        c.liveAt(c.print("/api/app/orgs/{s}/stream", .{c.orgId()}), timer, names);
+    }
+
+    /// `orgLive` for another stream (the public tracking page's).
+    pub fn liveAt(c: *Cx, path: []const u8, timer: u16, names: []const []const u8) void {
+        c.liveEvents(path);
+        c.live_timer = timer;
+        c.live_names = names;
+    }
+
+    /// The page's timer fired by live events has run: the next event may fire it again.
+    pub fn liveDone(c: *Cx) void {
+        c.live_pending = false;
+    }
+
+    /// A live event: fires the page's timer when it is one the page wants.
+    pub fn liveEvent(c: *Cx, e: zui.ServerEvent) void {
+        const hit = switch (e.kind) {
+            .open => blk: {
+                const again = c.live_opened;
+                c.live_opened = true;
+                break :blk again;
+            },
+            .message => for (c.live_names) |n| {
+                if (std.mem.eql(u8, n, e.event)) break true;
+            } else false,
+            .failed, .closed => false,
+        };
+        if (!hit or c.live_pending or c.live_timer == 0) return;
+        c.live_pending = true;
+        c.after(400, c.live_timer);
+    }
+
+    /// Follows the page's Server-Sent Events at `path` (with the session); they arrive as the
+    /// page's `.live` event. One stream at a time; leaving the page closes it.
+    pub fn liveEvents(c: *Cx, path: []const u8) void {
+        c.closeLive();
+        var a = std.heap.ArenaAllocator.init(gpa);
+        defer a.deinit();
+        c.live_stream = c.fx.openEvents(.{ .url = c.staticUrl(path), .headers = c.headers(a.allocator()) }, onLive);
+    }
+
+    pub fn closeLive(c: *Cx) void {
+        if (c.live_stream != 0) c.fx.closeEvents(c.live_stream);
+        c.live_stream = 0;
+        c.live_timer = 0;
+        c.live_names = &.{};
+        c.live_pending = false;
+        c.live_opened = false;
+    }
+
+    /// Web: a request to the page around the app (shells/web/index.html): printing, the title.
     pub fn post(c: *Cx, comptime f: []const u8, args: anytype) void {
         if (zui.platform != .web and zui.platform != .headless) return;
         var buf: [4096]u8 = undefined;
@@ -616,6 +711,18 @@ pub const Cx = struct {
         c.fx.post(s);
     }
 };
+
+fn onPhoto(f: zui.File) Msg {
+    return .{ .photo_picked = f };
+}
+
+fn onFile(f: zui.File) Msg {
+    return .{ .file_picked = f };
+}
+
+fn onLive(e: zui.ServerEvent) Msg {
+    return .{ .live = e };
+}
 
 /// Request tags: kind (2 bits), page generation (14 bits), code (16 bits).
 pub const TagKind = enum(u2) { slot = 0, act = 1, global = 2, gps = 3 };

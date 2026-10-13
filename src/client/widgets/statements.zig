@@ -21,11 +21,9 @@ const L = labels.k;
 
 pub const Side = enum { carrier, merchant };
 
-/// Offers a file the app made (web: the page bridge "download"; the phones have no downloads).
+/// Offers a file the app made (a download on the web, the share sheet on the phones).
 pub fn download(c: *Cx, name: []const u8, text: []const u8, mime: []const u8) void {
-    if (zui.platform != .web and zui.platform != .headless) return;
-    const msg = std.fmt.allocPrint(c.arena(), "{{\"type\":\"download\",\"name\":{f},\"text\":{f},\"mime\":{f}}}", .{ std.json.fmt(name, .{}), std.json.fmt(text, .{}), std.json.fmt(mime, .{}) }) catch return;
-    c.fx.post(msg);
+    c.saveFile(name, mime, text);
 }
 
 /// Rows of cells as CSV text, with a BOM so Excel opens Arabic correctly (`toCsv`).

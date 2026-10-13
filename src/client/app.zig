@@ -252,14 +252,13 @@ pub fn navigate(c: *Cx, base: []const u8, path: []const u8, push: bool) void {
     openLink(c, link, true);
 }
 
-/// The browser's address follows (web: a history entry through the page; phones keep it).
+/// The address follows: a history entry (the browser's on the web, zui's on the phones, so
+/// Back returns here) or in place of the current one.
 fn syncAddress(c: *Cx, push: bool) void {
     var a = std.heap.ArenaAllocator.init(gpa);
     defer a.deinit();
     const link = fullLink(c, a.allocator());
-    if (zui.platform == .web and push) {
-        c.post("{{\"type\":\"push\",\"link\":{f}}}", .{std.json.fmt(link, .{})});
-    } else c.fx.setLink(link);
+    if (push) c.fx.pushLink(link) else c.fx.setLink(link);
 }
 
 /// Continues start-up or opens the page, depending on what the session has.
@@ -325,6 +324,7 @@ fn leavePage(c: *Cx) void {
     c.clearFieldError();
     c.closeConfirm();
     c.picker = null;
+    c.closeLive();
     c.menu_open = false;
     c.focused = null;
     c.busy.clearRetainingCapacity();
@@ -419,7 +419,6 @@ pub fn update(c: *State, msg: Msg, env: zui.Env, fx: zui.Fx(Msg)) void {
                 .number => core.normalizeNumber(a, x.text, false, false),
                 .decimal => core.normalizeNumber(a, x.text, true, false),
                 .signed => core.normalizeNumber(a, x.text, true, true),
-                .password => passwordEdit(a, c.val(slot), x.text),
                 else => x.text,
             };
             c.setVal(slot, value);
@@ -447,33 +446,45 @@ pub fn update(c: *State, msg: Msg, env: zui.Env, fx: zui.Fx(Msg)) void {
             const opts = a.alloc(core.Opt, p.options.len) catch return;
             for (p.options, 0..) |o, i| opts[i] = .{ .value = a.dupe(u8, o.value) catch "", .label = a.dupe(u8, o.label) catch "" };
             c.picker = .{ .slot = p.slot, .title = a.dupe(u8, p.title) catch "", .options = opts };
+            // The platform's own list (a <select>, an Android dialog, an iOS action sheet).
+            const names = a.alloc([]const u8, opts.len) catch return;
+            var selected: ?u32 = null;
+            for (opts, 0..) |o, i| {
+                names[i] = o.label;
+                if (std.mem.eql(u8, o.value, c.val(p.slot))) selected = @intCast(i);
+            }
+            fx.pickOption(.{ .title = c.picker.?.title, .options = names, .selected = selected }, onPicked);
+        },
+        .open_date => |d| {
+            c.date_slot = d.slot;
+            if (d.time) fx.pickTime(.{ .value = c.val(d.slot) }, onDatePicked) else fx.pickDate(.{ .value = c.val(d.slot), .min = d.min, .max = d.max }, onDatePicked);
+        },
+        .date_picked => |v| {
+            c.setVal(c.date_slot, v);
+            if (c.field_err != null) c.clearFieldError();
+            pageEvent(c, .{ .text = .{ .slot = c.date_slot, .text = v } });
         },
         .host => |h| host(c, h),
         .socket => |e| pageEvent(c, .{ .socket = e }),
         .copy => |s| c.copy(s),
         .open => |u| c.external(u, true),
+        .photo_picked => |f| {
+            // The page gets a data: URL, as Turf-js uploaded it.
+            var arena = std.heap.ArenaAllocator.init(gpa);
+            defer arena.deinit();
+            const enc = std.base64.standard.Encoder;
+            const prefix = "data:image/jpeg;base64,";
+            const data = arena.allocator().alloc(u8, prefix.len + enc.calcSize(f.data.len)) catch return;
+            @memcpy(data[0..prefix.len], prefix);
+            _ = enc.encode(data[prefix.len..], f.data);
+            pageEvent(c, .{ .photo = .{ .id = c.photo_id, .data = data } });
+        },
+        .file_picked => |f| pageEvent(c, .{ .file = .{ .id = c.file_id, .name = f.name, .data = f.data } }),
+        .live => |e| if (e.stream == c.live_stream) {
+            c.liveEvent(e);
+            pageEvent(c, .{ .live = e });
+        },
     }
-}
-
-/// A password field shows dots: the new password is the old one's first characters (one per
-/// dot left) plus what was typed (zui has no secure text field).
-pub fn passwordEdit(a: std.mem.Allocator, old: []const u8, shown: []const u8) []const u8 {
-    var kept: usize = 0;
-    var typed: std.ArrayList(u8) = .empty;
-    var i: usize = 0;
-    while (i < shown.len) {
-        if (std.mem.startsWith(u8, shown[i..], "\u{2022}")) {
-            kept += 1;
-            i += 3;
-        } else {
-            typed.append(a, shown[i]) catch {};
-            i += 1;
-        }
-    }
-    var end: usize = 0;
-    var n: usize = 0;
-    while (end < old.len and n < kept) : (n += 1) end += std.unicode.utf8ByteSequenceLength(old[end]) catch 1;
-    return std.fmt.allocPrint(a, "{s}{s}", .{ old[0..@min(end, old.len)], typed.items }) catch old;
 }
 
 fn start(c: *Cx) void {
@@ -500,7 +511,6 @@ pub fn back(c: *Cx) void {
 
 fn host(c: *Cx, h: core.Host) void {
     switch (h) {
-        .clock => |x| fmt.setClock(x.now, x.tz),
         .popstate => |link| {
             // The browser's Back: that page, without a new browser history entry.
             if (c.history.items.len > 0) gpa.free(c.history.pop().?);
@@ -519,28 +529,30 @@ fn host(c: *Cx, h: core.Host) void {
             if (c.gps.on) gps.presence(c, if (v) "foreground" else "background");
             if (v) gps.flush(c);
         },
-        .photo => |p| pageEvent(c, .{ .photo = .{ .id = p.id, .data = p.data } }),
-        .file => |f| pageEvent(c, .{ .file = .{ .id = f.id, .name = f.name, .data = f.data } }),
     }
 }
 
-/// Messages from the web shell (shells/web/index.html).
-pub fn hostMessage(text: []const u8) ?Msg {
-    const H = struct {
-        var arena: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
-    };
-    _ = H.arena.reset(.retain_capacity);
-    const a = H.arena.allocator();
-    const v = json.parse(a, text) orelse return null;
-    const kind = json.str(v, "type");
-    const eq = std.mem.eql;
-    if (eq(u8, kind, "clock")) return .{ .host = .{ .clock = .{ .now = json.int(v, "now"), .tz = @intCast(json.int(v, "tz")) } } };
-    if (eq(u8, kind, "popstate")) return .{ .host = .{ .popstate = json.str(v, "link") } };
-    if (eq(u8, kind, "online")) return .{ .host = .{ .online = json.boolean(v, "on") } };
-    if (eq(u8, kind, "visible")) return .{ .host = .{ .visible = json.boolean(v, "on") } };
-    if (eq(u8, kind, "photo")) return .{ .host = .{ .photo = .{ .id = @intCast(json.int(v, "id")), .data = json.str(v, "data") } } };
-    if (eq(u8, kind, "file")) return .{ .host = .{ .file = .{ .id = @intCast(json.int(v, "id")), .name = json.str(v, "name"), .data = json.str(v, "data") } } };
-    return null;
+fn onDatePicked(v: []const u8) Msg {
+    return .{ .date_picked = v };
+}
+
+fn onPicked(i: u32) Msg {
+    return .{ .shell = .{ .pick = @intCast(i) } };
+}
+
+/// Back or forward to an address: the browser's buttons, Android's Back, the iOS swipe.
+pub fn linkEvent(link: []const u8) ?Msg {
+    return .{ .host = .{ .popstate = link } };
+}
+
+/// The connection and the app coming and going (GPS upload, presence).
+pub fn deviceEvent(e: zui.DeviceEvent) ?Msg {
+    return .{ .host = switch (e) {
+        .online => .{ .online = true },
+        .offline => .{ .online = false },
+        .visible => .{ .visible = true },
+        .hidden => .{ .visible = false },
+    } };
 }
 
 fn globalTimer(c: *Cx, id: u16) void {
@@ -653,7 +665,8 @@ fn alertsAnswer(c: *Cx, r: zui.Response) void {
         if (!c.alerts_seeded) continue;
         const text = zui.i18n.tf(tmp.allocator(), labels.english("alerts.sos_toast") orelse "SOS: {name}", .{ .name = json.str(x, "courierName") });
         c.toast(text, .err);
-        c.post("{{\"type\":\"beep\"}}", .{});
+        c.fx.beep();
+        c.fx.vibrate(300);
         c.fx.notify(.{ .id = 900, .title = labels.k("alerts.type.sos"), .body = text, .urgent = true });
     }
     c.alerts_seeded = true;
@@ -824,9 +837,9 @@ test "phones: sign in, keep the token, send it, sign out" {
     defer D.reset();
     try testing.expect(D.findText("Sign in") != 0);
     try D.typeInto("you@example.com", "sara@example.com");
-    try D.typeInto("Password", "pa");
-    // The password shows as dots and keeps what was typed.
-    try D.typeInto("Password", "\u{2022}\u{2022}ss");
+    // A secure field: the platform hides what is typed.
+    try testing.expect(D.inputView("Password").?.input_type.secure);
+    try D.typeInto("Password", "pass");
     try D.inputEvent("Password", .submit);
     const login = zui.host.fetches.items[zui.host.fetches.items.len - 1];
     try testing.expect(std.mem.endsWith(u8, login.url, "/api/auth/login"));
@@ -842,14 +855,6 @@ test "phones: sign in, keep the token, send it, sign out" {
     D.R.dispatch(.{ .shell = .sign_out });
     try testing.expect(zui.host.stored.get("token") == null);
     try testing.expect(D.findText("Sign in") != 0);
-}
-
-test "password edits" {
-    var arena = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
-    try testing.expectEqualStrings("pass", passwordEdit(a, "pa", "\u{2022}\u{2022}ss"));
-    try testing.expectEqualStrings("p", passwordEdit(a, "pa", "\u{2022}"));
 }
 
 test {

@@ -228,8 +228,10 @@ pub fn view(c: *const Cx, ui: *Ui) void {
     }
 
     pageOverlay(c, ui);
-    if (c.menu_open and kit.phone and !isBare(c)) menuPanel(c, ui);
-    if (c.picker) |p| pickerSheet(c, ui, p);
+    if (c.menu_open and kit.phone and !isBare(c)) {
+        ui.onBack(.{ .shell = .menu_close });
+        menuPanel(c, ui);
+    }
     if (c.confirm) |x| confirmDialog(ui, x);
     toasts(c, ui);
     ui.end();
@@ -508,6 +510,8 @@ pub const ModalOpts = struct {
 /// with the close button. Draw the body, then `modalFoot` and the buttons, then `modalEnd`.
 pub fn modalBegin(ui: *Ui, o: ModalOpts) void {
     const k = kit.k;
+    // Back (Android's, the browser's, the iOS swipe) closes the dialog.
+    ui.onBack(o.close);
     const w = ui.env.width;
     const sheet = w <= 640;
     ui.begin(.{
@@ -570,20 +574,6 @@ fn confirmDialog(ui: *Ui, x: core.Confirm) void {
     modalButton(ui, L("common.cancel"), .{ .shell = .confirm_no }, .{});
     modalButton(ui, x.label, .{ .shell = .confirm_yes }, .{ .variant = if (x.danger) .danger else .primary });
     modalEnd(ui, true);
-}
-
-fn pickerSheet(c: *const Cx, ui: *Ui, p: core.Picker) void {
-    const k = kit.k;
-    modalBegin(ui, .{ .title = if (p.title.len > 0) p.title else L("common.choose"), .close = .{ .shell = .pick_close }, .dismissible = true, .key = zui.key("picker") });
-    const current = c.val(p.slot);
-    for (p.options, 0..) |o, i| {
-        const on = std.mem.eql(u8, o.value, current);
-        ui.begin(.{ .direction = .row, .align_items = .center, .gap = 8, .padding = .xy(14.4, 11.2), .radius = 12, .background = if (on) k.accent_soft else null, .pressed_background = k.panel_2 }, .{ .on_press = .{ .shell = .{ .pick = @intCast(i) } }, .key = zui.key(i + 1) });
-        ui.text(o.label, .{ .font_size = 15, .weight = if (on) 700 else 500, .color = if (on) k.a else k.ink, .grow = 1 });
-        if (on) kit.icon(ui, icons.check, 20, k.a);
-        ui.end();
-    }
-    modalEnd(ui, false);
 }
 
 fn toasts(c: *const Cx, ui: *Ui) void {

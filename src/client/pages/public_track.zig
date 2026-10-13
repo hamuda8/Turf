@@ -3,8 +3,8 @@
 //! its progress, the delivery code, the courier on a live map, the recipient pinning their door,
 //! choosing another delivery day, rating the delivery, the history, the carrier's phone.
 //!
-//! Turf-js followed the parcel over Server-Sent Events; zui has none, so the page polls (every
-//! 10 seconds: the courier's position and the status). The map follows the courier until the
+//! The page follows the parcel over Server-Sent Events (the courier's position and the
+//! status), as Turf-js did. The map follows the courier until the
 //! visitor moves it. The page wears the carrier's colour.
 
 const std = @import("std");
@@ -90,7 +90,7 @@ pub fn enter(s: *S, c: *Cx) void {
     const lang = c.query(c.arena(), "lang");
     if (eq(lang, "ar") or eq(lang, "en")) zui.i18n.setLanguage(lang);
     load(s, c);
-    c.after(poll_ms, T_POLL);
+    c.liveAt(c.print("/api/public/track/{s}/stream?lang={s}", .{ s.token, c.lang() }), T_POLL, &.{ "courier.position", "tracking.event" });
 }
 
 /// The map's width: the page is at most 760 wide, a card has 20 of padding each side.
@@ -157,8 +157,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
         },
         .timer => |id| switch (id) {
             T_POLL => {
+                c.liveDone();
                 if (c.slot(d_track).state != .loading and !c.slot(d_track).reloading) load(s, c);
-                c.after(poll_ms, T_POLL);
             },
             T_LOCATE => if (s.pin_mode == .locating) {
                 // No position in time: the map can still be tapped.

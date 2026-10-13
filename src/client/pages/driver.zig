@@ -63,9 +63,8 @@ pub fn title(_: *const S, c: *const Cx) []const u8 {
 
 pub fn enter(_: *S, c: *Cx) void {
     reload(c);
-    // Fallback polling (Turf-js listened to task.changed over SSE and polled every minute; zui
-    // has no SSE, so the list is checked more often).
-    c.after(20_000, @intFromEnum(T.poll));
+    // New and changed tasks arrive as live events (Server-Sent Events).
+    c.orgLive(@intFromEnum(T.poll), &.{"task.changed"});
     c.fx.cancelNotify(alarm_id);
 }
 
@@ -110,7 +109,7 @@ fn startShift(s: *S, c: *Cx) void {
     s.switching = true;
     s.going_on = true;
     gps.start(c, courier.shiftTitle(c), courier.shiftBody());
-    c.post("{{\"type\":\"wake\",\"on\":true}}", .{});
+    c.fx.keepAwake(true);
     c.send(@intFromEnum(A.duty), .POST, c.orgUrl("/courier/duty"), "{\"onDuty\":true}");
 }
 
@@ -130,7 +129,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 s.on_duty = json.boolean(c.data(d_me), "onDuty");
                 if (s.on_duty and !gps.isTracking(c)) {
                     gps.start(c, courier.shiftTitle(c), courier.shiftBody());
-                    c.post("{{\"type\":\"wake\",\"on\":true}}", .{});
+                    c.fx.keepAwake(true);
                 }
                 widget(s, c);
             },
@@ -152,8 +151,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             else => {},
         },
         .timer => |id| if (id == @intFromEnum(T.poll)) {
+            c.liveDone();
             reload(c);
-            c.after(20_000, @intFromEnum(T.poll));
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .toggle => {
@@ -195,7 +194,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 } else {
                     if (!s.going_on) {
                         gps.stop(c, true);
-                        c.post("{{\"type\":\"wake\",\"on\":false}}", .{});
+                        c.fx.keepAwake(false);
                     }
                     // The screen follows at once, even if the refresh below fails.
                     s.on_duty = s.going_on;
@@ -214,8 +213,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
 fn announce(c: *Cx, t: V) void {
     const kind = labels.taskType(json.str(t, "type"));
     c.toast(labels.tf(c.arena(), "driver.new_task", .{ .type = kind }), .ok);
-    c.post("{{\"type\":\"beep\",\"freq\":660,\"times\":2}}", .{});
-    c.post("{{\"type\":\"vibrate\",\"pattern\":[200,100,200,100,400]}}", .{});
+    c.fx.beep();
+    c.fx.vibrate(800);
     c.fx.notify(.{
         .id = alarm_id,
         .title = L("driver.new_task_title"),

@@ -59,7 +59,7 @@ pub fn enter(s: *S, c: *Cx) void {
     c.setVal(f_status, c.query(c.arena(), "status"));
     s.test_only = std.mem.eql(u8, c.query(c.arena(), "test"), "1");
     load(s, c, 50);
-    c.after(20_000, @intFromEnum(T.poll));
+    c.orgLive(@intFromEnum(T.poll), &.{ "shipment.created", "shipment.updated" });
 }
 
 pub fn leave(s: *S, _: *Cx) void {
@@ -93,9 +93,9 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 load(s, c, 50);
             },
             .poll => {
+                c.liveDone();
                 // A refresh keeps the rows already loaded; past the server's cap it is offered.
                 if (s.shown > 100) s.changed = true else if (!c.isBusy(@intFromEnum(A.more))) load(s, c, @max(50, s.shown));
-                c.after(20_000, @intFromEnum(T.poll));
             },
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {

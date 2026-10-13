@@ -4,9 +4,8 @@
 //! the company. Each section saves on its own (PATCH), then the company is reloaded so the
 //! readiness list follows.
 //!
-//! Verification documents are photos picked through the web page ("pick-photo", already shrunk
-//! to JPEG like Turf-js's compressImage); the phones cannot attach them (zui has no file picker
-//! there) and say so.
+//! Verification documents are photos (`Cx.pickPhoto`: the camera or the gallery, shrunk to
+//! JPEG like Turf-js's compressImage), on every platform.
 
 const std = @import("std");
 const zui = @import("zui");
@@ -423,7 +422,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                     const l = json.arr(c.data(d_blocked), "");
                     if (a.arg < l.len) c.sendArg(@intFromEnum(A.blocked_remove), a.arg, .DELETE, c.orgUrl(c.print("/carrier/blocked/{s}", .{cm.docId(l[a.arg])})), "");
                 },
-                .photo_pick => c.post("{{\"type\":\"pick-photo\",\"id\":{d}}}", .{@intFromEnum(A.photo_pick)}),
+                .photo_pick => c.pickPhoto(@intFromEnum(A.photo_pick)),
                 .photo_remove => if (a.arg < s.documents.items.len) {
                     _ = s.documents.orderedRemove(a.arg);
                 },
@@ -533,9 +532,8 @@ fn verification(s: *const S, c: *const Cx, ui: *Ui) void {
         kit.badge(ui, kit.f(ui, "{d}", .{i + 1}), .brand);
         kit.iconButton(ui, icons.close, kit.act(A.photo_remove, @intCast(i)), .{ .size = .sm, .variant = .ghost });
     }
-    if (s.documents.items.len < 4) kit.button(ui, L("verification.documents"), kit.act(A.photo_pick, 0), .{ .size = .sm, .icon = icons.photo_camera, .disabled = zui.platform != .web and zui.platform != .headless });
+    if (s.documents.items.len < 4) kit.button(ui, L("verification.documents"), kit.act(A.photo_pick, 0), .{ .size = .sm, .icon = icons.photo_camera });
     ui.end();
-    if (zui.platform != .web and zui.platform != .headless) kit.small(ui, core.t("Attach the documents from Turf on the web."));
     kit.fieldEnd(ui, "documents", if (kept > 0) cm.tx(ui, "verification.documents_kept", .{ .n = kept }) else L("verification.documents_hint"));
     kit.rowEnd(ui);
     kit.button(ui, if (eq(u8, st, "not_submitted")) L("verification.submit") else L("verification.resubmit"), kit.act(A.verify, 0), .{ .variant = .primary, .busy = @intFromEnum(A.verify) });
@@ -718,13 +716,13 @@ fn express(s: *const S, ui: *Ui) void {
     g.end();
     kit.h3(ui, L("express.hours"));
     kit.small(ui, L("express.hours_hint"));
-    // zui has no time picker: the time is typed ("09:00").
+    // The platform's time picker ("HH:MM").
     var g2 = grid(ui, 2);
     g2.cell();
-    kit.field(ui, L("express.opens"), f_x_from, .{ .input = .{ .ltr = true, .placeholder = "09:00", .name = "express.hours.from" } });
+    kit.dateField(ui, L("express.opens"), f_x_from, .{ .time = true, .placeholder = "09:00", .name = "express.hours.from" });
     g2.endCell();
     g2.cell();
-    kit.field(ui, L("express.closes"), f_x_to, .{ .input = .{ .ltr = true, .placeholder = "22:00", .name = "express.hours.to" } });
+    kit.dateField(ui, L("express.closes"), f_x_to, .{ .time = true, .placeholder = "22:00", .name = "express.hours.to" });
     g2.endCell();
     g2.end();
     kit.noticeBegin(ui, .info, icons.bolt);

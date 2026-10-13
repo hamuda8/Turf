@@ -541,7 +541,7 @@ test "reports: the period, numbers, tables and the summary CSV" {
     try testing.expect(app.D.findText("Damascus") != 0);
     try testing.expect(app.D.findText("12") != 0);
     try app.D.press("Download summary (CSV)");
-    try testing.expect(std.mem.indexOf(u8, zui.host.posted.items, "turf-report-2025-09-13-2025-10-12.csv") != null);
+    try testing.expect(std.mem.eql(u8, zui.host.saved_name.items, "turf-report-2025-09-13-2025-10-12.csv"));
     // Another preset loads that period.
     try app.D.press("Last 7 days");
     try testing.expect(app.D.pending("/carrier/reports?from=2025-10-06&to=2025-10-12") != null);
@@ -551,5 +551,5 @@ test "reports: the period, numbers, tables and the summary CSV" {
     // One row per shipment.
     try app.D.press("Download shipments (CSV)");
     try testing.expect(app.D.respond("/carrier/reports/shipments", 200, "[{\"trackingNumber\":\"TRF1\",\"cod\":null,\"fee\":2.5}]"));
-    try testing.expect(std.mem.indexOf(u8, zui.host.posted.items, "trackingNumber,cod,fee\\r\\nTRF1,,2.5") != null);
+    try testing.expect(std.mem.indexOf(u8, zui.host.saved_data.items, "trackingNumber,cod,fee\r\nTRF1,,2.5") != null);
 }

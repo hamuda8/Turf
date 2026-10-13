@@ -1,6 +1,6 @@
 //! Dispatch console (Turf-js views/carrier/dispatch.js): plan tasks for shipments that need a
-//! next step, and assign couriers using ranked suggestions. Turf-js refreshed on live events
-//! (SSE); zui has none, so the queue and the board reload quietly every 20 seconds.
+//! next step, and assign couriers using ranked suggestions. The queue and the board reload
+//! quietly on live events (Server-Sent Events), as in Turf-js.
 
 const std = @import("std");
 const zui = @import("zui");
@@ -120,7 +120,7 @@ pub fn enter(s: *S, c: *Cx) void {
     c.load(d_queue, c.orgUrl("/carrier/shipments?view=needs_action&limit=200"));
     c.load(d_board, boardUrl(s, c));
     c.quietErrors(@intFromEnum(A.sugg));
-    c.after(20_000, t_poll);
+    c.orgLive(t_poll, &.{ "task.changed", "shipment.created", "shipment.updated" });
 }
 
 fn refresh(s: *S, c: *Cx) void {
@@ -235,8 +235,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             }
         },
         .timer => |id| if (id == t_poll) {
+            c.liveDone();
             refresh(s, c);
-            c.after(20_000, t_poll);
         },
         .text => |x| {
             if (s.plan == null) return;
@@ -652,4 +652,31 @@ test "dispatch: mixed selections are refused, assigning shows the suggestions" {
     try app.D.press("Assign courier");
     try testing.expect(app.D.respond("/carrier/tasks/t1/suggestions", 200, "[]"));
     try testing.expect(app.D.findText("No couriers are on duty right now. You can create the task and assign it later.") != 0);
+}
+
+test "live events reload the queue (once per burst); Back returns to the page before" {
+    try openCarrier("/dispatch");
+    defer app.D.reset();
+    try testing.expect(app.D.respond("/carrier/hubs", 200, "[]"));
+    try testing.expect(app.D.respond("/carrier/shipments?view=needs_action", 200,
+        \\[{"_id":"s1","trackingNumber":"TRF100","status":"awaiting_pickup","custody":{"type":"merchant"},"parcel":{"weightKg":2}}]
+    ));
+    try testing.expect(app.D.respond("/carrier/tasks?view=open", 200, "[]"));
+    // The company's live events: a changed task reloads the queue (once per burst).
+    try testing.expect(std.mem.endsWith(u8, zui.host.stream_url.items, "/api/app/orgs/o2/stream"));
+    app.D.serverStatus(200);
+    app.D.serverSend("event: task.changed\ndata: {}\n\nevent: task.changed\ndata: {}\n\n");
+    var live_timers: usize = 0;
+    for (zui.host.timers.items) |tm| live_timers += @intFromBool(tm.ms == 400);
+    try testing.expectEqual(@as(usize, 1), live_timers);
+    const tm = zui.host.timers.items[zui.host.timers.items.len - 1];
+    app.D.R.timerDone(tm.id);
+    try testing.expect(app.D.respond("/carrier/shipments?view=needs_action", 200, "[]"));
+    try testing.expect(app.D.pending("/carrier/shipments?view=needs_action") == null);
+    // Another page, then Back: the page before.
+    app.D.R.dispatch(.{ .go = "/fleet" });
+    try testing.expectEqualStrings("/o/fast/fleet", zui.host.link.items);
+    try testing.expect(app.D.back());
+    try testing.expectEqualStrings("/o/fast/dispatch", zui.host.link.items);
+    try testing.expect(app.D.R.appState().page == .dispatch);
 }

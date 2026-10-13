@@ -1,6 +1,6 @@
 //! Safety alerts (Turf-js views/carrier/alerts.js): SOS, lost signal, long stops, speeding,
-//! tracking paused; acknowledge, resolve with a note, show on the map. Turf-js reloaded on live
-//! "alert" events (SSE); zui has none, so the list reloads every 15 seconds. The "SOS alerts on
+//! tracking paused; acknowledge, resolve with a note, show on the map. The list reloads on live
+//! "alert" events (Server-Sent Events), as Turf-js did. The "SOS alerts on
 //! this device" box (browser Web Push) is not drawn: zui has no push subscription, and Turf-js
 //! itself hides it where push cannot work. (While the app is open, app.zig already beeps and
 //! notifies on a new SOS.)
@@ -48,7 +48,7 @@ fn load(s: *const S, c: *Cx) void {
 
 pub fn enter(s: *S, c: *Cx) void {
     load(s, c);
-    c.after(15_000, t_poll);
+    c.orgLive(t_poll, &.{"alert"});
 }
 
 fn at(c: *const Cx, i: u32) ?V {
@@ -75,8 +75,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             s.m.fit(pts.items, .{ .padding = 40, .max_zoom = 15 });
         },
         .timer => |id| if (id == t_poll) {
+            c.liveDone();
             load(s, c);
-            c.after(15_000, t_poll);
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .view => {

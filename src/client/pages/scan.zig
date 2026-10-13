@@ -121,10 +121,10 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                     x.id = c.dupe(cm.docId(d.v));
                     x.status = c.dupe(json.str(d.v, "status"));
                     x.to = c.dupe(parts.placeText(c.arena(), c, json.get(d.v, "dropoff"), .{}));
-                    c.post("{{\"type\":\"vibrate\",\"pattern\":60}}", .{});
+                    c.fx.vibrate(60);
                 } else {
                     x.err = c.dupe(core.errorMessage(c.arena(), d.status, d.v, false));
-                    c.post("{{\"type\":\"vibrate\",\"pattern\":[80,60,80]}}", .{});
+                    c.fx.vibrate(200);
                 }
                 break;
             };

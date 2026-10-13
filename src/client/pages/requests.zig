@@ -1,7 +1,7 @@
 //! Delivery requests from individuals (direct shipping), offered to this company (Turf-js
 //! views/carrier/requests.js): accept within the time limit, or the request goes to the next
-//! company. The countdown ticks every second; the list reloads every 20 seconds and when a
-//! request's time is up (Turf-js also reloaded on a live "direct.request" event; zui has no SSE).
+//! company. The countdown ticks every second; the list reloads when a request's time is up and on
+//! live "direct.request" events (Server-Sent Events).
 
 const std = @import("std");
 const zui = @import("zui");
@@ -36,7 +36,7 @@ pub fn title(_: *const S, _: *const Cx) []const u8 {
 pub fn enter(_: *S, c: *Cx) void {
     c.load(d_list, c.orgUrl("/carrier/requests"));
     c.after(1000, t_tick);
-    c.after(20_000, t_refresh);
+    c.orgLive(t_refresh, &.{"direct.request"});
 }
 
 /// While a request is being answered the list is not reloaded (that would bring back buttons
@@ -78,8 +78,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 c.after(1000, t_tick);
             },
             t_refresh => {
+                c.liveDone();
                 load(c);
-                c.after(20_000, t_refresh);
             },
             else => {},
         },
