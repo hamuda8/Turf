@@ -2,7 +2,7 @@
 //! environment variables and background jobs), so it can replace Turf-js without Control,
 //! Wufour or the apps noticing.
 //!
-//! Configuration: environment variables, else `.env.production` / `.env.local` / `.env` (see
+//! Configuration: environment variables, else `.env.local` / `.env.production` / `.env` (see
 //! app.Config). Under NODE_ENV=test no env file is read, like Turf-js's test harness.
 
 const std = @import("std");
@@ -102,14 +102,16 @@ pub fn main(init: std.process.Init) !void {
     });
 }
 
-/// Real environment variables win over the file. TURF_ENV_FILE names the file ("" = none).
+/// Real environment variables win over the file. TURF_ENV_FILE names the file ("" = none);
+/// otherwise .env.local comes first, so a developer machine that also keeps a copy of
+/// .env.production never starts against the production database by accident.
 fn loadEnv(arena: std.mem.Allocator, io: std.Io, environ: *const std.process.Environ.Map) !env_mod.Env {
     if (environ.get("TURF_ENV_FILE")) |f| {
         if (f.len == 0) return .{ .environ = environ };
         return env_mod.Env.load(arena, io, environ, &.{f});
     }
     if (environ.get("NODE_ENV")) |e| if (std.mem.eql(u8, e, "test")) return .{ .environ = environ };
-    return env_mod.Env.load(arena, io, environ, &.{ ".env.production", ".env.local", ".env" });
+    return env_mod.Env.load(arena, io, environ, &.{ ".env.local", ".env.production", ".env" });
 }
 
 /// Every listener, in Turf-js's start order: live, webhooks, dispatch, push, direct, emails.
