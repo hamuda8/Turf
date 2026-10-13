@@ -32,7 +32,8 @@ await new Promise(r => fakeWufour.listen(0, '127.0.0.1', r));
 
 process.env.AUTH_HOST = `http://127.0.0.1:${fakeWufour.address().port}`;
 process.env.MONGO_URI = process.env.TEST_MONGO_URI || 'mongodb://127.0.0.1:27017';
-process.env.MONGO_DB = process.env.TURF_TEST_DB || 'TurfTest_zig';
+const NODE = process.env.TURF_TARGET === 'node';
+process.env.MONGO_DB = process.env.TURF_TEST_DB || (NODE ? 'Turf_test' : 'TurfTest_zig');
 process.env.APP_SECRET = 'test-secret-test-secret-test-secret';
 process.env.AUTO_APPROVE_CARRIERS = 'true';
 process.env.MERCHANT_SIGNUP = 'open';
@@ -48,25 +49,47 @@ const { connect, getDb, client } = await import(pathToFileURL(path.join(TURF_JS,
 await connect();
 await getDb().dropDatabase();
 
-const port = 5200 + Math.floor(Math.random() * 700);
-const server = spawn(TURF_SERVER, [], {
-  cwd: mkdtempSync(path.join(tmpdir(), 'turf-zig-')),
-  env: { ...process.env, PORT: String(port), LISTEN: '127.0.0.1' },
-  stdio: ['ignore', 'pipe', 'pipe'],
-});
-let log = '';
-server.stdout.on('data', d => { log += d; });
-server.stderr.on('data', d => { log += d; if (process.env.TURF_ZIG_LOG) process.stderr.write(d); });
-export const baseUrl = `http://127.0.0.1:${port}`;
-setBase(baseUrl);
-for (let i = 0; ; i++) {
-  try {
-    const r = await fetch(`${baseUrl}/healthz`);
-    if (r.ok) break;
-  } catch { /* not up yet */ }
-  if (i > 100 || server.exitCode !== null) throw new Error(`turf-server did not start:\n${log}`);
-  await new Promise(r => setTimeout(r, 100));
+// TURF_TARGET=node runs the same tests against Turf-js itself (as its own helpers do), so the
+// two servers can be compared answer by answer (TURF_SHAPES).
+let server = null;
+let stopNode = null;
+export let baseUrl = '';
+if (NODE) {
+  const src = rel => import(pathToFileURL(path.join(TURF_JS, 'src', rel)).href);
+  const { createApp } = await src('server.js');
+  const { startLive } = await src('services/live.js');
+  const { startDispatch, stopDispatch } = await src('services/dispatch.js');
+  const { startPush } = await src('services/push.js');
+  await connect(); // recreate indexes
+  startLive();
+  startDispatch();
+  startPush();
+  const app = createApp().listen(0, '127.0.0.1');
+  await new Promise(r => app.once('listening', r));
+  baseUrl = `http://127.0.0.1:${app.address().port}`;
+  stopNode = async () => { stopDispatch(); app.closeAllConnections(); await new Promise(r => app.close(r)); };
+} else {
+  const port = 5200 + Math.floor(Math.random() * 700);
+  server = spawn(TURF_SERVER, [], {
+    cwd: mkdtempSync(path.join(tmpdir(), 'turf-zig-')),
+    env: { ...process.env, PORT: String(port), LISTEN: '127.0.0.1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let log = '';
+  server.stdout.on('data', d => { log += d; });
+  server.stderr.on('data', d => { log += d; if (process.env.TURF_ZIG_LOG) process.stderr.write(d); });
+  baseUrl = `http://127.0.0.1:${port}`;
+  for (let i = 0; ; i++) {
+    try {
+      const r = await fetch(`${baseUrl}/healthz`);
+      if (r.ok) break;
+    } catch { /* not up yet */ }
+    if (i > 100 || server.exitCode !== null) throw new Error(`turf-server did not start:\n${log}`);
+    await new Promise(r => setTimeout(r, 100));
+  }
 }
+setBase(baseUrl);
+if (process.env.TURF_SHAPES) (await import('./shapes.mjs')).record(() => baseUrl, process.env.TURF_SHAPES);
 
 let counter = 0;
 export function makeUser(name) {
@@ -133,7 +156,8 @@ export async function publicPost(p, body) {
 }
 
 export async function shutdown() {
-  server.kill();
+  if (server) server.kill();
+  if (stopNode) await stopNode();
   fakeWufour.close();
   await client.close();
 }

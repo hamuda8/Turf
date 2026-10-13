@@ -18,7 +18,10 @@ import { TURF_JS } from './zig.mjs';
 const HERE = import.meta.dirname;
 const GEN = path.join(HERE, 'gen');
 const SRC_TESTS = path.join(TURF_JS, 'tests');
-const filter = process.argv[2] || '';
+// --node: the same copies against Turf-js itself (its real modules instead of src/), for comparisons.
+const NODE = process.argv.includes('--node');
+if (NODE) process.env.TURF_TARGET = 'node';
+const filter = process.argv.slice(2).find(a => !a.startsWith('--')) || '';
 
 fs.rmSync(GEN, { recursive: true, force: true });
 fs.mkdirSync(GEN, { recursive: true });
@@ -34,10 +37,12 @@ for (const name of fs.readdirSync(SRC_TESTS).filter(n => n.endsWith('.test.js'))
   // Plain paths (path.resolve(..., '../public/js')) and the source file unit.test.js reads.
   src = src.replace(/'\.\.\/public\/([^']*)'/g, (_, rest) => JSON.stringify(path.join(TURF_JS, 'public', rest)));
   src = src.replace(/new URL\('\.\.\/src\/([^']+)', import\.meta\.url\)/g, (_, rest) => `new URL('${turfUrl(`src/${rest}`)}')`);
+  if (NODE) src = src.replace(/(from\s+|import\()'\.\.\/src\/([^']+)'/g, (_, p, rest) => `${p}'${turfUrl(`src/${rest}`)}'`);
   fs.writeFileSync(path.join(GEN, name), src);
   files.push(path.join(GEN, name));
 }
-for (const name of fs.readdirSync(HERE).filter(n => n.endsWith('.test.mjs')).sort()) {
+// The extra tests cover what only the Zig server adds (Bearer tokens) or Turf-js's tests leave out.
+for (const name of NODE ? [] : fs.readdirSync(HERE).filter(n => n.endsWith('.test.mjs')).sort()) {
   if (filter && !name.includes(filter)) continue;
   files.push(path.join(HERE, name));
 }
