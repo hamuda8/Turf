@@ -33,7 +33,11 @@ pub fn title(_: *const S, _: *const Cx) []const u8 {
 pub fn enter(s: *S, c: *Cx) void {
     var numbers = lookup.splitNumbers(c.arena(), c.query(c.arena(), "n"));
     if (numbers.len > lookup.max_numbers) numbers = numbers[0..lookup.max_numbers];
-    if (numbers.len == 0) return;
+    if (numbers.len == 0) {
+        // The box takes the keyboard on wide screens (Turf-js: only with a mouse).
+        if (c.env.width > 900) c.fx.focus(kit.slotKey(f_box));
+        return;
+    }
     s.search.prefill(c, numbers);
     s.results.search(c, numbers);
 }
