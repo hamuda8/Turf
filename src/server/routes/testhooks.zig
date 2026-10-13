@@ -54,8 +54,11 @@ pub fn cliCall(init: std.process.Init, argv: anytype) !void {
     const arena = init.arena.allocator();
     const name = argv.next() orelse return error.MissingFunction;
     const args_text = argv.next() orelse "[]";
+    // Pure functions need no database: the required settings get harmless defaults.
     var env: env_mod.Env = .{ .environ = init.environ_map };
-    _ = &env;
+    try env.file.put(arena, "MONGO_URI", "mongodb://127.0.0.1:27017");
+    try env.file.put(arena, "MONGO_DB", "Turf_cli");
+    try env.file.put(arena, "APP_SECRET", "cli");
     const config = a_.Config.load(arena, &env) catch std.process.exit(2);
     var state: a_.App = .{ .io = init.io, .gpa = init.gpa, .config = config, .client = .{ .allocator = init.gpa, .io = init.io }, .started_ms = 0 };
     a_.app = &state;
