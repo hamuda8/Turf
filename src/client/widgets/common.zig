@@ -152,6 +152,26 @@ pub fn params1(c: *Cx, name: []const u8, value: []const u8) ?V {
     return .{ .object = m };
 }
 
+/// A number field as `formValues` sends it: left out when empty, a number when it is one, else
+/// the raw text (so the server can say what is wrong with it).
+pub fn numOpt(b: *json.Obj, c: *const Cx, name: []const u8, slot: u16) void {
+    const raw = c.valTrim(slot);
+    if (raw.len == 0) return;
+    if (std.fmt.parseFloat(f64, raw)) |n| {
+        if (std.math.isFinite(n)) return b.num(name, n);
+    } else |_| {}
+    b.str(name, raw);
+}
+
+/// A number from the API as text for a field ("" when missing).
+pub fn numText(c: *Cx, v: ?V, path: []const u8) []const u8 {
+    const x = json.get(v, path) orelse return "";
+    return switch (x) {
+        .integer, .float, .number_string, .string => json.text(c.arena(), x, ""),
+        else => "",
+    };
+}
+
 /// The `.danger-zone` card: a red ring.
 pub fn dangerCard(ui: *Ui) void {
     kit.card(ui, .{ .gap = 8.8, .ring = kit.k.f.withAlpha(0.45) });
