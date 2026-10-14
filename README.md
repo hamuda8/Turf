@@ -55,19 +55,26 @@ of `.env.local`, `.env.production`, `.env`.
   account JSON), `APNS_KEY_FILE`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_SANDBOX`.
 - Pages: `TURF_PUBLIC_DIR` (default `zig-out/web`; pointing it at Turf-js's `public` serves the old pages).
 
-## Staging
+## Running it (like the npm scripts)
 
-`turf.wreseal.com` runs on the dev laptop behind Cloudflare Tunnel:
+| Command | Like | What it does |
+|---|---|---|
+|  |  | builds, then runs on this machine in the window, with  (Ctrl+C stops it) |
+|  |  | builds, then (re)starts turf.wreseal.com in the background with ; logs in  |
+|  | Unknown command: "start"
 
-```
-zig build server -Doptimize=safe
-zig build web -Doptimize=small
-powershell -File tools\staging.ps1
-```
 
-Settings come from `..\Turf-js\.env.staging`. Roll back: stop `turf-server.exe` and run
-`npm run staging` in Turf-js.
+Did you mean one of these?
+  npm star # Mark your favorite packages
+  npm stars # View packages marked as favorites
+  npm start # Start a package
+To see a list of supported npm commands, run:
+  npm help | builds the Linux server and pages into  and prints how to run them on Proxmox with  |
 
+All three run  ( does the same).
+Staging runs behind Cloudflare Tunnel on this laptop; it does not survive a restart, so run
+ again after one. Roll back to Node: stop  and run
+ in Turf-js.
 ## Tests
 
 - `zig build test`: server units and headless client flows.
