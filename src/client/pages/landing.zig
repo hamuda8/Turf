@@ -94,7 +94,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     const w = ui.env.width;
     const side = clampVw(ui, 16, 3, 24);
     const inner = @min(w, 1120) - 2 * side;
-    ui.beginScroll(.{ .width = .fill, .height = .fill, .padding = .{ .top = ui.env.safe.top, .bottom = ui.env.safe.bottom } }, zui.key("landing"));
+    ui.beginScroll(.{ .width = .fill, .height = .fill, .padding = .{ .top = 0, .bottom = 0 } }, zui.key("landing"));
     nav(ui, c, true);
 
     // The hero: the pitch and the tracking panel (first on narrow screens).

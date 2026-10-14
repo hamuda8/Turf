@@ -308,7 +308,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     const pad: f32 = if (s.embed) 8 else 16;
     const w = @min(ui.env.width, 760);
     kit.width = w - 2 * pad;
-    ui.beginScroll(.{ .width = .fill, .height = .fill, .align_items = .center, .background = k.canvas, .padding = .{ .top = ui.env.safe.top, .bottom = ui.env.safe.bottom } }, zui.key("track"));
+    ui.beginScroll(.{ .width = .fill, .height = .fill, .align_items = .center, .background = k.canvas, .padding = .{ .top = 0, .bottom = 0 } }, zui.key("track"));
     ui.begin(.{ .width = .{ .px = w }, .padding = .all(pad), .gap = if (s.embed) 9.6 else 16 }, .{});
     const sl = c.slot(d_track);
     if (sl.state == .idle or sl.state == .loading) {

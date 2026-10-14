@@ -64,7 +64,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     const w = ui.env.width;
     const side = landing.clampVw(ui, 16, 3, 24);
     const inner = @min(w, 760) - 2 * side;
-    ui.beginScroll(.{ .width = .fill, .height = .fill, .padding = .{ .top = ui.env.safe.top, .bottom = ui.env.safe.bottom } }, zui.key("lookup-page"));
+    ui.beginScroll(.{ .width = .fill, .height = .fill, .padding = .{ .top = 0, .bottom = 0 } }, zui.key("lookup-page"));
     landing.nav(ui, c, false); // no API docs link on /track (lookup-page.js)
     ui.begin(.{ .width = .fill, .align_items = .center }, .{});
     ui.begin(.{ .width = .{ .px = inner + 2 * side }, .gap = 20, .padding = .{ .top = landing.clampVw(ui, 16, 4, 40), .bottom = 48, .start = side, .end = side } }, .{});

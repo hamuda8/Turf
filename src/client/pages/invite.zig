@@ -57,7 +57,7 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
     const k = kit.k;
     const w = @min(ui.env.width - 32, 560);
     kit.width = w;
-    ui.beginScroll(.{ .width = .fill, .height = .fill, .align_items = .center, .padding = .{ .top = 32 + ui.env.safe.top, .bottom = 32 + ui.env.safe.bottom, .start = 16, .end = 16 } }, zui.key("invite"));
+    ui.beginScroll(.{ .width = .fill, .height = .fill, .align_items = .center, .padding = .{ .top = 32, .bottom = 32, .start = 16, .end = 16 } }, zui.key("invite"));
     ui.begin(.{ .width = .{ .px = w } }, .{});
     if (!kit.gate(ui, &.{d_inv})) {
         ui.end();

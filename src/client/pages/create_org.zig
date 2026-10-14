@@ -181,7 +181,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     const side = landing.clampVw(ui, 16, 4, 40);
     const inner = @min(w, 1080) - 2 * side;
     const has_companies = json.arr(c.me.value, "orgs").len > 0;
-    ui.beginScroll(.{ .width = .fill, .height = .fill, .align_items = .center, .padding = .{ .top = ui.env.safe.top, .bottom = ui.env.safe.bottom } }, zui.key("onb"));
+    ui.beginScroll(.{ .width = .fill, .height = .fill, .align_items = .center, .padding = .{ .top = 0, .bottom = 0 } }, zui.key("onb"));
 
     // The top bar.
     ui.begin(.{ .direction = .row, .align_items = .center, .gap = 8, .width = .{ .px = @min(w, 1180) }, .padding = .xy(side, 16) }, .{});

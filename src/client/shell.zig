@@ -270,12 +270,12 @@ fn console(c: *const Cx, ui: *Ui) void {
 
 /// The page itself, scrolling; a new page opens at the top (its own key).
 fn content(c: *const Cx, ui: *Ui, full: bool, pad: f32, phone: bool) void {
-    const bottom: f32 = if (phone) 68 + 32 + ui.env.safe.bottom else 32;
+    const bottom: f32 = if (phone) 68 + 32 else 32;
     var a = std.heap.ArenaAllocator.init(gpa);
     defer a.deinit();
     const key = zui.key(app.fullLink(c, a.allocator()));
     if (full) {
-        ui.begin(.{ .grow = 1, .width = .fill, .height = .fill, .padding = .{ .bottom = if (phone) 68 + 12 + ui.env.safe.bottom else 0 } }, .{ .key = key });
+        ui.begin(.{ .grow = 1, .width = .fill, .height = .fill, .padding = .{ .bottom = if (phone) 68 + 12 else 0 } }, .{ .key = key });
         pageBody(c, ui);
         ui.end();
         return;
@@ -432,7 +432,7 @@ fn bottomBar(c: *const Cx, ui: *Ui, items: []const NavItem) void {
     const active = activePath(c, items);
     ui.begin(.{
         .position = .absolute,
-        .inset = .{ .start = 12, .end = 12, .bottom = 12 + ui.env.safe.bottom },
+        .inset = .{ .start = 12, .end = 12, .bottom = 12 },
         .height = .{ .px = 68 },
         .direction = .row,
         .padding = .xy(6.4, 5.6),
@@ -476,7 +476,7 @@ fn menuPanel(c: *const Cx, ui: *Ui) void {
         .position = .absolute,
         .inset = .{ .top = 0, .bottom = 0, .start = 0, .end = 0 },
         .background = k.canvas,
-        .padding = .{ .top = 16 + ui.env.safe.top, .bottom = 68 + 12 + 16 + ui.env.safe.bottom, .start = 16, .end = 16 },
+        .padding = .{ .top = 16, .bottom = 68 + 12 + 16, .start = 16, .end = 16 },
         .align_items = .center,
     }, zui.key("menu-panel"));
     ui.begin(.{ .width = .{ .px = @min(ui.env.width - 32, 640) }, .gap = 3.2 }, .{});
@@ -558,8 +558,7 @@ pub fn modalBegin(ui: *Ui, o: ModalOpts) void {
 /// The dialog's buttons row.
 pub fn modalFoot(ui: *Ui) void {
     ui.end(); // body
-    const sheet = ui.env.width <= 640;
-    ui.begin(.{ .direction = .row, .gap = 8, .justify = .end, .padding = .{ .top = 14.4, .bottom = 14.4 + if (sheet) ui.env.safe.bottom else 0, .start = 20, .end = 20 }, .background = kit.k.panel_2 }, .{});
+    ui.begin(.{ .direction = .row, .gap = 8, .justify = .end, .padding = .{ .top = 14.4, .bottom = 14.4, .start = 20, .end = 20 }, .background = kit.k.panel_2 }, .{});
 }
 
 /// Closes the dialog; `foot` says whether `modalFoot` was used.
@@ -593,7 +592,7 @@ fn toasts(c: *const Cx, ui: *Ui) void {
     // Above the bottom bar on phones, above the SOS button in the driver app.
     const driver = c.page == .driver or c.page == .task;
     const lift: f32 = if (driver) 88 else if (kit.phone and !isBare(c)) 68 + 24 else 16;
-    ui.begin(.{ .position = .absolute, .inset = .{ .start = 16, .end = 16, .bottom = lift + ui.env.safe.bottom }, .align_items = .center, .gap = 8 }, .{});
+    ui.begin(.{ .position = .absolute, .inset = .{ .start = 16, .end = 16, .bottom = lift }, .align_items = .center, .gap = 8 }, .{});
     for (c.toasts.items) |x| {
         ui.begin(.{ .direction = .row, .align_items = .center, .gap = 8.8, .padding = .xy(18.4, 12), .radius = 999, .background = k.c, .shadow = kit.shadow3(), .max_width = @min(520, ui.env.width - 32) }, .{ .on_press = .{ .shell = .{ .toast_tap = x.id } }, .key = zui.key(x.id) });
         ui.begin(.{ .width = .{ .px = 8 }, .height = .{ .px = 8 }, .radius = 4, .background = switch (x.kind) {
