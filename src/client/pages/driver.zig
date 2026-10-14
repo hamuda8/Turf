@@ -37,7 +37,10 @@ const A = enum(u16) {
     end_confirmed,
 };
 
-const T = enum(u16) { poll = 1, after_duty };
+const T = enum(u16) { poll = 1, after_duty, fallback };
+
+/// Fallback reload in case the live connection drops on a weak network.
+const fallback_ms = 60_000;
 
 /// Id of the new-task alarm notification.
 pub const alarm_id: u32 = 901;
@@ -65,6 +68,7 @@ pub fn enter(_: *S, c: *Cx) void {
     reload(c);
     // New and changed tasks arrive as live events (Server-Sent Events).
     c.orgLive(@intFromEnum(T.poll), &.{"task.changed"});
+    c.after(fallback_ms, @intFromEnum(T.fallback));
     c.fx.cancelNotify(alarm_id);
 }
 
@@ -153,6 +157,9 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
         .timer => |id| if (id == @intFromEnum(T.poll)) {
             c.liveDone();
             reload(c);
+        } else if (id == @intFromEnum(T.fallback)) {
+            reload(c);
+            c.after(fallback_ms, @intFromEnum(T.fallback));
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .toggle => {
@@ -336,7 +343,6 @@ fn taskCard(ui: *Ui, c: *const Cx, t: V, i: u32) void {
         }
         if (json.boolean(x, "parcel.fragile")) fragile = true;
     }
-    _ = c;
     const o: kit.CardOpts = .{ .gap = 9.6, .edge = @import("../theme.zig").status(&k, st), .on_press = kit.act(A.open_task, i), .key = zui.key(json.str(t, "_id")), .ring = if (express) k.a else null };
     kit.card(ui, o);
     ui.begin(.{ .direction = .row, .justify = .space_between, .align_items = .center, .gap = 8 }, .{});
@@ -369,9 +375,16 @@ fn taskCard(ui: *Ui, c: *const Cx, t: V, i: u32) void {
     kit.small(ui, rel);
     w.end();
     if (std.mem.eql(u8, st, "assigned")) {
+        // Only this card's button shows the spinner.
+        const busy_on = struct {
+            fn f(cx: *const Cx, id: A, row: u32) ?u16 {
+                const code = @intFromEnum(id);
+                return if (cx.isBusy(code) and (cx.act_args.get(code) orelse 0) == row) code else null;
+            }
+        }.f;
         ui.begin(.{ .direction = .row, .gap = 12 }, .{});
-        kit.button(ui, L("task.accept"), kit.act(A.accept, i), .{ .variant = .primary, .icon = icons.check, .busy = @intFromEnum(A.accept) });
-        kit.button(ui, L("task.decline"), kit.act(A.decline_ask, i), .{ .variant = .ghost, .busy = @intFromEnum(A.decline) });
+        kit.button(ui, L("task.accept"), kit.act(A.accept, i), .{ .variant = .primary, .icon = icons.check, .busy = busy_on(c, .accept, i) });
+        kit.button(ui, L("task.decline"), kit.act(A.decline_ask, i), .{ .variant = .ghost, .busy = busy_on(c, .decline, i) });
         ui.end();
     } else if (std.mem.eql(u8, st, "accepted") or std.mem.eql(u8, st, "in_progress")) {
         ui.begin(.{ .direction = .row }, .{});
@@ -484,4 +497,25 @@ test "driver: consent, start the shift, track, ring for a new task, end the shif
     try testing.expect(D.respond("/courier/duty", 200, "{\"ok\":true}"));
     try testing.expect(!zui.host.location_on);
     try testing.expect(!zui.host.background_location);
+}
+
+test "driver: SOS without a recent position waits for one, then sends it" {
+    try openDriver();
+    defer app.D.reset();
+    const D = app.D;
+    try testing.expect(D.respond("/courier/me", 200, me_off));
+    try testing.expect(D.respond("/courier/tasks", 200, "[]"));
+    try D.press("SOS");
+    D.R.dispatch(kit.act(courier.A.sos_send, 0));
+    try testing.expect(D.pending("/courier/sos") == null);
+    try testing.expect(zui.host.location_on);
+    D.locate(33.5, 36.3);
+    const f = zui.host.fetches.items[zui.host.fetches.items.len - 1];
+    try testing.expect(std.mem.endsWith(u8, f.url, "/courier/sos"));
+    try testing.expect(std.mem.indexOf(u8, f.body, "\"location\":{\"lat\":33.5,\"lng\":36.3}") != null);
+    try testing.expect(!zui.host.location_on);
+    try testing.expect(D.respond("/courier/sos", 200, "{}"));
+    // A list refresh every minute, live connection or not.
+    D.R.dispatch(.{ .timer = .{ .gen = D.R.appState().gen, .id = @intFromEnum(T.fallback) } });
+    try testing.expect(D.pending("/courier/tasks") != null);
 }
