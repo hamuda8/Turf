@@ -1,8 +1,8 @@
 //! The store's shipment page (Turf-js views/merchant/shipment.js): status and summary, the
 //! relay route, the history, proof of delivery, the tracking link to share, the live map with
 //! the courier, the addresses, feedback and the parcel; label, tracking page, cancel, change
-//! details, delivery day, return and claim in the top bar. Live updates (the public tracking
-//! stream in Turf-js) are polled.
+//! details, delivery day, return and claim in the top bar. Live updates come from the public
+//! tracking stream, as in Turf-js: the courier moves at once, a status change reloads the page.
 
 const std = @import("std");
 const zui = @import("zui");
@@ -25,7 +25,7 @@ const L = labels.k;
 const d_ship: u8 = 0;
 
 const A = enum(u16) { cancel_ask = 1, cancel, edit_details, edit_day, return_ask, return_req, claim_open };
-const T = enum(u16) { poll = 1 };
+const T = enum(u16) { live = 1 };
 
 pub const S = struct {
     m: mapw.Map = .{},
@@ -52,7 +52,6 @@ fn path(c: *Cx) []const u8 {
 
 pub fn enter(_: *S, c: *Cx) void {
     c.load(d_ship, c.orgUrl(path(c)));
-    c.after(15_000, @intFromEnum(T.poll));
 }
 
 /// Events of the claim dialog (ids 420 and 421).
@@ -93,10 +92,25 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             if (mapw.ll(ship(c), "dropoff.location")) |p| pts.append(c.arena(), p) catch {};
             if (mapw.ll(tracking(c), "courier.location")) |p| pts.append(c.arena(), p) catch {};
             s.m.fit(pts.items, .{ .animate = false });
+            // The same public stream the customer's tracking page uses.
+            const token = json.str(ship(c), "trackingToken");
+            if (token.len > 0) c.liveAt(c.print("/api/public/track/{s}/stream?lang={s}", .{ core.encode(c.arena(), token), c.lang() }), @intFromEnum(T.live), &.{"tracking.event"});
         },
-        .timer => |id| if (id == @intFromEnum(T.poll)) {
+        .timer => |id| if (id == @intFromEnum(T.live)) {
+            // A status change (or a reconnect): the history, the status and the actions again.
+            c.liveDone();
             c.load(d_ship, c.orgUrl(path(c)));
-            c.after(15_000, @intFromEnum(T.poll));
+        },
+        // The courier moved: the marker and the courier line follow without a reload.
+        .live => |ev| if (ev.kind == .message and std.mem.eql(u8, ev.event, "courier.position")) {
+            const slot = &c.slots[d_ship];
+            const a = slot.arena.allocator();
+            const tr = json.get(slot.value, "tracking") orelse return;
+            if (tr != .object) return;
+            const courier = json.parse(a, ev.data) orelse return;
+            var obj = tr.object;
+            obj.put(a, "courier", courier) catch return;
+            if (slot.value) |*root| if (root.* == .object) root.object.put(a, "tracking", .{ .object = obj }) catch {};
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .cancel_ask => c.ask(L("shipment.cancel_confirm"), .{ .danger = true, .act = .{ .id = @intFromEnum(A.cancel) } }),
@@ -346,4 +360,26 @@ test "store shipment: details, cancel, change the recipient" {
     try testing.expect(std.mem.indexOf(u8, f.body, "\"phone\":\"0944000001\"") != null);
     try testing.expect(D.respond("/merchant/shipments/s1", 200, "{}"));
     try testing.expect(D.findText("Saved") != 0);
+}
+
+test "store shipment: follows the public tracking stream" {
+    try app.startSignedIn("/o/acme/shipments/s1");
+    defer app.D.reset();
+    const D = app.D;
+    try testing.expect(D.respond("/api/app/orgs/o1", 200, merchant_org));
+    try testing.expect(D.respond("/merchant/shipments/s1", 200,
+        \\{"shipment":{"id":"s1","trackingNumber":"TRF123","trackingToken":"tok1234567890abcdef","status":"out_for_delivery","carrier":{"name":"Sham"},"pickup":{},"dropoff":{},"parcel":{}},
+        \\ "tracking":{"status":"out_for_delivery","events":[],"courier":null}}
+    ));
+    try testing.expect(std.mem.indexOf(u8, zui.host.stream_url.items, "/api/public/track/tok1234567890abcdef/stream?lang=en") != null);
+    const c = D.R.appState();
+    // A position moves the courier without a request.
+    const before = zui.host.fetches.items.len;
+    D.R.dispatch(.{ .live = .{ .kind = .message, .stream = c.live_stream, .event = "courier.position", .data = "{\"name\":\"Omar\",\"vehicle\":\"car\",\"location\":{\"lat\":33.5,\"lng\":36.3}}" } });
+    try testing.expectEqual(before, zui.host.fetches.items.len);
+    try testing.expectEqual(@as(?f64, 33.5), json.num(json.get(c.data(d_ship), "tracking"), "courier.location.lat"));
+    // A status change reloads the shipment.
+    D.R.dispatch(.{ .live = .{ .kind = .message, .stream = c.live_stream, .event = "tracking.event", .data = "{\"status\":\"delivered\"}" } });
+    D.runTimers();
+    try testing.expect(D.pending("/merchant/shipments/s1") != null);
 }

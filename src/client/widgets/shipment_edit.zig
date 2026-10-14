@@ -71,7 +71,12 @@ pub fn openDay(e: *Edit, c: *Cx, path: []const u8, current: []const u8) void {
     e.path = c.dupe(path);
     e.current_day = c.dupe(current);
     // Today in Syria (UTC+3), as the JS did.
-    c.setVal(f_day, if (current.len > 0) current else fmt.isoDay(c.arena(), fmt.now()));
+    c.setVal(f_day, if (current.len > 0) current else syriaDay(c.arena(), 0));
+}
+
+/// "YYYY-MM-DD" in Syria (UTC+3), `days` from today.
+fn syriaDay(a: std.mem.Allocator, days: i64) []const u8 {
+    return fmt.isoDay(a, fmt.now() + (180 - @as(i64, fmt.offsetMinutes())) * 60_000 + days * 86_400_000);
 }
 
 fn optStr(b: *json.Obj, name: []const u8, v: []const u8) void {
@@ -87,9 +92,10 @@ pub fn update(e: *Edit, c: *Cx, ev: core.Ev) bool {
                 .save_details => {
                     var b = json.Obj.init(c.arena());
                     b.begin("dropoff");
-                    b.str("name", c.valTrim(f_name));
-                    b.str("phone", c.valTrim(f_phone));
-                    b.str("city", c.valTrim(f_city));
+                    // Empty required fields are left out (formValues); the server says what is missing.
+                    b.strOpt("name", c.valTrim(f_name));
+                    b.strOpt("phone", c.valTrim(f_phone));
+                    b.strOpt("city", c.valTrim(f_city));
                     // Empty optional fields are cleared on purpose.
                     optStr(&b, "area", c.valTrim(f_area));
                     optStr(&b, "street", c.valTrim(f_street));
@@ -116,6 +122,18 @@ pub fn update(e: *Edit, c: *Cx, ev: core.Ev) bool {
                 c.toast(L("common.saved"), .ok);
             }
             return true;
+        },
+        .text => |x| {
+            // Turf-js maxlength limits.
+            const n: usize = switch (x.slot) {
+                f_name, f_area => 120,
+                f_city => 80,
+                f_street => 200,
+                f_details, f_notes => 500,
+                else => return false,
+            };
+            @import("address.zig").limitText(c, x.slot, n);
+            return false;
         },
         else => return false,
     }
@@ -153,7 +171,7 @@ pub fn overlay(e: *const Edit, c: *const Cx, ui: *Ui) void {
             shell.modalBegin(ui, .{ .title = L("edit.reschedule_title"), .close = kit.act(A.close, 0), .key = zui.key("edit-day") });
             kit.small(ui, L("edit.reschedule_intro"));
             // The platform's date picker: today to 14 days ahead.
-            kit.dateField(ui, L("edit.delivery_day"), f_day, .{ .required = true, .name = "date", .min = fmt.isoDay(ui.arena(), fmt.now()), .max = fmt.isoDay(ui.arena(), fmt.now() + 14 * 86_400_000), .placeholder = L("common.choose") });
+            kit.dateField(ui, L("edit.delivery_day"), f_day, .{ .required = true, .name = "date", .min = syriaDay(ui.arena(), 0), .max = syriaDay(ui.arena(), 14), .placeholder = L("common.choose") });
             if (e.current_day.len > 0) kit.text(ui, ui.tf(labels.english("edit.currently") orelse "{date}", .{ .date = fmt.date(ui.arena(), e.current_day) }), .{ .size = 13.6 });
             shell.modalFoot(ui);
             shell.modalButton(ui, L("common.cancel"), kit.act(A.close, 0), .{});

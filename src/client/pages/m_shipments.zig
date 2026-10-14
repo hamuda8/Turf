@@ -1,6 +1,6 @@
 //! The store's shipments list (Turf-js views/merchant/shipments.js): status filter, search (350 ms
 //! after typing stops), practice (test) shipments, picking labels to print, "Load more", and
-//! quiet refreshes that keep every row already loaded (polled; Turf-js listened to live events).
+//! quiet refreshes that keep every row already loaded (after the company's live events).
 
 const std = @import("std");
 const zui = @import("zui");
@@ -26,6 +26,10 @@ const A = enum(u16) { open = 1, pick, more, test_toggle, refresh, new };
 const T = enum(u16) { search = 1, poll };
 
 pub const S = struct {
+    /// Search timers still running: only the last keystroke's searches (a debounce).
+    search_waits: u32 = 0,
+    /// A live event's reload waits 1.2 s for the rest of the burst (Turf-js debounce).
+    live_wait: bool = false,
     pick: parts.LabelPick = .{},
     pages: paged.Paged = .{},
     next_before: []const u8 = "",
@@ -82,20 +86,32 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
         },
         .text => |t| switch (t.slot) {
             f_status => load(s, c, 50),
-            f_q => c.after(350, @intFromEnum(T.search)),
+            f_q => {
+                s.search_waits += 1;
+                c.after(350, @intFromEnum(T.search));
+            },
             else => {},
         },
         .timer => |id| switch (@as(T, @enumFromInt(id))) {
             .search => {
+                if (s.search_waits > 0) s.search_waits -= 1;
+                if (s.search_waits > 0) return; // typing goes on
                 const q = c.valTrim(f_q);
                 if (std.mem.eql(u8, q, s.q)) return;
                 s.q = c.dupe(q);
                 load(s, c, 50);
             },
             .poll => {
+                // 1.2 s after the first event (400 ms here, 800 more), and not while "Load more" runs.
+                if (!s.live_wait or c.isBusy(@intFromEnum(A.more))) {
+                    s.live_wait = true;
+                    c.after(if (c.isBusy(@intFromEnum(A.more))) 1200 else 800, @intFromEnum(T.poll));
+                    return;
+                }
+                s.live_wait = false;
                 c.liveDone();
                 // A refresh keeps the rows already loaded; past the server's cap it is offered.
-                if (s.shown > 100) s.changed = true else if (!c.isBusy(@intFromEnum(A.more))) load(s, c, @max(50, s.shown));
+                if (s.shown > 100) s.changed = true else load(s, c, @max(50, s.shown));
             },
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {

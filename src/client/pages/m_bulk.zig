@@ -67,6 +67,11 @@ fn missingColumns(c: *Cx, tb: csv.Table) []const u8 {
 }
 
 /// Offers a file to save (a download on the web, the share sheet on the phones).
+fn repeatedLater(headers: []const []const u8, j: usize) bool {
+    for (headers[j + 1 ..]) |h| if (std.mem.eql(u8, h, headers[j])) return true;
+    return false;
+}
+
 fn download(c: *Cx, name: []const u8, text: []const u8) void {
     c.saveFile(name, "text/csv", text);
 }
@@ -93,7 +98,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 b.beginArray("rows");
                 for (s.rows.rows, 0..) |_, i| {
                     b.begin("");
-                    for (s.rows.headers) |h| b.str(h, s.rows.get(i, h));
+                    // One key per header name (a repeated header: the last one, as Object.fromEntries).
+                    for (s.rows.headers, 0..) |h, j| if (!repeatedLater(s.rows.headers, j)) b.str(h, s.rows.get(i, h));
                     b.end();
                 }
                 b.endArray();
@@ -158,7 +164,8 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.h2(ui, L("bulk.step1"));
     kit.muted(ui, L("bulk.step1_text"));
     ui.begin(.{ .direction = .row }, .{});
-    kit.button(ui, L("bulk.template"), kit.act(A.template, 0), .{ .icon = icons.download, .disabled = !web });
+    // Phones save it through the share sheet.
+    kit.button(ui, L("bulk.template"), kit.act(A.template, 0), .{ .icon = icons.download });
     ui.end();
     kit.small(ui, L("bulk.columns_help"));
     kit.endCard(ui, .{});
