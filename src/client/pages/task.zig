@@ -557,7 +557,7 @@ fn navPanel(s: *const S, c: *const Cx, ui: *Ui) void {
     if (step != null) {
         // Dimmed while the voice is off.
         ui.begin(.{ .opacity = if (s.voice) 1 else 0.5, .align_self = .center }, .{});
-        kit.iconButton(ui, icons.notifications, kit.act(A.voice, 0), .{ .size = .sm, .variant = .ghost });
+        kit.iconButton(ui, icons.notifications, kit.act(A.voice, 0), .{ .size = .sm, .variant = .ghost, .label = L("nav.voice") });
         ui.end();
     }
     kit.button(ui, L("nav.open_maps"), .{ .open = mapw.externalNavUrl(a, dest) }, .{ .size = .sm, .icon = icons.open_in_new, .flip = true });

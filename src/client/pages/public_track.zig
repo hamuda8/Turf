@@ -504,7 +504,7 @@ fn stars(ui: *Ui, n: i64, size: f32, pressable: bool) void {
     var i: i64 = 1;
     while (i <= 5) : (i += 1) {
         const on = i <= n;
-        ui.begin(.{ .padding = .all(1.6), .pressed_opacity = if (pressable) 0.6 else null }, .{ .on_press = if (pressable) kit.act(A.star, @intCast(i)) else null, .key = zui.key(@as(u64, @intCast(i)) + 40) });
+        ui.begin(.{ .padding = .all(1.6), .pressed_opacity = if (pressable) 0.6 else null }, .{ .on_press = if (pressable) kit.act(A.star, @intCast(i)) else null, .key = zui.key(@as(u64, @intCast(i)) + 40), .label = if (pressable) (std.fmt.allocPrint(ui.arena(), "{d}/5", .{i}) catch "") else "" });
         kit.icon(ui, if (on) icons.star_fill else icons.star, size, if (on) k.warn_ink else k.ink_4);
         ui.end();
     }

@@ -552,7 +552,7 @@ pub fn modalBegin(ui: *Ui, o: ModalOpts) void {
     }
     ui.begin(.{ .direction = .row, .align_items = .center, .justify = .space_between, .gap = 8, .padding = .{ .top = if (sheet) 10 else 17.6, .bottom = 9.6, .start = 20, .end = 12 } }, .{});
     ui.text(o.title, .{ .font_size = 18.4, .weight = 800, .color = k.ink, .grow = 1 });
-    kit.iconButton(ui, icons.close, o.close, .{ .variant = .ghost });
+    kit.iconButton(ui, icons.close, o.close, .{ .variant = .ghost, .label = L("common.close") });
     ui.end();
     ui.beginScroll(.{ .height = .fill, .padding = .{ .top = 5.6, .bottom = 20, .start = 20, .end = 20 }, .gap = 16, .max_height = ui.env.height - 180 }, o.key +% 3);
 }

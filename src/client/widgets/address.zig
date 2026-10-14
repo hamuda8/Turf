@@ -549,7 +549,7 @@ pub const Address = struct {
         kit.fieldEnd(ui, "", "");
         ui.end();
         const narrow = ui.env.width <= 480;
-        kit.button(ui, if (narrow) "" else L("address.locate_me"), .{ .act = .{ .id = a.act(a_locate) } }, .{ .size = .sm, .icon = icons.navigation, .busy = a.act(a_locate) });
+        kit.button(ui, if (narrow) "" else L("address.locate_me"), .{ .act = .{ .id = a.act(a_locate) } }, .{ .size = .sm, .icon = icons.navigation, .busy = a.act(a_locate), .label = L("address.locate_me") });
         ui.end();
         if (a.results_open) {
             a.results(ui);

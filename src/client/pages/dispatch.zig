@@ -395,7 +395,7 @@ fn queueSection(s: *const S, c: *const Cx, ui: *Ui) void {
             if (json.boolean(x, "returnRequired")) line.print(ui.arena(), " · {s}", .{L("shipment.return_required_short")}) catch {};
             ui.text(line.items, .{ .font_size = 13.6, .color = k.ink });
             ui.end();
-            kit.iconButton(ui, icons.route, kit.act(A.plan_one, @intCast(i)), .{ .size = .sm, .variant = .ghost });
+            kit.iconButton(ui, icons.route, kit.act(A.plan_one, @intCast(i)), .{ .size = .sm, .variant = .ghost, .label = L("dispatch.plan_task") });
             ui.end();
         }
         ui.end();
@@ -470,7 +470,7 @@ fn boardSection(s: *const S, c: *const Cx, ui: *Ui) void {
         }
         if (contains(active_states[0..3], st)) {
             const mine = c.isBusy(@intFromEnum(A.cancel)) and (c.act_args.get(@intFromEnum(A.cancel)) orelse 0) == i;
-            kit.iconButton(ui, icons.close, kit.act(A.cancel_ask, @intCast(i)), .{ .size = .sm, .variant = .ghost, .busy = if (mine) @intFromEnum(A.cancel) else null });
+            kit.iconButton(ui, icons.close, kit.act(A.cancel_ask, @intCast(i)), .{ .size = .sm, .variant = .ghost, .label = L("dispatch.cancel_task"), .busy = if (mine) @intFromEnum(A.cancel) else null });
         }
         ui.end();
         kit.endCard(ui, co);

@@ -194,8 +194,8 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.spacer(ui);
     const narrow = w < 520;
     kit.button(ui, if (c.ar()) "English" else "العربية", .{ .shell = .lang }, .{ .variant = .ghost, .size = .sm, .icon = icons.language });
-    if (has_companies) kit.button(ui, if (narrow) "" else L("nav.my_companies"), .{ .go = "/" }, .{ .variant = .ghost, .size = .sm, .icon = icons.apps });
-    kit.button(ui, if (narrow) "" else L("nav.sign_out"), .{ .shell = .sign_out }, .{ .variant = .ghost, .size = .sm, .icon = icons.logout, .flip = true });
+    if (has_companies) kit.button(ui, if (narrow) "" else L("nav.my_companies"), .{ .go = "/" }, .{ .variant = .ghost, .size = .sm, .icon = icons.apps, .label = L("nav.my_companies") });
+    kit.button(ui, if (narrow) "" else L("nav.sign_out"), .{ .shell = .sign_out }, .{ .variant = .ghost, .size = .sm, .icon = icons.logout, .flip = true, .label = L("nav.sign_out") });
     ui.end();
 
     ui.begin(.{ .width = .{ .px = inner + 2 * side }, .gap = 20, .padding = .{ .top = 24, .bottom = 64, .start = side, .end = side } }, .{});

@@ -536,7 +536,7 @@ fn verification(s: *const S, c: *const Cx, ui: *Ui) void {
     ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});
     for (s.documents.items, 0..) |_, i| {
         kit.badge(ui, kit.f(ui, "{d}", .{i + 1}), .brand);
-        kit.iconButton(ui, icons.close, kit.act(A.photo_remove, @intCast(i)), .{ .size = .sm, .variant = .ghost });
+        kit.iconButton(ui, icons.close, kit.act(A.photo_remove, @intCast(i)), .{ .size = .sm, .variant = .ghost, .label = L("common.delete") });
     }
     if (s.documents.items.len < 4) kit.button(ui, L("verification.documents"), kit.act(A.photo_pick, 0), .{ .size = .sm, .icon = icons.photo_camera });
     ui.end();

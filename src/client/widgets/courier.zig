@@ -208,13 +208,13 @@ pub fn begin(ui: *Ui, c: *const Cx, ch: *const Chrome, o: FrameOpts) void {
     // The top bar.
     ui.begin(.{ .direction = .row, .align_items = .center, .gap = 11.2, .padding = .{ .top = 13.6, .bottom = 16, .start = 17.6, .end = 17.6 }, .background = k.rail, .gradient = zui.Gradient.linear(225, &.{ .{ .color = k.a.mix(0.32, k.rail), .at = 0 }, .{ .color = k.rail, .at = 0.5 } }), .corners = .{ .bottom_start = 28, .bottom_end = 28 }, .shadow = kit.shadow2() }, .{});
     if (o.back) {
-        kit.iconButton(ui, icons.arrow_back, kit.act(A.back, 0), .{ .variant = .ghost, .on_rail = true, .flip = true });
+        kit.iconButton(ui, icons.arrow_back, kit.act(A.back, 0), .{ .variant = .ghost, .on_rail = true, .flip = true, .label = L("common.back") });
     } else kit.logoPanel(ui, c.brand(), 38, 12);
     ui.begin(.{ .grow = 1, .gap = 1 }, .{});
     ui.text(o.title, .{ .font_size = 16.8, .weight = 700, .color = k.rail_ink, .max_lines = 1 });
     gpsBadge(ui, c);
     ui.end();
-    kit.iconButton(ui, if (ch.menu) icons.close else icons.menu, kit.act(A.menu, 0), .{ .variant = .ghost, .on_rail = true });
+    kit.iconButton(ui, if (ch.menu) icons.close else icons.menu, kit.act(A.menu, 0), .{ .variant = .ghost, .on_rail = true, .label = L("nav.menu") });
     ui.end();
     // The banners.
     const tr = &c.gps;

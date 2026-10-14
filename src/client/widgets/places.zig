@@ -154,9 +154,9 @@ pub const Places = struct {
                 kit.small(ui, if (phone.len > 0) kit.f(ui, "{s} · {s}", .{ line, phone }) else line);
                 ui.end();
                 ui.begin(.{ .direction = .row, .gap = 3.2 }, .{});
-                if (!def) kit.iconButton(ui, icons.star, .{ .act = .{ .id = p.id(a_default), .arg = arg } }, .{ .size = .sm, .variant = .ghost, .busy = rowBusy(c, p.id(a_default), i) });
-                kit.iconButton(ui, icons.edit, .{ .act = .{ .id = p.id(a_edit), .arg = arg } }, .{ .size = .sm, .variant = .ghost });
-                kit.iconButton(ui, icons.delete, .{ .act = .{ .id = p.id(a_delete_ask), .arg = arg } }, .{ .size = .sm, .variant = .ghost, .busy = rowBusy(c, p.id(a_delete), i) });
+                if (!def) kit.iconButton(ui, icons.star, .{ .act = .{ .id = p.id(a_default), .arg = arg } }, .{ .size = .sm, .variant = .ghost, .label = L("places.set_default"), .busy = rowBusy(c, p.id(a_default), i) });
+                kit.iconButton(ui, icons.edit, .{ .act = .{ .id = p.id(a_edit), .arg = arg } }, .{ .size = .sm, .variant = .ghost, .label = L("places.edit") });
+                kit.iconButton(ui, icons.delete, .{ .act = .{ .id = p.id(a_delete_ask), .arg = arg } }, .{ .size = .sm, .variant = .ghost, .label = L("places.delete"), .busy = rowBusy(c, p.id(a_delete), i) });
                 ui.end();
                 kit.endCard(ui, .{});
             }

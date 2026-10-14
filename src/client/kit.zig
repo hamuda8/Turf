@@ -184,6 +184,9 @@ pub const ButtonOpts = struct {
     /// On the dark chrome (driver top bar, tracking header).
     on_rail: bool = false,
     grow: f32 = 0,
+    /// What an icon-only button does (Turf-js's title): the tooltip, screen readers, and a
+    /// long press on the phones.
+    label: []const u8 = "",
 };
 
 pub fn button(ui: *Ui, lbl: []const u8, msg: ?Msg, o: ButtonOpts) void {
@@ -242,7 +245,7 @@ pub fn button(ui: *Ui, lbl: []const u8, msg: ?Msg, o: ButtonOpts) void {
             .ghost => if (o.on_rail) k.rail_hover else k.panel_3,
         },
         .transition = .{ .duration_ms = 220 },
-    }, .{ .on_press = if (off) null else msg, .key = o.key });
+    }, .{ .on_press = if (off) null else msg, .key = o.key, .label = if (icon_only) o.label else "" });
     if (working) {
         spinner(ui, if (o.size == .lg) 20 else 16, fg);
     } else {

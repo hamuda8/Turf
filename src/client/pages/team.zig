@@ -399,12 +399,12 @@ fn membersTab(c: *const Cx, ui: *Ui) void {
         tb.endCell();
         tb.cell(false);
         ui.begin(.{ .direction = .row, .gap = 5.6 }, .{});
-        if (json.has(m, "courier") and c.can("members.manage") and !json.boolean(m, "isOwner")) kit.iconButton(ui, icons.edit, kit.act(A.courier_open, @intCast(i)), .{ .size = .sm });
+        if (json.has(m, "courier") and c.can("members.manage") and !json.boolean(m, "isOwner")) kit.iconButton(ui, icons.edit, kit.act(A.courier_open, @intCast(i)), .{ .size = .sm, .label = L("team.courier_details") });
         if (manageable(c, m)) {
             const mine_s = c.isBusy(@intFromEnum(A.toggle_status)) and (c.act_args.get(@intFromEnum(A.toggle_status)) orelse 0) == i;
             const mine_r = c.isBusy(@intFromEnum(A.remove)) and (c.act_args.get(@intFromEnum(A.remove)) orelse 0) == i;
             kit.button(ui, if (active) L("team.suspend") else L("team.reactivate"), kit.act(A.toggle_status, @intCast(i)), .{ .size = .sm, .busy = if (mine_s) @intFromEnum(A.toggle_status) else null });
-            kit.iconButton(ui, icons.delete, kit.act(A.remove_ask, @intCast(i)), .{ .size = .sm, .variant = .ghost, .busy = if (mine_r) @intFromEnum(A.remove) else null });
+            kit.iconButton(ui, icons.delete, kit.act(A.remove_ask, @intCast(i)), .{ .size = .sm, .variant = .ghost, .label = L("team.remove"), .busy = if (mine_r) @intFromEnum(A.remove) else null });
         }
         ui.end();
         tb.endCell();
@@ -431,10 +431,10 @@ fn rolesTab(c: *const Cx, ui: *Ui) void {
         const editable = c.can("roles.manage") and grantable(c, r) and !eq(u8, cm.docId(r), my_role);
         if (editable) {
             ui.begin(.{ .direction = .row, .gap = 4 }, .{});
-            kit.iconButton(ui, icons.edit, kit.act(A.role_open, @intCast(i)), .{ .size = .sm });
+            kit.iconButton(ui, icons.edit, kit.act(A.role_open, @intCast(i)), .{ .size = .sm, .label = L("common.edit") });
             if (json.int(r, "memberCount") == 0) {
                 const mine = c.isBusy(@intFromEnum(A.role_delete)) and (c.act_args.get(@intFromEnum(A.role_delete)) orelse 0) == i;
-                kit.iconButton(ui, icons.delete, kit.act(A.role_delete_ask, @intCast(i)), .{ .size = .sm, .variant = .ghost, .busy = if (mine) @intFromEnum(A.role_delete) else null });
+                kit.iconButton(ui, icons.delete, kit.act(A.role_delete_ask, @intCast(i)), .{ .size = .sm, .variant = .ghost, .label = L("common.delete"), .busy = if (mine) @intFromEnum(A.role_delete) else null });
             }
             ui.end();
         }
