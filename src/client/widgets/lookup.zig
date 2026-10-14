@@ -277,9 +277,7 @@ pub fn results(ui: *Ui, c: *const Cx, r: *const Results, o: ResultsOpts) void {
 
 /// A card with a 4-point coloured edge on top (`border-top: 4px solid var(--st)`).
 fn topCardBegin(ui: *Ui, edge: Color, key: u64) void {
-    ui.begin(.{ .radius = 22, .background = kit.k.panel, .shadow = kit.shadow1() }, .{ .key = key });
-    ui.begin(.{ .height = .{ .px = 4 }, .background = edge }, .{});
-    ui.end();
+    ui.begin(.{ .radius = 22, .background = kit.k.panel, .shadow = kit.shadow1(), .borders = .{ .top = .{ .width = 4, .color = edge } } }, .{ .key = key });
     ui.begin(.{ .padding = .{ .top = 16, .bottom = 20, .start = 20, .end = 20 }, .gap = 13.6 }, .{});
 }
 

@@ -168,7 +168,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     mapw.draw(ui, &s.m, .{ .width = size[0], .height = size[1], .radius = 0, .fill = !kit.phone, .pins = pins(s, c, ui), .lines = trail(c, ui), .key = zui.key("fleet-map") });
     ui.end();
     // The panel: filter, couriers, the chosen one.
-    ui.begin(.{ .direction = .row, .width = if (kit.phone) .fill else .{ .px = panel_w }, .grow = if (kit.phone) 1 else 0, .height = if (kit.phone) .auto else .fill, .background = k.panel }, .{});
+    ui.begin(.{ .direction = .row, .width = if (kit.phone) .fill else .{ .px = panel_w }, .grow = if (kit.phone) 1 else 0, .height = if (kit.phone) .auto else .fill, .background = @import("../theme.zig").surface, .borders = .{ .start = .{ .width = 1, .color = k.line } } }, .{});
     if (!kit.phone) {
         ui.begin(.{ .width = .{ .px = 1 }, .height = .fill, .background = k.line }, .{});
         ui.end();
@@ -238,7 +238,7 @@ fn courierList(s: *const S, c: *const Cx, ui: *Ui) void {
         const x = all[i];
         const id = json.str(x, "courierId");
         const chosen = s.selected != null and eq(u8, s.selected.?, id);
-        ui.begin(.{ .padding = .xy(12, 9.6), .gap = 3.2, .radius = 22, .background = k.panel_2, .border_width = if (chosen) 2 else 0, .border_color = k.a, .pressed_background = k.press }, .{ .on_press = kit.act(A.select, @intCast(i)), .key = zui.key(id) });
+        ui.begin(.{ .padding = .xy(12, 9.6), .gap = 3.2, .radius = 22, .background = k.panel, .shadow = kit.shadow1(), .border_width = if (chosen) 2 else 0, .border_color = k.a, .pressed_background = k.press, .hover_background = k.panel.mix(0.85, k.panel_3) }, .{ .on_press = kit.act(A.select, @intCast(i)), .key = zui.key(id) });
         kit.rowBetween(ui);
         ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center, .grow = 1 }, .{});
         kit.icon(ui, mapw.vehicleIcon(json.str(x, "vehicle")), 20, k.ink);
