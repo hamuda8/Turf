@@ -187,9 +187,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 for (json.arr(c.data(d_members), ""), 0..) |m, i| if (i < 400) c.setVal(f_member_role + @as(u16, @intCast(i)), json.str(m, "roleId"));
             }
         },
-        .text => |x| if (x.slot == f_role_name) {
-            @import("../widgets/address.zig").limitText(c, f_role_name, 40); // maxlength
-        } else if (x.slot >= f_member_role and x.slot < f_member_role + 400) {
+        .text => |x| if (x.slot >= f_member_role and x.slot < f_member_role + 400) {
             const i = x.slot - f_member_role;
             const m = memberAt(c, i) orelse return;
             if (eq(u8, x.text, json.str(m, "roleId"))) return;
@@ -584,7 +582,7 @@ fn roleDialog(s: *const S, c: *const Cx, ui: *Ui) void {
     const k = kit.k;
     const close = kit.act(A.close, 0);
     shell.modalBegin(ui, .{ .title = if (s.target != null) L("team.edit_role") else L("team.new_role"), .close = close, .key = zui.key("role") });
-    kit.field(ui, L("team.role_name"), f_role_name, .{ .required = true, .input = .{ .name = "name", .on_submit = kit.act(A.role_save, 0) } });
+    kit.field(ui, L("team.role_name"), f_role_name, .{ .required = true, .input = .{ .name = "name", .max_len = 40, .on_submit = kit.act(A.role_save, 0) } });
     kit.notice(ui, .info, L("team.role_rule"));
     const cat = catalog(c);
     var groups: std.ArrayList([]const u8) = .empty;

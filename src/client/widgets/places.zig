@@ -82,7 +82,6 @@ pub const Places = struct {
     /// Handles the panel's events (the list, the dialog and its address).
     pub fn update(p: *Places, c: *Cx, e: core.Ev) void {
         if (p.editing and p.addr.update(c, e)) return;
-        if (e == .text and e.text.slot == p.cfg.slot) address.limitText(c, p.cfg.slot, 80); // maxlength
         const items = p.list(c);
         switch (e) {
             .act => |x| {
@@ -173,7 +172,7 @@ pub const Places = struct {
         const close: core.Msg = .{ .act = .{ .id = p.id(a_close) } };
         const save: core.Msg = .{ .act = .{ .id = p.id(a_save) } };
         shell.modalBegin(ui, .{ .title = L(if (p.existing != null) "places.edit" else "places.add"), .close = close, .wide = true, .key = zui.key("place-editor") });
-        kit.field(ui, L("places.label"), p.cfg.slot, .{ .hint = L("places.label_hint"), .input = .{ .placeholder = L("places.label_placeholder"), .name = "place.label", .on_submit = save } });
+        kit.field(ui, L("places.label"), p.cfg.slot, .{ .hint = L("places.label_hint"), .input = .{ .placeholder = L("places.label_placeholder"), .name = "place.label", .on_submit = save, .max_len = 80 } });
         p.addr.view(c, ui, "");
         shell.modalFoot(ui);
         shell.modalButton(ui, L("common.cancel"), close, .{});

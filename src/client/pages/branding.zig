@@ -25,7 +25,6 @@ const f_primary: u16 = 2;
 const f_accent: u16 = 3;
 
 const A = enum(u16) { save = 1, remove_ask, remove };
-const limitText = @import("../widgets/address.zig").limitText;
 
 pub const S = struct {};
 
@@ -60,13 +59,6 @@ fn colorOf(c: *const Cx, slot: u16, saved: []const u8) ?Color {
 
 pub fn update(_: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
-        // Turf-js maxlength limits.
-        .text => |x| switch (x.slot) {
-            f_app_name => limitText(c, f_app_name, 40),
-            f_short_name => limitText(c, f_short_name, 12),
-            f_primary, f_accent => limitText(c, x.slot, 7),
-            else => {},
-        },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .save => {
                 var b = json.Obj.init(c.arena());
@@ -95,7 +87,7 @@ fn colorField(c: *const Cx, ui: *Ui, lbl: []const u8, slot: u16, name: []const u
     ui.begin(.{ .grow = 1, .width = .fill, .radius = 12, .background = colorOf(c, slot, saved) orelse kit.k.panel_3 }, .{});
     ui.end();
     ui.end();
-    kit.input(ui, slot, .{ .ltr = true, .placeholder = "#000000", .name = name, .grow = 1, .mono = true, .on_submit = kit.act(A.save, 0) });
+    kit.input(ui, slot, .{ .ltr = true, .placeholder = "#000000", .name = name, .max_len = 7, .grow = 1, .mono = true, .on_submit = kit.act(A.save, 0) });
     ui.end();
     kit.fieldEnd(ui, name, "");
 }
@@ -111,10 +103,10 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
     kit.h2(ui, L("branding.identity"));
     var fg = kit.formGrid(ui, 4);
     fg.cell();
-    kit.field(ui, L("branding.app_name"), f_app_name, .{ .hint = L("branding.app_name_hint"), .input = .{ .name = "appName", .on_submit = kit.act(A.save, 0) } });
+    kit.field(ui, L("branding.app_name"), f_app_name, .{ .hint = L("branding.app_name_hint"), .input = .{ .name = "appName", .max_len = 40, .on_submit = kit.act(A.save, 0) } });
     fg.endCell();
     fg.cell();
-    kit.field(ui, L("branding.short_name"), f_short_name, .{ .hint = L("branding.short_name_hint"), .input = .{ .name = "shortName", .on_submit = kit.act(A.save, 0) } });
+    kit.field(ui, L("branding.short_name"), f_short_name, .{ .hint = L("branding.short_name_hint"), .input = .{ .name = "shortName", .max_len = 12, .on_submit = kit.act(A.save, 0) } });
     fg.endCell();
     fg.cell();
     colorField(c, ui, L("branding.primary"), f_primary, "primaryColor", json.str(b, "primaryColor"));

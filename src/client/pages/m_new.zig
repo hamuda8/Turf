@@ -221,11 +221,6 @@ fn handle(s: *S, c: *Cx, e: core.Ev) void {
         },
         .text => |x| switch (x.slot) {
             f_carrier, f_strategy => clearChoice(s),
-            // maxlength
-            f_label => address.limitText(c, f_label, 80),
-            f_desc => address.limitText(c, f_desc, 300),
-            f_ref => address.limitText(c, f_ref, 100),
-            f_notes => address.limitText(c, f_notes, 500),
             else => {},
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
@@ -375,7 +370,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         s.pickup.view(c, ui, "");
         ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center }, .{});
         kit.check(ui, L("new.save_place"), s.save_place, kit.act(A.toggle_save, 0));
-        kit.input(ui, f_label, .{ .placeholder = L("places.label_placeholder"), .grow = 1, .on_submit = kit.act(A.create, 0) });
+        kit.input(ui, f_label, .{ .placeholder = L("places.label_placeholder"), .max_len = 80, .grow = 1, .on_submit = kit.act(A.create, 0) });
         ui.end();
         ui.end();
     }
@@ -392,7 +387,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.field(ui, L("new.cod"), f_cod, .{ .hint = L("new.cod_hint"), .input = .{ .kind = .number, .ltr = true, .name = "cod.amount", .on_submit = kit.act(A.create, 0) } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("new.description"), f_desc, .{ .input = .{ .name = "parcel.description", .on_submit = kit.act(A.create, 0) } });
+    kit.field(ui, L("new.description"), f_desc, .{ .input = .{ .name = "parcel.description", .max_len = 300, .on_submit = kit.act(A.create, 0) } });
     g.endCell();
     g.end();
     morePanel(s, ui);
@@ -481,11 +476,11 @@ fn morePanel(s: *const S, ui: *Ui) void {
         kit.field(ui, L("new.value"), f_value, .{ .input = .{ .kind = .number, .ltr = true, .name = "parcel.value", .on_submit = kit.act(A.create, 0) } });
         g.endCell();
         g.cell();
-        kit.field(ui, L("shipment.reference"), f_ref, .{ .hint = L("new.reference_hint"), .input = .{ .ltr = true, .name = "reference", .on_submit = kit.act(A.create, 0) } });
+        kit.field(ui, L("shipment.reference"), f_ref, .{ .hint = L("new.reference_hint"), .input = .{ .ltr = true, .name = "reference", .max_len = 100, .on_submit = kit.act(A.create, 0) } });
         g.endCell();
         g.end();
         dims(ui, f_len, f_wid, f_hei, kit.act(A.create, 0));
-        kit.field(ui, L("new.notes"), f_notes, .{ .hint = L("new.notes_hint"), .input = .{ .name = "notes", .on_submit = kit.act(A.create, 0) } });
+        kit.field(ui, L("new.notes"), f_notes, .{ .hint = L("new.notes_hint"), .input = .{ .name = "notes", .max_len = 500, .on_submit = kit.act(A.create, 0) } });
         ui.begin(.{ .direction = .row, .gap = 16 }, .{});
         kit.check(ui, L("shipment.fragile"), s.fragile, kit.act(A.toggle_fragile, 0));
         kit.check(ui, L("new.require_code"), s.require_code, kit.act(A.toggle_code, 0));

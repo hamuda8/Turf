@@ -138,11 +138,6 @@ fn handle(s: *S, c: *Cx, e: core.Ev) void {
             else if (!c.isBusy(@intFromEnum(A.compare)))
                 update(s, c, .{ .act = .{ .id = @intFromEnum(A.compare) } }),
         },
-        .text => |x| {
-            // maxlength
-            if (x.slot == f_desc) address.limitText(c, f_desc, 300);
-            if (x.slot == f_notes) address.limitText(c, f_notes, 500);
-        },
         .done => |d| switch (@as(A, @enumFromInt(d.id))) {
             .compare => if (d.ok) {
                 const slot = &c.slots[d_quotes];
@@ -186,7 +181,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.field(ui, L("new.weight"), f_weight, .{ .required = true, .input = .{ .kind = .decimal, .ltr = true, .name = "parcel.weightKg", .on_submit = kit.act(A.enter, 0) } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("new.description"), f_desc, .{ .input = .{ .placeholder = L("direct.description_placeholder"), .name = "parcel.description", .on_submit = kit.act(A.enter, 0) } });
+    kit.field(ui, L("new.description"), f_desc, .{ .input = .{ .placeholder = L("direct.description_placeholder"), .name = "parcel.description", .max_len = 300, .on_submit = kit.act(A.enter, 0) } });
     g.endCell();
     g.end();
     m_new.dims(ui, f_len, f_wid, f_hei, kit.act(A.enter, 0));
@@ -195,7 +190,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.field(ui, L("direct.cod"), f_cod, .{ .hint = L("direct.cod_hint"), .input = .{ .kind = .number, .ltr = true, .name = "cod.amount", .on_submit = kit.act(A.enter, 0) } });
     g2.endCell();
     g2.cell();
-    kit.field(ui, L("new.notes"), f_notes, .{ .hint = L("direct.notes_hint"), .input = .{ .name = "notes", .on_submit = kit.act(A.enter, 0) } });
+    kit.field(ui, L("new.notes"), f_notes, .{ .hint = L("direct.notes_hint"), .input = .{ .name = "notes", .max_len = 500, .on_submit = kit.act(A.enter, 0) } });
     g2.endCell();
     g2.end();
     kit.check(ui, L("shipment.fragile"), s.fragile, kit.act(A.toggle_fragile, 0));

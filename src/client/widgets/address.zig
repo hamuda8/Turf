@@ -30,21 +30,6 @@ const V = json.V;
 const L = labels.k;
 pub const LatLng = mapw.LatLng;
 
-/// `maxlength` (zui inputs have none): keeps the first `n` characters of a form slot. Pages call
-/// it from their `.text` handler.
-pub fn limitText(c: *Cx, form_slot: u16, n: usize) void {
-    const v = c.val(form_slot);
-    var it = std.unicode.Utf8View.initUnchecked(v).iterator();
-    var count: usize = 0;
-    while (it.nextCodepointSlice()) |_| {
-        count += 1;
-        if (count == n) {
-            if (it.i < v.len) c.setVal(form_slot, c.dupe(v[0..it.i]));
-            return;
-        }
-    }
-}
-
 // Form slots, from `Config.slot`.
 pub const f_search: u16 = 0;
 pub const f_gov: u16 = 1;
@@ -323,20 +308,9 @@ pub const Address = struct {
                             a.m.flyTo(g, 11);
                         };
                     },
-                    f_city => {
-                        a.auto &= ~auto_city;
-                        limitText(c, x.slot, 80);
-                    },
-                    f_area => {
-                        a.auto &= ~auto_area;
-                        limitText(c, x.slot, 120);
-                    },
-                    f_street => {
-                        a.auto &= ~auto_street;
-                        limitText(c, x.slot, 200);
-                    },
-                    f_details => limitText(c, x.slot, 500),
-                    f_name => limitText(c, x.slot, 120),
+                    f_city => a.auto &= ~auto_city,
+                    f_area => a.auto &= ~auto_area,
+                    f_street => a.auto &= ~auto_street,
                     else => {},
                 }
                 return true;
@@ -565,7 +539,7 @@ pub const Address = struct {
         kit.field(ui, L("common.phone"), a.slot(f_phone), .{ .required = a.cfg.require_phone, .hint = if (a.cfg.require_phone) "" else L("address.phone_optional"), .input = .{ .kind = .phone, .ltr = true, .placeholder = "09xx xxx xxx", .name = a.name(ui, "phone"), .on_submit = a.cfg.submit } });
         g.endCell();
         g.cell();
-        kit.field(ui, L("address.name_optional"), a.slot(f_name), .{ .input = .{ .name = a.name(ui, "name"), .on_submit = a.cfg.submit } });
+        kit.field(ui, L("address.name_optional"), a.slot(f_name), .{ .input = .{ .name = a.name(ui, "name"), .on_submit = a.cfg.submit, .max_len = 120 } });
         g.endCell();
         g.end();
 
@@ -583,16 +557,16 @@ pub const Address = struct {
             kit.selectField(ui, L("org.governorate"), a.slot(f_gov), opts.items, .{ .name = a.name(ui, "governorate") });
             fg.endCell();
             fg.cell();
-            kit.field(ui, L("address.city"), a.slot(f_city), .{ .input = .{ .name = a.name(ui, "city"), .on_submit = a.cfg.submit } });
+            kit.field(ui, L("address.city"), a.slot(f_city), .{ .input = .{ .name = a.name(ui, "city"), .on_submit = a.cfg.submit, .max_len = 80 } });
             fg.endCell();
             fg.cell();
-            kit.field(ui, L("address.area"), a.slot(f_area), .{ .input = .{ .name = a.name(ui, "area"), .on_submit = a.cfg.submit } });
+            kit.field(ui, L("address.area"), a.slot(f_area), .{ .input = .{ .name = a.name(ui, "area"), .on_submit = a.cfg.submit, .max_len = 120 } });
             fg.endCell();
             fg.cell();
-            kit.field(ui, L("address.street"), a.slot(f_street), .{ .input = .{ .name = a.name(ui, "street"), .on_submit = a.cfg.submit } });
+            kit.field(ui, L("address.street"), a.slot(f_street), .{ .input = .{ .name = a.name(ui, "street"), .on_submit = a.cfg.submit, .max_len = 200 } });
             fg.endCell();
             fg.end();
-            kit.field(ui, L("address.details"), a.slot(f_details), .{ .input = .{ .placeholder = L("address.details_placeholder"), .name = a.name(ui, "details"), .on_submit = a.cfg.submit } });
+            kit.field(ui, L("address.details"), a.slot(f_details), .{ .input = .{ .placeholder = L("address.details_placeholder"), .name = a.name(ui, "details"), .on_submit = a.cfg.submit, .max_len = 500 } });
         }
         ui.end();
         ui.end();

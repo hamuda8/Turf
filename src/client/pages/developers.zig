@@ -83,7 +83,6 @@ fn snippet(a: std.mem.Allocator) []const u8 {
 
 pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
-        .text => |x| if (x.slot == f_name) @import("../widgets/address.zig").limitText(c, f_name, 60), // maxlength
         .data => |n| if (n == d_hook and c.slot(d_hook).state == .ok) {
             c.setVal(f_url, json.str(c.data(d_hook), "webhook.url"));
             s.revealed = false;
@@ -296,7 +295,7 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
         .none => {},
         .create => {
             shell.modalBegin(ui, .{ .title = L("dev.create_key"), .close = close, .key = zui.key("create-key") });
-            kit.field(ui, L("common.name"), f_name, .{ .required = true, .input = .{ .placeholder = L("dev.key_name_placeholder"), .name = "name", .on_submit = kit.act(A.create, 0) } });
+            kit.field(ui, L("common.name"), f_name, .{ .required = true, .input = .{ .placeholder = L("dev.key_name_placeholder"), .name = "name", .max_len = 60, .on_submit = kit.act(A.create, 0) } });
             const opts = [_]core.Opt{
                 .{ .value = "live", .label = L("dev.mode_live_option") },
                 .{ .value = "test", .label = L("dev.mode_test_option") },

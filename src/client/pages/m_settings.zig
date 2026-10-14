@@ -86,10 +86,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             s.reloaded = true;
             if (!s.touched) prefill(s, c);
         },
-        .text => |x| {
-            s.touched = true;
-            if (x.slot == f_name) @import("../widgets/address.zig").limitText(c, f_name, 80); // maxlength
-        },
+        .text => s.touched = true,
         .act => |a| {
             s.touched = true;
             switch (@as(A, @enumFromInt(a.id))) {
@@ -155,7 +152,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     sectionBegin(ui, L("settings.profile"));
     var g = kit.formGrid(ui, 3);
     g.cell();
-    kit.field(ui, L("org.name"), f_name, .{ .input = .{ .name = "name", .on_submit = kit.act(A.save_profile, 0) } });
+    kit.field(ui, L("org.name"), f_name, .{ .input = .{ .name = "name", .max_len = 80, .on_submit = kit.act(A.save_profile, 0) } });
     g.endCell();
     g.cell();
     kit.field(ui, L("common.phone"), f_phone, .{ .input = .{ .kind = .phone, .ltr = true, .name = "phone", .on_submit = kit.act(A.save_profile, 0) } });

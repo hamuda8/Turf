@@ -690,6 +690,8 @@ pub const InputOpts = struct {
     background: ?Color = null,
     /// No box of its own (the lookup bar draws it).
     bare: bool = false,
+    /// At most this many characters (Turf-js maxlength); 0: no limit.
+    max_len: u32 = 0,
 };
 
 /// A text field bound to form slot `slot` (`c.val(slot)`).
@@ -730,6 +732,7 @@ pub fn input(ui: *Ui, slot: u16, o: InputOpts) void {
         },
         .return_key = if (o.kind == .search) .search else if (o.on_submit != null) .go else .default,
         .multiline = o.kind == .multiline,
+        .max_length = o.max_len,
         .on_change = if (o.disabled) null else changer(slot, o.kind),
         .on_focus = .{ .focus = slot },
         .on_blur = .{ .blur = slot },

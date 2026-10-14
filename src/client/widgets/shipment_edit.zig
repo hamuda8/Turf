@@ -123,18 +123,6 @@ pub fn update(e: *Edit, c: *Cx, ev: core.Ev) bool {
             }
             return true;
         },
-        .text => |x| {
-            // Turf-js maxlength limits.
-            const n: usize = switch (x.slot) {
-                f_name, f_area => 120,
-                f_city => 80,
-                f_street => 200,
-                f_details, f_notes => 500,
-                else => return false,
-            };
-            @import("address.zig").limitText(c, x.slot, n);
-            return false;
-        },
         else => return false,
     }
 }
@@ -147,21 +135,22 @@ pub fn overlay(e: *const Edit, c: *const Cx, ui: *Ui) void {
             kit.small(ui, L("edit.intro"));
             const submit = kit.act(A.save_details, 0);
             var g = kit.formGrid(ui, 6);
-            const fields = [_]struct { []const u8, u16, []const u8, bool, kit.InputKind }{
-                .{ "common.name", f_name, "dropoff.name", true, .text },
-                .{ "common.phone", f_phone, "dropoff.phone", true, .phone },
-                .{ "address.city", f_city, "dropoff.city", true, .text },
-                .{ "address.area", f_area, "dropoff.area", false, .text },
-                .{ "address.street", f_street, "dropoff.street", false, .text },
-                .{ "address.details", f_details, "dropoff.details", false, .text },
+            // Turf-js maxlength limits (0: none).
+            const fields = [_]struct { []const u8, u16, []const u8, bool, kit.InputKind, u32 }{
+                .{ "common.name", f_name, "dropoff.name", true, .text, 120 },
+                .{ "common.phone", f_phone, "dropoff.phone", true, .phone, 0 },
+                .{ "address.city", f_city, "dropoff.city", true, .text, 80 },
+                .{ "address.area", f_area, "dropoff.area", false, .text, 120 },
+                .{ "address.street", f_street, "dropoff.street", false, .text, 200 },
+                .{ "address.details", f_details, "dropoff.details", false, .text, 500 },
             };
             for (fields) |x| {
                 g.cell();
-                kit.field(ui, L(x[0]), x[1], .{ .required = x[3], .input = .{ .name = x[2], .kind = x[4], .ltr = x[4] == .phone, .on_submit = submit } });
+                kit.field(ui, L(x[0]), x[1], .{ .required = x[3], .input = .{ .name = x[2], .kind = x[4], .ltr = x[4] == .phone, .on_submit = submit, .max_len = x[5] } });
                 g.endCell();
             }
             g.end();
-            kit.field(ui, L("new.notes"), f_notes, .{ .input = .{ .name = "notes", .on_submit = submit } });
+            kit.field(ui, L("new.notes"), f_notes, .{ .input = .{ .name = "notes", .on_submit = submit, .max_len = 500 } });
             shell.modalFoot(ui);
             shell.modalButton(ui, L("common.cancel"), kit.act(A.close, 0), .{});
             shell.modalButton(ui, L("common.save"), submit, .{ .variant = .primary, .busy = @intFromEnum(A.save_details) });

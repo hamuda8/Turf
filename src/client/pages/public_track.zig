@@ -107,19 +107,6 @@ fn syriaDay(a: std.mem.Allocator, days: i64) []const u8 {
 }
 
 /// `maxlength` (zui inputs have none): keeps the first `n` characters.
-fn limit(c: *Cx, slot: u16, n: usize) void {
-    const v = c.val(slot);
-    var it = std.unicode.Utf8View.initUnchecked(v).iterator();
-    var count: usize = 0;
-    while (it.nextCodepointSlice()) |_| {
-        count += 1;
-        if (count == n) {
-            if (it.i < v.len) c.setVal(slot, c.dupe(v[0..it.i]));
-            return;
-        }
-    }
-}
-
 /// The map's width: the page is at most 760 wide, a card has 20 of padding each side.
 fn mapWidth(c: *const Cx, embed: bool) f32 {
     const pad: f32 = if (embed) 8 else 16;
@@ -222,7 +209,6 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 follow(s, c);
             };
         },
-        .text => |x| if (x.slot == f_comment) limit(c, f_comment, 1000),
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .lang => {
                 const next = if (c.ar()) "en" else "ar";
@@ -543,7 +529,7 @@ fn feedbackCard(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     opts.append(ui.arena(), .{ .value = "", .label = L("track.no_problem") }) catch {};
     for (problems) |p| opts.append(ui.arena(), .{ .value = p, .label = labels.of("track.problem_", p) }) catch {};
     kit.select(ui, f_problem, opts.items, .{ .placeholder = L("track.no_problem"), .title = L("track.any_problem") });
-    kit.input(ui, f_comment, .{ .kind = .multiline, .placeholder = L("track.feedback_comment") });
+    kit.input(ui, f_comment, .{ .kind = .multiline, .placeholder = L("track.feedback_comment"), .max_len = 1000 });
     ui.begin(.{ .direction = .row }, .{});
     kit.button(ui, L("track.feedback_send"), kit.act(A.send_feedback, 0), .{ .variant = .primary, .icon = icons.send, .flip = true, .busy = @intFromEnum(A.send_feedback) });
     ui.end();
