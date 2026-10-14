@@ -196,7 +196,8 @@ pub fn view(c: *const Cx, ui: *Ui) void {
     const w = ui.env.width;
     kit.phone = w <= 900;
     ui.setBackground(k.canvas);
-    ui.begin(.{ .width = .fill, .height = .fill, .background = k.canvas }, .{});
+    // The body's faint glows of the action and variant colours at the top (radial in the CSS).
+    ui.begin(.{ .width = .fill, .height = .fill, .background = k.canvas, .gradient = zui.Gradient.linear(180, &.{ .{ .color = k.a.mix(0.10, k.canvas), .at = 0 }, .{ .color = k.canvas, .at = 0.45 } }) }, .{});
 
     switch (c.mode) {
         .starting => {
