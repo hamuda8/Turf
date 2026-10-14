@@ -49,6 +49,8 @@ pub fn main(init: std.process.Init) !void {
     defer client.deinit();
     db.client = client;
     db.db_name = config.mongo_db;
+    // FCM and APNs for the phone apps (off unless their environment variables are set).
+    push.initNative(gpa, io, &env);
 
     var state: a_.App = .{
         .io = io,

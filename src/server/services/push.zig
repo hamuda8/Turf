@@ -163,6 +163,58 @@ pub fn saveSubscription(r: *Req, user: Val, sub: Val, user_agent: ?[]const u8) !
 
 pub fn removeSubscription(a: std.mem.Allocator, user: Val, endpoint: []const u8) !void {
     _ = try db.col("push_subscriptions").deleteOne(a, .{ .endpoint = endpoint, .userId = user.get("id") });
+    _ = try db.col("push_subscriptions").deleteOne(a, .{ .endpoint = endpoint, .nativeUserId = user.get("id") });
+}
+
+// ---- Phone apps: FCM and APNs tokens -------------------------------------------------------------
+// The zui apps register with { token, kind } (kind: fcm, apns, voip). The tokens live in
+// push_subscriptions next to the browsers' Web Push subscriptions, with endpoint "<kind>:<token>"
+// (unique, as before), `kind` and `token`, and the owner in nativeUserId instead of userId:
+// Turf-js, which reads { userId } and Web-Pushes every match, never sees them.
+
+pub var native: ?zpush.native.Sender = null;
+
+/// From main: FCM_SERVICE_ACCOUNT_FILE, APNS_KEY_FILE, APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID,
+/// APNS_SANDBOX=1 (unset: that service is off).
+pub fn initNative(gpa: std.mem.Allocator, io: Io, e: anytype) void {
+    native = zpush.native.Sender.init(gpa, io, .{
+        .fcm_service_account_file = e.get("FCM_SERVICE_ACCOUNT_FILE"),
+        .apns_key_file = e.get("APNS_KEY_FILE"),
+        .apns_key_id = e.get("APNS_KEY_ID"),
+        .apns_team_id = e.get("APNS_TEAM_ID"),
+        .apns_bundle_id = e.get("APNS_BUNDLE_ID"),
+        .apns_sandbox = std.mem.eql(u8, e.str("APNS_SANDBOX", ""), "1"),
+    });
+}
+
+pub fn saveNative(r: *Req, user: Val, token: []const u8, kind_name: []const u8, user_agent: ?[]const u8) !void {
+    const kind = zpush.native.Kind.parse(kind_name) orelse return r.badRequest("Invalid push token kind", "kind", null, null);
+    if (token.len == 0 or token.len > 4096) return r.badRequest("Invalid push token", "token", null, null);
+    const endpoint = try std.fmt.allocPrint(r.a, "{s}:{s}", .{ @tagName(kind), token });
+    _ = try db.col("push_subscriptions").updateOne(r.a, .{ .endpoint = endpoint }, .{
+        .@"$set" = .{ .nativeUserId = user.get("id"), .kind = @tagName(kind), .token = token, .userAgent = val.jsSlice(user_agent orelse "", 300), .updatedAt = a_.now() },
+        .@"$setOnInsert" = .{ .createdAt = a_.now() },
+    }, .{ .upsert = true });
+}
+
+/// The payload to a phone: urgent ones (new tasks, SOS, tracking paused) as high-priority data
+/// messages the app turns into its alarm, also when it is closed; others as notifications.
+fn sendNative(a: std.mem.Allocator, sub: Val, payload: Val, ttl: u32) zpush.native.Result {
+    const sender = if (native) |*s| s else return .disabled;
+    const kind = zpush.native.Kind.parse(sub.s("kind") orelse "") orelse return .failed;
+    const token = sub.s("token") orelse return .failed;
+    const urgent = payload.t("urgent");
+    var data: std.ArrayList([2][]const u8) = .empty;
+    for ([_][]const u8{ "kind", "title", "body", "url", "tag" }) |k| if (payload.s(k)) |v| data.append(a, .{ k, v }) catch {};
+    data.append(a, .{ "urgent", if (urgent) "1" else "0" }) catch {};
+    return sender.send(kind, token, .{
+        .data = data.items,
+        .title = payload.s("title") orelse "Turf",
+        .body = payload.s("body") orelse "",
+        .urgent = urgent,
+        .ttl_s = ttl,
+        .collapse = payload.s("tag") orelse "",
+    });
 }
 
 // ---- Sending ------------------------------------------------------------------------------------
@@ -176,13 +228,20 @@ pub fn sendToUser(a: std.mem.Allocator, user_id: anytype, payload: Val) void {
 }
 
 pub fn sendToUserOpts(a: std.mem.Allocator, user_id: Val, payload: Val, o: SendOpts) !usize {
+    var sent: usize = 0;
+    // The phones first: an alarm should not wait for the browsers.
+    const nq = try val.spread(a, .{ .{ .nativeUserId = user_id }, o.extra_query });
+    for (try db.col("push_subscriptions").find(a, nq, .{})) |sub| switch (sendNative(a, sub, payload, o.ttl)) {
+        .sent => sent += 1,
+        .gone => _ = db.col("push_subscriptions").deleteOne(a, .{ ._id = sub.get("_id") }) catch {},
+        .failed, .disabled => {},
+    };
     const q = try val.spread(a, .{ .{ .userId = user_id }, o.extra_query });
     const subs = try db.col("push_subscriptions").find(a, q, .{});
-    if (subs.len == 0) return 0;
+    if (subs.len == 0) return sent;
     try loadVapid(a);
     const vapid: zpush.Vapid = .{ .public_key = vapid_public.?, .private_key = vapid_private.?, .subject = subject() };
     const plaintext = try val.toJson(a, payload);
-    var sent: usize = 0;
     for (subs) |sub| {
         const status = sendOne(a, vapid, sub, plaintext, payload, o.ttl) catch null;
         if (status) |st| {

@@ -110,6 +110,7 @@ pub fn deleteAccount(r: *Req, user: Val) !void {
     _ = try db.col("courier_positions").deleteMany(a, .{ .courierId = .{ .@"$in" = mids } });
     if (b.personal) |p| _ = try db.col("orgs").updateOne(a, .{ ._id = p.get("_id") }, .{ .@"$set" = .{ .status = "closed", .closedAt = now, .name = "Former sender" } }, .{});
     _ = try db.col("push_subscriptions").deleteMany(a, .{ .userId = user.get("id") });
+    _ = try db.col("push_subscriptions").deleteMany(a, .{ .nativeUserId = user.get("id") });
     _ = try db.col("invitations").updateMany(a, .{ .email = try val.lower(a, user.s("email") orelse ""), .status = "pending" }, .{ .@"$set" = .{ .status = "revoked" } }, .{});
     _ = try db.col("users").updateOne(a, .{ ._id = user.get("id") }, .{ .@"$set" = .{ .deletedAt = now, .email = null, .username = null } }, .{});
     for (b.memberships) |m| audit.audit(a, m.get("orgId"), try val.from(a, .{ .userId = user.get("id"), .name = "Former member" }), "member.account_deleted", .{});

@@ -166,6 +166,11 @@ fn pushKey(r: *Req) !void {
 }
 
 fn pushSubscribe(r: *Req) !void {
+    // The phone apps: { token, kind } (FCM, APNs, VoIP).
+    if (r.body.s("token")) |token| {
+        try push.saveNative(r, r.user, token, r.body.s("kind") orelse "", r.header("user-agent"));
+        return ok(r);
+    }
     try push.saveSubscription(r, r.user, r.body.get("subscription"), r.header("user-agent"));
     return ok(r);
 }
