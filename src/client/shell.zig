@@ -336,7 +336,7 @@ fn rail(c: *const Cx, ui: *Ui, items: []const NavItem) void {
     ui.begin(.{ .width = .{ .px = 264 }, .height = .fill, .radius = 28, .background = k.rail, .gradient = zui.Gradient.linear(160, &.{ .{ .color = k.a.mix(0.30, k.rail), .at = 0 }, .{ .color = k.rail, .at = 0.45 } }), .shadow = kit.shadow2(), .clip = true }, .{});
     // The brand.
     ui.begin(.{ .direction = .row, .align_items = .center, .gap = 12, .padding = .{ .top = 20, .bottom = 16, .start = 19.2, .end = 19.2 }, .pressed_opacity = 0.8 }, .{ .on_press = .{ .go = "/" } });
-    kit.logo(ui, c.brand(), 44, 14);
+    kit.logoPanel(ui, c.brand(), 44, 14);
     ui.begin(.{ .grow = 1, .gap = 1 }, .{});
     ui.text(c.appName(), .{ .font_size = 16.8, .weight = 700, .color = k.rail_ink, .max_lines = 1, .line_height = 1.2 });
     const sub = subtitle(c);

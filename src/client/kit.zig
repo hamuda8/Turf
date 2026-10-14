@@ -88,12 +88,12 @@ pub fn text(ui: *Ui, s: []const u8, o: TextOpts) void {
 
 /// Page heading (h1: 1.65rem / 800).
 pub fn h1(ui: *Ui, s: []const u8) void {
-    ui.text(s, .{ .font_size = 26.4, .weight = 800, .color = k.ink, .line_height = 1.15, .letter_spacing = -0.92 });
+    ui.text(s, .{ .font_size = 26.4, .weight = 800, .color = k.ink, .line_height = 1.15, .letter_spacing = -0.92, .padding = .{ .bottom = 8 } });
 }
 
 /// Section heading (h2: 1.12rem / 800).
 pub fn h2(ui: *Ui, s: []const u8) void {
-    ui.text(s, .{ .font_size = 17.9, .weight = 800, .color = k.ink, .line_height = 1.15, .letter_spacing = -0.45 });
+    ui.text(s, .{ .font_size = 17.9, .weight = 800, .color = k.ink, .line_height = 1.15, .letter_spacing = -0.45, .padding = .{ .bottom = 8 } });
 }
 
 pub fn h3(ui: *Ui, s: []const u8) void {
@@ -420,14 +420,16 @@ pub fn endCard(ui: *Ui, o: CardOpts) void {
 /// `.card-head`: a title with something at the end.
 pub fn cardHead(ui: *Ui, title: []const u8) void {
     ui.begin(.{ .direction = .row, .align_items = .center, .justify = .space_between, .gap = 8, .padding = .{ .bottom = 13.6 } }, .{});
-    h2(ui, title);
+    ui.text(title, .{ .font_size = 17.9, .weight = 800, .color = k.ink, .line_height = 1.15, .letter_spacing = -0.45 });
 }
 
 /// A stat tile: the accent bar, the value, the label (`stat()`).
 pub fn stat(ui: *Ui, lbl: []const u8, value: []const u8, o: struct { alert: bool = false, on_press: ?Msg = null }) void {
     const compact = width <= 640;
     ui.begin(.{ .padding = if (compact) .xy(16, 14.4) else .all(20), .gap = 5.6, .radius = 22, .background = k.panel, .shadow = shadow1(), .pressed_background = if (o.on_press != null) k.panel_2.mix(0.5, k.panel) else null, .hover_background = if (o.on_press != null) k.panel.mix(0.85, k.panel_3) else null, .height = .fill }, .{ .on_press = o.on_press });
+    ui.begin(.{ .width = .{ .px = 28 }, .height = .{ .px = 8 }, .padding = .{ .bottom = 4 }, .radius = 0 }, .{});
     ui.begin(.{ .width = .{ .px = 28 }, .height = .{ .px = 4 }, .radius = 2, .background = if (o.alert) k.f else k.a, .gradient = if (o.alert) null else zui.Gradient.two(90, k.a, k.v) }, .{});
+    ui.end();
     ui.end();
     ui.text(value, .{ .font_size = if (compact) 25.6 else 32, .weight = 850, .line_height = 1, .letter_spacing = if (compact) -1.15 else -1.44, .color = if (o.alert) k.fatal_ink else k.ink });
     ui.text(lbl, .{ .font_size = 12.5, .weight = 700, .letter_spacing = 0.25, .color = k.ink_2 });
@@ -454,6 +456,20 @@ pub fn logo(ui: *Ui, brand: ?json.V, size: f32, radius: f32) void {
     const name = std.mem.trim(u8, json.strOr(brand, "appName", json.strOr(brand, "name", "T")), " ");
     ui.begin(.{ .width = .{ .px = size }, .height = .{ .px = size }, .radius = radius, .background = k.a, .gradient = zui.Gradient.two(145, k.a, k.v), .align_items = .center, .justify = .center }, .{});
     ui.text(firstLetter(ui, name), .{ .font_size = size * 0.42, .weight = 800, .color = k.on_accent });
+    ui.end();
+}
+
+/// The logo on the chrome (the rail, the driver and tracking headers: `.brand .logo-fallback`):
+/// the letter sits on the panel colour there, with a soft shadow.
+pub fn logoPanel(ui: *Ui, brand: ?json.V, size: f32, radius: f32) void {
+    const url = if (brand == null) "/img/icon-192.png" else json.str(brand, "logoUrl");
+    ui.begin(.{ .width = .{ .px = size }, .height = .{ .px = size }, .radius = radius, .background = k.panel, .shadow = .{ .y = 6, .blur = 18, .color = k.c.withAlpha(0.35) }, .align_items = .center, .justify = .center }, .{});
+    if (url.len > 0) {
+        ui.image(cx.asset(ui.arena(), url), .{ .width = .{ .px = size }, .height = .{ .px = size }, .radius = radius, .fit = .contain }, 0);
+    } else {
+        const name = std.mem.trim(u8, json.strOr(brand, "appName", json.strOr(brand, "name", "T")), " ");
+        ui.text(firstLetter(ui, name), .{ .font_size = size * 0.42, .weight = 800, .color = k.on_accent });
+    }
     ui.end();
 }
 
@@ -490,7 +506,7 @@ pub fn badgeIcon(ui: *Ui, s: []const u8, tone: Tone, ic: ?Icon) void {
     };
     ui.begin(.{ .direction = .row, .align_items = .center, .gap = 4.8, .padding = .xy(10.4, 2.4), .radius = 999, .background = bg, .align_self = .start }, .{});
     if (ic) |i| icon(ui, i, 17.6, fg);
-    if (s.len > 0) ui.text(s, .{ .font_size = 12, .weight = 700, .color = fg, .max_lines = 1 });
+    if (s.len > 0) ui.text(s, .{ .font_size = 12, .weight = 700, .color = fg });
     ui.end();
 }
 
@@ -504,7 +520,7 @@ pub fn statusBadgeText(ui: *Ui, status: []const u8, s: []const u8) void {
     ui.begin(.{ .direction = .row, .align_items = .center, .gap = 4.8, .padding = .xy(10.4, 2.4), .radius = 999, .background = st.withAlpha(st.a * 0.14), .align_self = .start }, .{});
     ui.begin(.{ .width = .{ .px = 7 }, .height = .{ .px = 7 }, .radius = 3.5, .background = st }, .{});
     ui.end();
-    ui.text(s, .{ .font_size = 12, .weight = 700, .color = st, .max_lines = 1 });
+    ui.text(s, .{ .font_size = 12, .weight = 700, .color = st });
     ui.end();
 }
 
@@ -512,7 +528,7 @@ pub fn statusBadgeText(ui: *Ui, status: []const u8, s: []const u8) void {
 pub fn expressBadge(ui: *Ui) void {
     ui.begin(.{ .direction = .row, .align_items = .center, .gap = 4.8, .padding = .xy(10.4, 2.4), .radius = 999, .background = k.a, .gradient = accentGradient(), .align_self = .start }, .{});
     icon(ui, icons.bolt, 16, k.on_accent);
-    ui.text(labels.k("express.badge"), .{ .font_size = 12, .weight = 700, .color = k.on_accent, .max_lines = 1 });
+    ui.text(labels.k("express.badge"), .{ .font_size = 12, .weight = 700, .color = k.on_accent });
     ui.end();
 }
 
@@ -828,7 +844,7 @@ pub fn selectField(ui: *Ui, lbl: []const u8, slot: u16, options: []const core.Op
 pub fn check(ui: *Ui, lbl: []const u8, checked: bool, msg: Msg) void {
     ui.begin(.{ .direction = .row, .gap = 9.6, .align_items = .start, .pressed_opacity = 0.75 }, .{ .on_press = msg });
     box(ui, checked);
-    ui.text(lbl, .{ .font_size = 15, .color = k.ink, .grow = 1 });
+    ui.text(lbl, .{ .font_size = 15, .color = k.ink });
     ui.end();
 }
 

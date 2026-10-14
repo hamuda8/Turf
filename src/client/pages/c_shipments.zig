@@ -161,9 +161,9 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
             .{ .width = 44 },
             .{ .label = L("shipment.tracking_number"), .grow = 1.4 },
             .{ .label = L("shipment.destination"), .grow = 1.3 },
-            .{ .label = L("common.status") },
+            .{ .label = L("common.status"), .width = 160 },
             .{ .label = L("shipment.cod") },
-            .{ .label = L("common.created") },
+            .{ .label = L("common.created"), .width = 150 },
         };
         ui.begin(.{ .opacity = if (c.slot(d_list).reloading) 0.55 else 1 }, .{});
         var tb = kit.Table.begin(ui, &cols);
@@ -175,7 +175,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
             ml.pickBox(ui, &s.pick, json.str(x, "labelPath"), kit.act(A.pick, idx));
             tb.endCell();
             tb.cell(false);
-            ui.begin(.{ .direction = .row, .gap = 5.6, .align_items = .center }, .{});
+            ui.begin(.{ .direction = .row, .wrap = true, .gap = 5.6, .align_items = .center }, .{});
             kit.mono(ui, json.str(x, "trackingNumber"), .{ .weight = 700 });
             if (std.mem.eql(u8, json.str(x, "service"), "express") or json.boolean(x, "express")) kit.expressBadge(ui);
             ui.end();
