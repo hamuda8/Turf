@@ -1,7 +1,8 @@
 //! Hub check-in (Turf-js views/carrier/scan.js): scan parcels into a hub with a USB/Bluetooth
-//! scanner (it types the code and Enter) or by typing/pasting the code. Turf-js also read labels
-//! with the phone camera (BarcodeDetector); zui has no camera barcode reader, so the camera button
-//! is shown switched off with the reason, as Turf-js does where BarcodeDetector is missing.
+//! scanner (it types the code and Enter), by typing/pasting the code, or with the phone's back
+//! camera: zui's barcode scanner (fx.scanBarcode) reads Code 128 and QR labels, as Turf-js's
+//! BarcodeDetector did, and only Turf tracking numbers (TRF…) are checked in; one label seen again
+//! within 4 s is not sent twice.
 
 const std = @import("std");
 const zui = @import("zui");
@@ -25,7 +26,10 @@ const f_hub: u16 = 0;
 const f_code: u16 = 1;
 const max_log = 200;
 
-const A = enum(u16) { check_in = 1, submit, inside };
+const A = enum(u16) { check_in = 1, submit, inside, camera };
+
+/// A label the camera keeps seeing is sent once per this many milliseconds.
+const camera_repeat_ms = 4000;
 
 const Entry = struct {
     seq: u32,
@@ -42,7 +46,28 @@ const Entry = struct {
 pub const S = struct {
     log: std.ArrayList(Entry) = .empty,
     seq: u32 = 0,
+    /// The camera scanner (fx.scanBarcode), 0 when off.
+    scanner: u32 = 0,
+    camera: enum { off, starting, on } = .off,
+    camera_error: []const u8 = "",
+    /// When each code was last read by the camera (ms).
+    recent: std.StringHashMapUnmanaged(i64) = .empty,
 };
+
+fn onScan(e: zui.ScanEvent) core.Msg {
+    return .{ .scan = e };
+}
+
+fn stopCamera(s: *S, c: *Cx) void {
+    if (s.scanner != 0) c.fx.stopScan(s.scanner);
+    s.scanner = 0;
+    s.camera = .off;
+}
+
+/// Leaving the page turns the camera off.
+pub fn leave(s: *S, c: *Cx) void {
+    stopCamera(s, c);
+}
 
 pub fn title(_: *const S, _: *const Cx) []const u8 {
     return L("nav.scan");
@@ -110,7 +135,31 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 checkIn(s, c, v);
             },
             .inside => c.go(c.print("/hubs/{s}", .{c.val(f_hub)})),
+            .camera => if (s.camera != .off) {
+                stopCamera(s, c);
+                c.fx.focus(kit.slotKey(f_code));
+            } else {
+                s.camera_error = "";
+                s.camera = .starting;
+                s.scanner = c.fx.scanBarcode(.{ .formats = .{ .code_128 = true, .qr = true }, .back_camera = true }, onScan);
+            },
             .check_in => {},
+        },
+        .scan => |ev| if (ev.scanner == s.scanner) switch (ev.kind) {
+            .started => s.camera = .on,
+            .found => {
+                // Only Turf tracking numbers; the camera sees the same label many times a second.
+                if (ev.text.len < 3 or !std.ascii.eqlIgnoreCase(ev.text[0..3], "TRF")) return;
+                const tn = clean(c.arena(), ev.text);
+                const now = fmt.now();
+                if (s.recent.get(tn)) |last| if (now - last < camera_repeat_ms) return;
+                s.recent.put(c.arena(), c.dupe(tn), now) catch {};
+                checkIn(s, c, tn);
+            },
+            .failed => {
+                stopCamera(s, c);
+                s.camera_error = if (std.mem.eql(u8, ev.data, "unsupported")) L("scan.camera_unsupported") else if (std.mem.eql(u8, ev.data, "denied")) core.t("Camera access was refused. Allow it in the settings to scan labels.") else core.t("The camera is not available right now.");
+            },
         },
         .done => |d| if (d.id == @intFromEnum(A.check_in)) {
             for (s.log.items) |*x| if (x.seq == d.arg) {
@@ -151,9 +200,11 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.input(ui, f_code, .{ .kind = .code, .placeholder = "TRF…", .ltr = true, .mono = true, .size = 20, .on_submit = kit.act(A.submit, 0), .name = "trackingNumber" });
     kit.fieldEnd(ui, "trackingNumber", L("scan.hint"));
     kit.rowBetween(ui);
-    kit.button(ui, L("scan.camera"), null, .{ .icon = icons.photo_camera, .disabled = true });
+    kit.button(ui, if (s.camera == .off) L("scan.camera") else L("scan.stop_camera"), kit.act(A.camera, 0), .{ .icon = icons.photo_camera, .disabled = s.camera == .starting });
     ui.end();
-    kit.small(ui, L("scan.camera_unsupported"));
+    // `.scan-video`: the camera's picture while it reads labels.
+    if (s.camera == .on) ui.video(s.scanner, .{ .cover = true }, .{ .width = .fill, .height = .{ .px = @min(ui.env.height * 0.5, 420) }, .radius = 22, .background = k.c, .clip = true }, zui.key("scan-video"));
+    if (s.camera_error.len > 0) kit.notice(ui, .err, s.camera_error);
     kit.endCard(ui, .{});
     kit.h2(ui, L("scan.log"));
     ui.begin(.{ .gap = 6.4 }, .{});
@@ -211,4 +262,29 @@ test "scan: no hubs" {
     defer app.D.reset();
     try testing.expect(app.D.respond("/carrier/hubs", 200, "[]"));
     try testing.expect(app.D.findText(L("scan.no_hubs")) != 0);
+}
+
+test "scan: the camera checks in Turf labels, once per label, and stops when asked" {
+    try dispatch.openCarrier("/scan");
+    defer app.D.reset();
+    const D = app.D;
+    try testing.expect(D.respond("/carrier/hubs", 200, "[{\"_id\":\"h1\",\"name\":\"Damascus Hub\",\"code\":\"dam\",\"governorate\":\"DAM\",\"active\":true}]"));
+    try D.press(L("scan.camera"));
+    const c = D.R.appState();
+    const id = c.page.scan.scanner;
+    try testing.expect(id != 0);
+    D.R.dispatch(.{ .scan = .{ .kind = .started, .scanner = id } });
+    try testing.expect(D.findText(L("scan.stop_camera")) != 0);
+    D.R.dispatch(.{ .scan = .{ .kind = .found, .scanner = id, .format = .code_128, .text = "TRF12AB" } });
+    try testing.expect(D.pending("/carrier/hubs/h1/check-in") != null);
+    // Another kind of code, and the same label again, are not sent.
+    D.R.dispatch(.{ .scan = .{ .kind = .found, .scanner = id, .format = .qr, .text = "https://example.com" } });
+    D.R.dispatch(.{ .scan = .{ .kind = .found, .scanner = id, .format = .code_128, .text = "TRF12AB" } });
+    var n: usize = 0;
+    for (zui.host.fetches.items) |f| if (std.mem.indexOf(u8, f.url, "check-in") != null) {
+        n += 1;
+    };
+    try testing.expectEqual(@as(usize, 1), n);
+    try D.press(L("scan.stop_camera"));
+    try testing.expectEqual(@as(u32, 0), D.R.appState().page.scan.scanner);
 }

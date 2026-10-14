@@ -466,6 +466,7 @@ pub fn update(c: *State, msg: Msg, env: zui.Env, fx: zui.Fx(Msg)) void {
         },
         .host => |h| host(c, h),
         .socket => |e| pageEvent(c, .{ .socket = e }),
+        .scan => |e| pageEvent(c, .{ .scan = e }),
         .copy => |s| c.copy(s),
         .open => |u| c.external(u, true),
         .photo_picked => |f| {

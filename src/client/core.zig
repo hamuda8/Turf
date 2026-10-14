@@ -88,6 +88,8 @@ pub const Msg = union(enum) {
     date_picked: []const u8,
     host: Host,
     socket: zui.SocketEvent,
+    /// A barcode scanner's event (fx.scanBarcode).
+    scan: zui.ScanEvent,
     /// An input got or lost the keyboard (its form slot).
     focus: u16,
     blur: u16,
@@ -124,6 +126,8 @@ pub const Ev = union(enum) {
     photo: struct { id: u16, data: []const u8 },
     file: struct { id: u16, name: []const u8, data: []const u8 },
     socket: zui.SocketEvent,
+    /// A barcode scanner's event (fx.scanBarcode).
+    scan: zui.ScanEvent,
     /// An event of the page's stream (`Cx.liveEvents`).
     live: zui.ServerEvent,
 };
