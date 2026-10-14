@@ -355,8 +355,8 @@ fn page(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     // The delivery code.
     const code = json.str(v, "deliveryCode");
     if (code.len > 0 and inList(status, &code_statuses)) {
-        // `.code-panel`: a dashed ring in CSS (zui draws it solid) over a soft accent glow.
-        kit.card(ui, .{ .gap = 4.8, .ring = k.a, .align_items = .center, .background = k.accent_soft.mix(0.5, k.panel) });
+        // `.code-panel`: a dashed ring over a soft accent glow.
+        kit.card(ui, .{ .gap = 4.8, .ring = k.a, .dashed = true, .align_items = .center, .background = k.accent_soft.mix(0.5, k.panel) });
         kit.text(ui, L("track.your_code"), .{ .@"align" = .center });
         ui.begin(.{ .no_mirror = true }, .{});
         ui.text(code, .{ .font_size = 38.4, .weight = 850, .mono = true, .letter_spacing = 13.4, .color = k.ink, .text_align = .center });

@@ -391,6 +391,8 @@ pub const CardOpts = struct {
     edge: ?Color = null,
     /// A ring around it (chosen options, express tasks, danger zones).
     ring: ?Color = null,
+    /// The ring in dashes.
+    dashed: bool = false,
     background: ?Color = null,
     direction: @FieldType(zui.Style, "direction") = .column,
     align_items: @FieldType(zui.Style, "align_items") = .stretch,
@@ -406,6 +408,7 @@ pub fn card(ui: *Ui, o: CardOpts) void {
         // `border-inline-start: 5px solid var(--st)` (task cards), or a ring (chosen options).
         .borders = if (o.edge) |e| (if (o.ring) |r| .{ .start = .{ .width = 5, .color = e }, .end = .{ .width = 2, .color = r }, .top = .{ .width = 2, .color = r }, .bottom = .{ .width = 2, .color = r } } else .{ .start = .{ .width = 5, .color = e } }) else null,
         .border_width = if (o.ring != null) 2 else 0,
+        .border_dashed = o.dashed,
         .border_color = o.ring orelse Color.transparent,
         .shadow = if (o.inner) null else shadow1(),
         .pressed_background = if (o.on_press != null) k.panel_2.mix(0.5, bg) else null,
