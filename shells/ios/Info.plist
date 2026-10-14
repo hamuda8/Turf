@@ -29,6 +29,8 @@
     </array>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Turf uses your location to show where you are and, during a shift, to share it with your company.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Turf uses the camera to read parcel labels when you scan them into a hub.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>During a shift, Turf keeps sharing your location with your company while the screen is off, so deliveries can be followed.</string>
     <key>UIBackgroundModes</key>

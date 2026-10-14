@@ -15,6 +15,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- A new dispatch rings over the lock screen (zui fx.notify urgent). -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- The hub scan reads parcel labels with the camera (zui barcode scanner). -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:label="Turf"
