@@ -364,7 +364,7 @@ fn queueSection(s: *const S, c: *const Cx, ui: *Ui) void {
         for (list, 0..) |x, i| {
             if (!eq(u8, json.str(x, "status"), dt[0])) continue;
             const id = cm.docId(x);
-            ui.begin(.{ .direction = .row, .align_items = .center, .gap = 9.6, .padding = .xy(12.8, 9.6), .radius = 22, .background = k.panel, .pressed_background = k.panel_2 }, .{ .on_press = kit.act(A.toggle, @intCast(i)), .key = zui.key(id) });
+            ui.begin(.{ .direction = .row, .align_items = .center, .gap = 9.6, .padding = .xy(12.8, 9.6), .radius = 22, .background = k.panel, .shadow = kit.shadow1(), .pressed_background = k.panel_2, .hover_background = k.panel_2 }, .{ .on_press = kit.act(A.toggle, @intCast(i)), .key = zui.key(id) });
             kit.box(ui, s.selected.has(id));
             ui.begin(.{ .grow = 1, .gap = 2 }, .{});
             kit.rowBetween(ui);

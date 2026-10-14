@@ -209,7 +209,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.h2(ui, L("scan.log"));
     ui.begin(.{ .gap = 6.4 }, .{});
     for (s.log.items) |x| {
-        ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center, .padding = .xy(12.8, 8.8), .radius = 22, .background = k.panel }, .{ .key = zui.key(x.seq) });
+        ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center, .padding = .xy(12.8, 8.8), .radius = 22, .background = k.panel, .shadow = kit.shadow1() }, .{ .key = zui.key(x.seq) });
         if (x.sending) {
             kit.mono(ui, x.tn, .{});
             kit.spinner(ui, 16, k.ink_3);

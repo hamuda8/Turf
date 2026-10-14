@@ -180,8 +180,8 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.width = inner;
     ui.begin(.{ .gap = 5.6 }, .{});
     const welcome = if (has_companies) L("onb.title_more") else ui.tf(labels.english("onb.title_welcome") orelse "{name}", .{ .name = json.str(c.me.value, "user.username") });
-    ui.text(welcome, .{ .font_size = landing.clampVw(ui, 28.8, 3.8, 41.6), .weight = 800, .line_height = 1.1, .color = k.ink });
-    ui.text(L("onb.subtitle"), .{ .font_size = 16.8, .color = k.ink_2 });
+    ui.text(welcome, .{ .font_size = landing.clampVw(ui, 28.8, 3.8, 41.6), .weight = 800, .line_height = 1.1, .letter_spacing = -0.045 * landing.clampVw(ui, 28.8, 3.8, 41.6), .color = k.ink });
+    ui.text(L("onb.subtitle"), .{ .font_size = 16.8, .color = k.ink_2, .max_width = 60 * 16.8 * 0.5 });
     ui.end();
 
     step(ui, "1", L("onb.step_type"));
@@ -218,10 +218,10 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
 fn step(ui: *Ui, n: []const u8, s: []const u8) void {
     const k = kit.k;
     ui.begin(.{ .direction = .row, .gap = 9.6, .align_items = .center }, .{});
-    ui.begin(.{ .width = .{ .px = 26 }, .height = .{ .px = 26 }, .radius = 13, .background = k.a, .align_items = .center, .justify = .center }, .{});
+    ui.begin(.{ .width = .{ .px = 26 }, .height = .{ .px = 26 }, .radius = 13, .background = k.a, .gradient = kit.accentGradient(), .align_items = .center, .justify = .center }, .{});
     ui.text(n, .{ .font_size = 12.8, .weight = 800, .color = k.on_accent });
     ui.end();
-    ui.text(kit.upper(ui, s), .{ .font_size = 11.2, .weight = 800, .color = k.ink_3 });
+    ui.text(s, .{ .font_size = 11.2, .weight = 800, .color = k.ink_3, .uppercase = true, .letter_spacing = 1.57 });
     ui.end();
 }
 
@@ -235,6 +235,9 @@ fn typeCard(ui: *Ui, kind: Kind, chosen: bool) void {
         .padding = .all(20),
         .radius = 22,
         .background = k.panel,
+        .shadow = if (chosen) kit.shadow2() else kit.shadow1(),
+        .hover_background = if (chosen) null else k.panel.mix(0.85, k.panel_3),
+        .transition = .{ .duration_ms = 220 },
         .border_width = 2,
         .border_color = if (chosen) k.a else zui.Color.transparent,
         .pressed_background = k.panel_2.mix(0.5, k.panel),
