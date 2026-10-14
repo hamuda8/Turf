@@ -211,6 +211,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 follow(s, c);
             };
         },
+        // Online again while the saved copy shows: the real one.
+        .online => |on| if (on and c.slot(d_track).offline) load(s, c),
         // Back on the tab after half a minute or more: catch up (Turf-js visibilitychange).
         .visible => |v| if (!v) {
             s.hidden_at = zui.now();
@@ -336,6 +338,9 @@ fn page(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     ui.end();
     kit.button(ui, if (c.ar()) "EN" else "ع", kit.act(A.lang, 0), .{ .size = .sm, .on_rail = true });
     ui.end();
+
+    // The saved copy, shown while offline.
+    if (c.slot(d_track).offline) kit.notice(ui, .warn, L("track.offline_copy"));
 
     // The status.
     kit.card(ui, .{ .gap = 5.6 });
@@ -609,6 +614,13 @@ test "public track: status, code, courier, pin and day; live updates" {
     app.D.device(.visible);
     try testing.expect(app.D.pending("/api/public/track/abcdefghijklmnop1234?lang=en") != null);
     zui.host.wall_ms -= 65_000;
+    // The service worker's saved copy says so, and is replaced once back online.
+    try testing.expect(app.D.respondWithHeaders("/api/public/track/abcdefghijklmnop1234?lang=en", 200, track_json, "x-turf-offline: 1"));
+    try testing.expect(app.D.findText(L("track.offline_copy")) != 0);
+    app.D.device(.offline);
+    app.D.device(.online);
+    try testing.expect(app.D.respond("/api/public/track/abcdefghijklmnop1234?lang=en", 200, track_json));
+    try testing.expect(app.D.findText(L("track.offline_copy")) == 0);
 }
 
 test "public track: feedback after delivery; the embed hides the forms" {

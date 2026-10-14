@@ -631,6 +631,7 @@ fn response(c: *Cx, r: zui.Response) void {
                 s.value = json.parse(s.arena.allocator(), r.body);
                 s.state = .ok;
                 s.err = "";
+                s.offline = if (r.header("x-turf-offline")) |h| std.mem.eql(u8, h, "1") else false;
             } else {
                 var tmp = std.heap.ArenaAllocator.init(gpa);
                 defer tmp.deinit();

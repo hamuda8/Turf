@@ -197,6 +197,8 @@ pub const Slot = struct {
     status: u16 = 0,
     err: []const u8 = "",
     seq: u16 = 0,
+    /// The answer is the service worker's saved copy (offline; `X-Turf-Offline: 1`).
+    offline: bool = false,
 
     pub fn reset(s: *Slot) void {
         s.arena.deinit();
