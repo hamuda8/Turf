@@ -22,6 +22,8 @@ pub fn build(b: *std.Build) void {
         .android_res = b.path("shells/android/res"),
         .android_res_files = &.{"mipmap-xxxhdpi/ic_launcher.png"},
         .ios_info_plist = b.path("shells/ios/Info.plist"),
+        // FCM: google-services.json stays outside the repository (C:/MProjects/secrets).
+        .android_push = .{ .google_services = "../secrets/turf-google-services.json" },
         .optimize = b.standardOptimizeOption(.{}),
     });
 }

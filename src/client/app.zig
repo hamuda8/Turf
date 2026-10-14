@@ -15,6 +15,7 @@ const shell = @import("shell.zig");
 const gps = @import("gps.zig");
 const pages = @import("pages.zig");
 const labels = @import("labels.zig");
+const push_mod = @import("push.zig");
 
 pub const panic = zui.panic;
 pub const boot: Msg = .boot;
@@ -29,6 +30,9 @@ comptime {
 }
 
 pub const Msg = core.Msg;
+/// Push notifications (push.zig).
+pub const pushToken = push_mod.pushToken;
+pub const pushMessage = push_mod.pushMessage;
 pub const State = core.Cx;
 const Cx = core.Cx;
 const gpa = core.gpa;
@@ -465,6 +469,7 @@ pub fn update(c: *State, msg: Msg, env: zui.Env, fx: zui.Fx(Msg)) void {
             pageEvent(c, .{ .text = .{ .slot = c.date_slot, .text = v } });
         },
         .host => |h| host(c, h),
+        .push => |e| push_mod.update(c, e),
         .socket => |e| pageEvent(c, .{ .socket = e }),
         .scan => |e| pageEvent(c, .{ .scan = e }),
         .copy => |s| c.copy(s),
@@ -532,8 +537,16 @@ fn host(c: *Cx, h: core.Host) void {
             if (c.gps.on) gps.presence(c, if (v) "foreground" else "background");
             // Turf-js also uploads what is saved when the page is hidden.
             gps.flush(c);
+            if (v and c.me.state == .ok) openPushed(c);
         },
     }
+}
+
+/// The address a push carried (a new task), once the user is back in the app.
+fn openPushed(c: *Cx) void {
+    const p = push_mod.takePending() orelse return;
+    defer gpa.free(p);
+    openLink(c, p, true);
 }
 
 fn onDatePicked(v: []const u8) Msg {
@@ -696,6 +709,8 @@ fn fillSession(c: *Cx, s: *core.Slot, r: zui.Response, continue_after: bool) voi
     if (continue_after and c.me.state == .ok and c.meta.state == .ok and c.mode == .starting) {
         c.mode = c.mode_before_boot;
         resumeStart(c);
+        push_mod.register(c);
+        openPushed(c);
     }
 }
 

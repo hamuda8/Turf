@@ -102,6 +102,8 @@ pub const Msg = union(enum) {
     file_picked: zui.File,
     /// The page's live events (Server-Sent Events, `Cx.liveEvents`).
     live: zui.ServerEvent,
+    /// Push notifications: the token, a push's data (push.zig).
+    push: @import("push.zig").Event,
 };
 
 /// What the platform tells the app (zui's linkEvent and deviceEvent).

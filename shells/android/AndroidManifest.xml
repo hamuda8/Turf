@@ -42,6 +42,10 @@
             android:name="com.wufour.zui.ZuiLocationService"
             android:foregroundServiceType="location"
             android:exported="false" />
+        <!-- Push (FCM): dispatch alarms reach the courier even when the app is closed. -->
+        <service android:name="com.wufour.zui.ZuiPush" android:exported="false">
+            <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
+        </service>
         <!-- Home-screen widget: the courier's shift and next task (zui.widget). -->
         <receiver android:name="com.wufour.zui.ZuiWidget" android:exported="false">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
