@@ -21,6 +21,9 @@ foreach ($line in Get-Content (Join-Path $js '.env.staging')) {
     }
 }
 $env:TURF_PUBLIC_DIR = Join-Path $dir 'web'
+# Push to phones: the Firebase service account, kept outside the repositories.
+$fcm = Join-Path (Split-Path -Parent $repo) 'secrets\firebase-service-account.json'
+if (Test-Path $fcm) { $env:FCM_SERVICE_ACCOUNT_FILE = $fcm }
 
 Start-Process -FilePath (Join-Path $dir 'turf-server.exe') -WorkingDirectory $dir -WindowStyle Hidden `
     -RedirectStandardOutput (Join-Path $dir 'server.log') -RedirectStandardError (Join-Path $dir 'server.err.log')
