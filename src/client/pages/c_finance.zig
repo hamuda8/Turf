@@ -97,7 +97,9 @@ fn table(c: *const Cx, ui: *Ui, rows: []const V, first: []const u8, name_key: []
         kit.strong(ui, fmt.money(a, json.num(r, "amount"), currency(c)));
         tb.endCell();
         tb.cell(false);
-        if (manage) kit.button(ui, action, kit.act(ask, @intCast(i)), .{ .size = .sm, .variant = .primary, .busy = @intFromEnum(busy) });
+        // Only the row being sent shows the spinner.
+        const mine = c.isBusy(@intFromEnum(busy)) and (c.act_args.get(@intFromEnum(busy)) orelse 0) == i;
+        if (manage) kit.button(ui, action, kit.act(ask, @intCast(i)), .{ .size = .sm, .variant = .primary, .busy = if (mine) @intFromEnum(busy) else null });
         tb.endCell();
         tb.endRow();
     }

@@ -36,17 +36,42 @@ pub const A = enum(u16) {
     sos_send,
     refused_close,
     back,
+    sign_in,
 };
 
 const f_sos_note: u16 = 480;
+/// The page timer that gives up waiting for a position for SOS (`locateOnce`'s 15 s).
+const t_sos_locate: u16 = 950;
+const sos_locate_ms = 15_000;
 
 pub const Chrome = struct {
     menu: bool = false,
     sos: bool = false,
+    /// SOS waits for a position (no recent fix): sent when one comes, or without one.
+    sos_locating: bool = false,
+    /// SOS asked for the position itself (the page did not follow it already).
+    sos_wanted: bool = false,
 };
 
 fn isMine(id: u16) bool {
-    return id >= 900 and id <= @intFromEnum(A.back);
+    return id >= 900 and id <= @intFromEnum(A.sign_in);
+}
+
+fn sendSos(ch: *Chrome, c: *Cx) void {
+    ch.sos_locating = false;
+    if (ch.sos_wanted) {
+        ch.sos_wanted = false;
+        gps.want(c, false);
+    }
+    var b = json.Obj.init(c.arena());
+    if (c.gps.current()) |f| {
+        b.begin("location");
+        b.num("lat", f.lat);
+        b.num("lng", f.lng);
+        b.end();
+    }
+    b.strOpt("note", c.valTrim(f_sos_note));
+    c.send(@intFromEnum(A.sos_send), .POST, c.orgUrl("/courier/sos"), b.done());
 }
 
 /// Handles the frame's events; true when it was one of them.
@@ -70,24 +95,49 @@ pub fn update(ch: *Chrome, c: *Cx, e: core.Ev) bool {
                     ch.sos = true;
                     c.setVal(f_sos_note, "");
                 },
-                .sos_close => ch.sos = false,
-                .sos_send => {
-                    var b = json.Obj.init(c.arena());
-                    if (c.gps.current()) |f| {
-                        b.begin("location");
-                        b.num("lat", f.lat);
-                        b.num("lng", f.lng);
-                        b.end();
+                .sos_close => {
+                    ch.sos = false;
+                    if (ch.sos_locating) {
+                        ch.sos_locating = false;
+                        _ = c.busy.remove(@intFromEnum(A.sos_send));
+                        if (ch.sos_wanted) gps.want(c, false);
+                        ch.sos_wanted = false;
                     }
-                    b.strOpt("note", c.valTrim(f_sos_note));
-                    c.send(@intFromEnum(A.sos_send), .POST, c.orgUrl("/courier/sos"), b.done());
                 },
+                .sos_send => {
+                    if (ch.sos_locating or c.isBusy(@intFromEnum(A.sos_send))) return true;
+                    // No recent position: ask for one first (at most 15 s), as Turf-js's locateOnce.
+                    if (c.gps.current() == null) {
+                        ch.sos_locating = true;
+                        // The button spins while the position is sought.
+                        c.busy.put(core.gpa, @intFromEnum(A.sos_send), {}) catch {};
+                        if (!c.gps.page_wants) {
+                            ch.sos_wanted = true;
+                            gps.want(c, true);
+                        }
+                        c.after(sos_locate_ms, t_sos_locate);
+                    } else sendSos(ch, c);
+                },
+                .sign_in => app.signInAgain(c),
                 .refused_close => {
                     for (c.gps.refused.items) |x| core.gpa.free(x);
                     c.gps.refused.clearRetainingCapacity();
                 },
                 .back => c.go("/driver"),
             }
+            return true;
+        },
+        .located => |l| {
+            // The position SOS was waiting for (or none to be had); the page sees it too.
+            if (ch.sos_locating) switch (l) {
+                .fix, .denied => sendSos(ch, c),
+                .unavailable => {},
+            };
+            return false;
+        },
+        .timer => |id| {
+            if (id != t_sos_locate) return false;
+            if (ch.sos_locating) sendSos(ch, c);
             return true;
         },
         .done => |d| {
@@ -169,7 +219,7 @@ pub fn begin(ui: *Ui, c: *const Cx, ch: *const Chrome, o: FrameOpts) void {
     // The banners.
     const tr = &c.gps;
     if (!c.online) banner(ui, ui.tf(labels.english("driver.offline") orelse "{n}", .{ .n = tr.pending() }), false, null, "");
-    if (tr.session_expired) banner(ui, L("driver.session_expired"), true, .{ .shell = .sign_out }, L("driver.sign_in_again"));
+    if (tr.session_expired) banner(ui, L("driver.session_expired"), true, kit.act(A.sign_in, 0), L("driver.sign_in_again"));
     if (tr.status == .denied) banner(ui, L("driver.gps_denied_help"), true, null, "");
     if (tr.outboxCount() > 0) banner(ui, ui.tf(labels.english("outbox.waiting") orelse "{n}", .{ .n = tr.outboxCount() }), false, null, "");
     if (json.obj(c.meta.value, "platform.announcement")) |a| {

@@ -1,7 +1,7 @@
 //! Delivery requests from individuals (direct shipping), offered to this company (Turf-js
 //! views/carrier/requests.js): accept within the time limit, or the request goes to the next
-//! company. The countdown ticks every second; the list reloads when a request's time is up and on
-//! live "direct.request" events (Server-Sent Events).
+//! company. The countdown ticks every second; the list reloads when a request's time is up, every
+//! 20 s, and on live "direct.request" events (Server-Sent Events).
 
 const std = @import("std");
 const zui = @import("zui");
@@ -22,6 +22,7 @@ const L = labels.k;
 const d_list: u8 = 0;
 const t_tick: u16 = 1;
 const t_refresh: u16 = 2;
+const t_every: u16 = 3;
 
 const A = enum(u16) { accept = 1, decline_ask, decline };
 
@@ -36,6 +37,7 @@ pub fn title(_: *const S, _: *const Cx) []const u8 {
 pub fn enter(_: *S, c: *Cx) void {
     c.load(d_list, c.orgUrl("/carrier/requests"));
     c.after(1000, t_tick);
+    c.after(20_000, t_every);
     c.orgLive(t_refresh, &.{"direct.request"});
 }
 
@@ -80,6 +82,10 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             t_refresh => {
                 c.liveDone();
                 load(c);
+            },
+            t_every => {
+                load(c);
+                c.after(20_000, t_every);
             },
             else => {},
         },

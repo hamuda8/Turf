@@ -493,7 +493,7 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
 }
 
 fn planDialog(s: *const S, c: *const Cx, ui: *Ui, list: []const V) void {
-    shell.modalBegin(ui, .{ .title = L("dispatch.plan_task"), .close = kit.act(A.plan_close, 0), .wide = true, .key = zui.key("plan-task") });
+    shell.modalBegin(ui, .{ .title = L("dispatch.plan_task"), .close = kit.act(A.plan_close, 0), .wide = true, .dismissible = true, .key = zui.key("plan-task") });
     var w = kit.Wrap.begin(ui, kit.width, 5.6);
     for (list) |x| {
         const tn = json.str(x, "trackingNumber");

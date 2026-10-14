@@ -1,6 +1,6 @@
 //! Live fleet map (Turf-js views/carrier/fleet.js): every courier's position, the hubs, and a
 //! courier's route over the last hours. The fleet reloads on live events (Server-Sent
-//! Events: positions, duty); the "no signal" badges follow on each draw.
+//! Events: positions, duty); the "no signal" badges are looked at again every minute.
 
 const std = @import("std");
 const zui = @import("zui");
@@ -24,6 +24,7 @@ const d_hubs: u8 = 1;
 const d_trail: u8 = 2;
 
 const t_poll: u16 = 1;
+const t_tick: u16 = 2;
 const stale_ms: i64 = 10 * 60_000;
 const panel_w: f32 = 360;
 
@@ -45,6 +46,7 @@ pub fn enter(_: *S, c: *Cx) void {
     c.load(d_fleet, c.orgUrl("/carrier/fleet"));
     c.load(d_hubs, c.orgUrl("/carrier/hubs"));
     c.orgLive(t_poll, &.{ "courier.position", "courier.duty" });
+    c.after(60_000, t_tick);
 }
 
 fn isStale(x: V) bool {
@@ -83,6 +85,9 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
         .timer => |id| if (id == t_poll) {
             c.liveDone();
             c.load(d_fleet, c.orgUrl("/carrier/fleet"));
+        } else if (id == t_tick) {
+            // Nothing to load: the draw that follows re-evaluates "no signal".
+            c.after(60_000, t_tick);
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .filter => s.all = a.arg == 1,

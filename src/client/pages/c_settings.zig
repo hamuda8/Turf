@@ -255,8 +255,8 @@ fn save(s: *S, c: *Cx, id: A) void {
     var b = json.Obj.init(c.arena());
     switch (id) {
         .save_profile => {
-            b.strOpt("name", c.val(f_name));
-            b.strOpt("phone", c.val(f_phone));
+            b.strOpt("name", c.valTrim(f_name));
+            b.strOpt("phone", c.valTrim(f_phone));
             b.strOpt("governorate", c.val(f_gov));
             return c.send(@intFromEnum(id), .PATCH, c.orgUrl("/profile"), b.done());
         },
@@ -363,13 +363,13 @@ fn upper(c: *Cx, s: []const u8) []const u8 {
 
 fn verify(s: *S, c: *Cx) void {
     var b = json.Obj.init(c.arena());
-    b.strOpt("legalName", c.val(f_v_legal));
-    b.strOpt("registrationNumber", c.val(f_v_reg));
-    b.strOpt("ownerName", c.val(f_v_owner));
-    b.strOpt("ownerIdNumber", c.val(f_v_owner_id));
-    b.strOpt("phone", c.val(f_v_phone));
-    b.strOpt("address", c.val(f_v_address));
-    b.strOpt("notes", c.val(f_v_notes));
+    b.strOpt("legalName", c.valTrim(f_v_legal));
+    b.strOpt("registrationNumber", c.valTrim(f_v_reg));
+    b.strOpt("ownerName", c.valTrim(f_v_owner));
+    b.strOpt("ownerIdNumber", c.valTrim(f_v_owner_id));
+    b.strOpt("phone", c.valTrim(f_v_phone));
+    b.strOpt("address", c.valTrim(f_v_address));
+    b.strOpt("notes", c.valTrim(f_v_notes));
     if (s.documents.items.len > 0) {
         b.beginArray("documents");
         for (s.documents.items) |d| b.str("", d);
@@ -454,7 +454,12 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
 
 // ---- View ---------------------------------------------------------------------------------
 
-fn sectionBegin(ui: *Ui, title_text: []const u8, intro: []const u8) void {
+/// Enter in a one-line field of the section being drawn saves it (each section is a form in
+/// Turf-js); set by `sectionBegin`.
+var enter_msg: ?core.Msg = null;
+
+fn sectionBegin(ui: *Ui, title_text: []const u8, intro: []const u8, save_id: ?A) void {
+    enter_msg = if (save_id) |id| kit.act(id, 0) else null;
     kit.card(ui, .{ .gap = 16 });
     ui.begin(.{ .gap = 4 }, .{});
     kit.h2(ui, title_text);
@@ -470,7 +475,7 @@ fn sectionEnd(ui: *Ui, id: A) void {
 }
 
 fn numInput(ui: *Ui, lbl: []const u8, slot: u16, name: []const u8, o: struct { hint: []const u8 = "", required: bool = false, decimal: bool = false, placeholder: []const u8 = "" }) void {
-    kit.field(ui, lbl, slot, .{ .required = o.required, .hint = o.hint, .input = .{ .kind = if (o.decimal) .decimal else .number, .ltr = true, .name = name, .placeholder = o.placeholder } });
+    kit.field(ui, lbl, slot, .{ .required = o.required, .hint = o.hint, .input = .{ .kind = if (o.decimal) .decimal else .number, .ltr = true, .name = name, .placeholder = o.placeholder, .on_submit = enter_msg } });
 }
 
 fn grid(ui: *Ui, n: usize) kit.Grid {
@@ -506,6 +511,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
 fn verification(s: *const S, c: *const Cx, ui: *Ui) void {
     const v = json.get(c.orgV(), "verification");
     const st = json.strOr(v, "status", "not_submitted");
+    enter_msg = kit.act(A.verify, 0);
     kit.card(ui, .{ .gap = 16 });
     kit.h2(ui, L("verification.title"));
     if (eq(u8, st, "not_submitted")) kit.notice(ui, .warn, L("verification.intro")) else if (eq(u8, st, "submitted")) kit.notice(ui, .ok, L("verification.submitted_note")) else if (eq(u8, st, "rejected")) kit.notice(ui, .err, cm.tx(ui, "verification.rejected_note", .{ .note = json.str(v, "reviewNote") }));
@@ -519,7 +525,7 @@ fn verification(s: *const S, c: *const Cx, ui: *Ui) void {
         .{ "verification.address", f_v_address, "address", false, InKind.text },
     }) |x| {
         g.cell();
-        kit.field(ui, L(x[0]), x[1], .{ .required = true, .input = .{ .name = x[2], .ltr = x[3], .kind = if (x[4] == .phone) .phone else .text } });
+        kit.field(ui, L(x[0]), x[1], .{ .required = true, .input = .{ .name = x[2], .ltr = x[3], .kind = if (x[4] == .phone) .phone else .text, .on_submit = enter_msg } });
         g.endCell();
     }
     g.end();
@@ -544,13 +550,13 @@ fn verification(s: *const S, c: *const Cx, ui: *Ui) void {
 const InKind = enum { text, phone };
 
 fn profile(c: *const Cx, ui: *Ui) void {
-    sectionBegin(ui, L("settings.profile"), "");
+    sectionBegin(ui, L("settings.profile"), "", .save_profile);
     var g = grid(ui, 3);
     g.cell();
-    kit.field(ui, L("org.name"), f_name, .{ .input = .{ .name = "name" } });
+    kit.field(ui, L("org.name"), f_name, .{ .input = .{ .name = "name", .on_submit = enter_msg } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("common.phone"), f_phone, .{ .hint = L("settings.phone_hint"), .input = .{ .kind = .phone, .ltr = true, .name = "phone" } });
+    kit.field(ui, L("common.phone"), f_phone, .{ .hint = L("settings.phone_hint"), .input = .{ .kind = .phone, .ltr = true, .name = "phone", .on_submit = enter_msg } });
     g.endCell();
     g.cell();
     kit.selectField(ui, L("org.governorate"), f_gov, cm.govOptions(c, ui.arena()), .{ .placeholder = L("common.choose"), .name = "governorate" });
@@ -561,7 +567,7 @@ fn profile(c: *const Cx, ui: *Ui) void {
 
 fn coverage(s: *const S, c: *const Cx, ui: *Ui) void {
     const k = kit.k;
-    sectionBegin(ui, L("settings.coverage"), L("settings.coverage_intro"));
+    sectionBegin(ui, L("settings.coverage"), L("settings.coverage_intro"), .save_coverage);
     const list = govs(c);
     var g = kit.Grid.begin(ui, list.len, 220, 6.4, kit.width - 40);
     for (list, 0..) |gv, i| {
@@ -597,7 +603,7 @@ fn coverage(s: *const S, c: *const Cx, ui: *Ui) void {
             kit.field(ui, L("settings.area_cities"), slot, .{ .hint = L("settings.area_cities_hint"), .input = .{ .kind = .multiline, .placeholder = L("settings.area_cities_placeholder"), .name = kit.f(ui, "areas.{s}.cities", .{code}) } });
             fg.endCell();
             fg.cell();
-            kit.field(ui, L("settings.area_radius"), slot + 1, .{ .hint = L("settings.area_radius_hint"), .input = .{ .kind = .number, .ltr = true, .placeholder = L("settings.area_radius_placeholder"), .name = kit.f(ui, "areas.{s}.radiusKm", .{code}) } });
+            kit.field(ui, L("settings.area_radius"), slot + 1, .{ .hint = L("settings.area_radius_hint"), .input = .{ .kind = .number, .ltr = true, .placeholder = L("settings.area_radius_placeholder"), .name = kit.f(ui, "areas.{s}.radiusKm", .{code}), .on_submit = enter_msg } });
             fg.endCell();
             fg.end();
         }
@@ -609,7 +615,7 @@ fn coverage(s: *const S, c: *const Cx, ui: *Ui) void {
 }
 
 fn pricing(s: *const S, c: *const Cx, ui: *Ui) void {
-    sectionBegin(ui, L("settings.pricing"), L("settings.pricing_intro"));
+    sectionBegin(ui, L("settings.pricing"), L("settings.pricing_intro"), .save_pricing);
     var g = grid(ui, 8);
     inline for (.{
         .{ "settings.currency", f_currency, "currency", "", false },
@@ -623,7 +629,7 @@ fn pricing(s: *const S, c: *const Cx, ui: *Ui) void {
     }) |x| {
         g.cell();
         if (x[1] == f_currency) {
-            kit.field(ui, L(x[0]), x[1], .{ .required = true, .input = .{ .ltr = true, .name = x[2] } });
+            kit.field(ui, L(x[0]), x[1], .{ .required = true, .input = .{ .ltr = true, .name = x[2], .on_submit = enter_msg } });
         } else numInput(ui, L(x[0]), x[1], x[2], .{ .required = true, .decimal = x[4], .hint = if (x[3].len > 0) L(x[3]) else "" });
         g.endCell();
     }
@@ -654,7 +660,7 @@ fn pricing(s: *const S, c: *const Cx, ui: *Ui) void {
         kit.select(ui, base, opts, .{ .placeholder = L("common.choose"), .grow = 1 });
         kit.icon(ui, icons.swap_horiz, 20, kit.k.ink_3);
         kit.select(ui, base + 1, opts, .{ .placeholder = L("common.choose"), .grow = 1 });
-        kit.input(ui, base + 2, .{ .kind = .number, .ltr = true, .placeholder = L("settings.route_base"), .width = if (kit.phone) 96 else 144 });
+        kit.input(ui, base + 2, .{ .kind = .number, .ltr = true, .placeholder = L("settings.route_base"), .on_submit = enter_msg, .width = if (kit.phone) 96 else 144 });
         kit.button(ui, L("settings.route_remove"), kit.act(A.route_remove, row), .{ .size = .sm, .variant = .ghost });
         ui.end();
     }
@@ -675,7 +681,7 @@ fn pricing(s: *const S, c: *const Cx, ui: *Ui) void {
 }
 
 fn service(s: *const S, ui: *Ui) void {
-    sectionBegin(ui, L("settings.service"), "");
+    sectionBegin(ui, L("settings.service"), "", .save_service);
     var g = grid(ui, 4);
     g.cell();
     numInput(ui, L("settings.local_hours"), f_local_hours, "sla.localHours", .{ .required = true });
@@ -695,7 +701,7 @@ fn service(s: *const S, ui: *Ui) void {
 }
 
 fn express(s: *const S, ui: *Ui) void {
-    sectionBegin(ui, L("express.settings_title"), L("express.settings_intro"));
+    sectionBegin(ui, L("express.settings_title"), L("express.settings_intro"), .save_express);
     kit.check(ui, L("express.offer"), s.flags.contains(.express_enabled), kit.act(A.toggle, @intFromEnum(Flag.express_enabled)));
     var g = grid(ui, 5);
     g.cell();
@@ -732,7 +738,7 @@ fn express(s: *const S, ui: *Ui) void {
 }
 
 fn courierPay(ui: *Ui) void {
-    sectionBegin(ui, L("settings.courier_pay"), L("settings.courier_pay_intro"));
+    sectionBegin(ui, L("settings.courier_pay"), L("settings.courier_pay_intro"), .save_pay);
     var g = grid(ui, pay_fields.len);
     inline for (pay_fields, 0..) |k, i| {
         g.cell();
@@ -744,7 +750,7 @@ fn courierPay(ui: *Ui) void {
 }
 
 fn visibility(ui: *Ui) void {
-    sectionBegin(ui, L("settings.visibility"), L("settings.visibility_intro"));
+    sectionBegin(ui, L("settings.visibility"), L("settings.visibility_intro"), .save_visibility);
     const opts = [_]core.Opt{
         .{ .value = "network", .label = L("settings.visibility_network") },
         .{ .value = "private", .label = L("settings.visibility_private") },
@@ -782,7 +788,7 @@ fn removable(c: *const Cx, ui: *Ui, n: u8, empty_text: []const u8, remove: A, re
 }
 
 fn clients(c: *const Cx, ui: *Ui) void {
-    sectionBegin(ui, L("settings.clients"), L("settings.clients_intro"));
+    sectionBegin(ui, L("settings.clients"), L("settings.clients_intro"), null);
     removable(c, ui, d_clients, L("settings.clients_empty"), .client_remove, L("settings.client_remove"), false);
     ui.begin(.{ .direction = .row, .gap = 12, .align_items = .end }, .{});
     ui.begin(.{ .grow = 1 }, .{});
@@ -794,13 +800,13 @@ fn clients(c: *const Cx, ui: *Ui) void {
 }
 
 fn blocked(c: *const Cx, ui: *Ui) void {
-    sectionBegin(ui, L("block.title"), L("block.intro"));
+    sectionBegin(ui, L("block.title"), L("block.intro"), null);
     removable(c, ui, d_blocked, L("block.none"), .blocked_remove, L("block.unblock"), true);
     kit.endCard(ui, .{});
 }
 
 fn orders(s: *const S, c: *const Cx, ui: *Ui) void {
-    sectionBegin(ui, L("settings.orders"), "");
+    sectionBegin(ui, L("settings.orders"), "", .save_orders);
     kit.stackTight(ui);
     kit.check(ui, L("settings.accept_marketplace"), s.flags.contains(.accept_marketplace), kit.act(A.toggle, @intFromEnum(Flag.accept_marketplace)));
     kit.check(ui, L("settings.accept_direct"), s.flags.contains(.accept_direct), kit.act(A.toggle, @intFromEnum(Flag.accept_direct)));
@@ -860,4 +866,17 @@ test "carrier settings: pricing with a route, coverage, orders, closing" {
     try app.D.press(L("close.title"));
     try testing.expect(app.D.respond("/close", 200, "{\"openShipments\":2,\"unpaidCash\":0}"));
     try testing.expect(app.D.findText(L("close.first")) != 0);
+}
+
+test "carrier settings: Enter in a field saves its section" {
+    try dispatch.openCarrier("/settings");
+    defer app.D.reset();
+    try testing.expect(app.D.respond("/carrier/clients", 200, "[]"));
+    try testing.expect(app.D.respond("/carrier/blocked", 200, "[]"));
+    try testing.expect(app.D.respond("/api/app/orgs/o2", 200, dispatch.carrier_org));
+    try app.D.typeInto("5000", "6000");
+    try app.D.inputEvent("5000", .submit);
+    const f = zui.host.fetches.items[zui.host.fetches.items.len - 1];
+    try testing.expect(std.mem.endsWith(u8, f.url, "/carrier/settings"));
+    try testing.expect(std.mem.indexOf(u8, f.body, "\"volumetricDivisor\":6000") != null);
 }

@@ -3,7 +3,8 @@
 //! history (internal events too), the tasks, proof of delivery, the map with the courier, the
 //! addresses, feedback, the parcel and how it was allocated. Actions: label, plan a task, note,
 //! change details and day, confirm delivery by hand, return, cancel, lost, damage, and blocking
-//! the store. Changes made elsewhere are picked up by polling.
+//! the store. Changes made elsewhere (the company's live events) load the page again, never
+//! under an open dialog; the courier of the task under way moves on the map as they report.
 
 const std = @import("std");
 const zui = @import("zui");
@@ -52,7 +53,10 @@ const A = enum(u16) {
     edit_day,
 };
 
-const T = enum(u16) { poll = 1 };
+const T = enum(u16) { live = 1 };
+
+/// The courier of the task under way, as the last `courier.position` event put them.
+const LiveCourier = struct { name: []const u8, vehicle: []const u8, at: []const u8, loc: ?mapw.LatLng };
 
 const Dialog = enum { none, note, deliver, cancel, lost, damage };
 
@@ -63,6 +67,9 @@ pub const S = struct {
     note_public: bool = false,
     cod_collected: bool = false,
     fitted: bool = false,
+    courier: ?LiveCourier = null,
+    /// A change arrived while a dialog was open: load once it closes.
+    live_waiting: bool = false,
 };
 
 fn data(c: *const Cx) ?V {
@@ -87,7 +94,38 @@ fn load(c: *Cx) void {
 
 pub fn enter(_: *S, c: *Cx) void {
     load(c);
-    c.after(20_000, @intFromEnum(T.poll));
+    // The events are handled in `liveEvent`; connecting again loads the page again.
+    c.orgLive(@intFromEnum(T.live), &.{});
+}
+
+fn dialogOpen(s: *const S) bool {
+    return s.dialog != .none or s.edit.open != .none;
+}
+
+fn liveEvent(s: *S, c: *Cx, ev: zui.ServerEvent) void {
+    if (ev.kind != .message) return;
+    const sh = ship(c) orelse return;
+    var arena = std.heap.ArenaAllocator.init(core.gpa);
+    defer arena.deinit();
+    const v = json.parse(arena.allocator(), ev.data) orelse return;
+    if (std.mem.eql(u8, ev.event, "shipment.updated")) {
+        if (!std.mem.eql(u8, json.str(v, "id"), json.str(sh, "_id"))) return;
+        // Not for the change this page already shows (our own actions load it themselves).
+        if (fmt.parseIso(json.str(v, "updatedAt"))) |u| if (fmt.parseIso(json.str(sh, "updatedAt"))) |shown| if (u <= shown) return;
+        c.after(600, @intFromEnum(T.live));
+    } else if (std.mem.eql(u8, ev.event, "courier.position")) {
+        // Only the courier of the task under way.
+        const active = for (json.arr(data(c), "tasks")) |t| {
+            if (std.mem.eql(u8, json.str(t, "status"), "in_progress")) break json.str(t, "courierId");
+        } else "";
+        if (active.len == 0 or !std.mem.eql(u8, json.str(v, "courierId"), active)) return;
+        s.courier = .{
+            .name = c.dupe(json.str(v, "name")),
+            .vehicle = c.dupe(json.str(v, "vehicle")),
+            .at = c.dupe(json.strOr(v, "at", json.str(v, "updatedAt"))),
+            .loc = mapw.ll(v, "location"),
+        };
+    }
 }
 
 fn isIn(x: []const u8, list: []const []const u8) bool {
@@ -120,6 +158,10 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     if (edit.update(&s.edit, c, e)) {
         if (s.edit.saved) {
             s.edit.saved = false;
+            s.live_waiting = false;
+            load(c);
+        } else if (s.live_waiting and !dialogOpen(s)) {
+            s.live_waiting = false;
             load(c);
         }
         return;
@@ -136,10 +178,11 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             if (mapw.ll(data(c), "courier.location")) |p| pts.append(c.arena(), p) catch {};
             s.m.fit(pts.items, .{ .animate = false });
         } else if (n == 255) load(c),
-        .timer => |t| if (t == @intFromEnum(T.poll)) {
-            // Never under an open dialog: the next round picks the change up.
-            if (s.dialog == .none and s.edit.open == .none) load(c);
-            c.after(20_000, @intFromEnum(T.poll));
+        .live => |ev| liveEvent(s, c, ev),
+        .timer => |t| if (t == @intFromEnum(T.live)) {
+            c.liveDone();
+            // Never under an open dialog: the change loads once it closes.
+            if (dialogOpen(s)) s.live_waiting = true else load(c);
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .plan => c.go(c.print("/dispatch?shipment={s}", .{id(c)})),
@@ -150,9 +193,11 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             },
             .note_public => s.note_public = !s.note_public,
             .note_send => {
+                // As Turf-js's formValues: trimmed text (left out when empty), check boxes as
+                // true or false.
                 var b = json.Obj.init(c.arena());
-                b.str("note", c.valTrim(f_note));
-                if (s.note_public) b.str("visibleToCustomer", "on");
+                b.strOpt("note", c.valTrim(f_note));
+                b.boolean("visibleToCustomer", s.note_public);
                 post(c, .note_send, "notes", b.done());
             },
             .deliver_open => {
@@ -165,8 +210,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             .deliver_send => {
                 var b = json.Obj.init(c.arena());
                 b.strOpt("receiverName", c.valTrim(f_receiver));
-                b.str("note", c.valTrim(f_note));
-                if (s.cod_collected) b.str("codCollected", "on");
+                b.strOpt("note", c.valTrim(f_note));
+                if (json.obj(ship(c), "cod") != null) b.boolean("codCollected", s.cod_collected);
                 post(c, .deliver_send, "deliver", b.done());
             },
             .return_ask => c.ask(L("shipment.start_return_confirm"), .{ .act = .{ .id = @intFromEnum(A.return_send) } }),
@@ -177,7 +222,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             },
             .cancel_send => {
                 var b = json.Obj.init(c.arena());
-                b.str("note", c.valTrim(f_note));
+                b.strOpt("note", c.valTrim(f_note));
                 post(c, .cancel_send, "cancel", b.done());
             },
             .lost_open, .damage_open => {
@@ -200,17 +245,25 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             },
             .edit_details => edit.openDetails(&s.edit, c, c.print("/carrier/shipments/{s}", .{id(c)}), ship(c)),
             .edit_day => edit.openDay(&s.edit, c, c.print("/carrier/shipments/{s}", .{id(c)}), json.str(ship(c), "scheduledFor")),
-            .close => s.dialog = .none,
+            .close => {
+                s.dialog = .none;
+                if (s.live_waiting) {
+                    s.live_waiting = false;
+                    load(c);
+                }
+            },
         },
         .done => |d| {
             if (!d.ok) return;
             switch (@as(A, @enumFromInt(d.id))) {
                 .note_send, .deliver_send, .cancel_send => {
                     s.dialog = .none;
+                    s.live_waiting = false;
                     load(c);
                 },
                 .problem_send, .return_send => {
                     s.dialog = .none;
+                    s.live_waiting = false;
                     c.toast(L("common.saved"), .ok);
                     load(c);
                 },
@@ -290,15 +343,20 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     var pins: std.ArrayList(mapw.Pin) = .empty;
     if (mapw.ll(sh, "pickup.location")) |p| pins.append(a, .{ .at = p, .icon = mapw.placeIcon("shop"), .kind = .place, .key = zui.key("pickup") }) catch {};
     if (mapw.ll(sh, "dropoff.location")) |p| pins.append(a, .{ .at = p, .icon = mapw.placeIcon("home"), .kind = .place, .key = zui.key("dropoff") }) catch {};
-    if (mapw.ll(dv, "courier.location")) |p| pins.append(a, .{ .at = p, .icon = mapw.vehicleIcon(json.str(dv, "courier.vehicle")), .key = zui.key("courier") }) catch {};
+    // The courier: as the page loaded them, then as their live positions move them.
+    const cr = json.obj(dv, "courier");
+    const live = s.courier;
+    const cr_loc = if (live != null and live.?.loc != null) live.?.loc else mapw.ll(dv, "courier.location");
+    const cr_vehicle = if (live) |x| x.vehicle else json.str(cr, "vehicle");
+    if (cr_loc) |p| pins.append(a, .{ .at = p, .icon = mapw.vehicleIcon(cr_vehicle), .key = zui.key("courier") }) catch {};
     mapw.draw(ui, &s.m, .{ .width = kit.width - 40, .height = 360, .radius = 16, .pins = pins.items });
-    if (json.obj(dv, "courier")) |cr| {
+    if (live != null or cr != null) {
         const k = kit.k;
         ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});
         kit.icon(ui, icons.navigation, 18, k.ink_2);
-        ui.text(json.str(cr, "name"), .{ .font_size = 13.6, .weight = 700, .color = k.ink });
-        kit.small(ui, labels.vehicle(json.str(cr, "vehicle")));
-        const at = json.strOr(cr, "at", json.str(cr, "updatedAt"));
+        ui.text(if (live) |x| x.name else json.str(cr, "name"), .{ .font_size = 13.6, .weight = 700, .color = k.ink });
+        kit.small(ui, labels.vehicle(cr_vehicle));
+        const at = if (live) |x| x.at else json.strOr(cr, "at", json.str(cr, "updatedAt"));
         if (at.len > 0) kit.small(ui, fmt.relative(a, at));
         ui.end();
     }
@@ -333,14 +391,24 @@ fn summary(ui: *Ui, c: *const Cx, sh: ?V) void {
     kit.small(ui, fmt.relative(a, json.str(sh, "statusAt")));
     ui.end();
     if (express and !isIn(st, &.{ "delivered", "cancelled", "returned", "returning", "lost" })) @import("driver.zig").dueLabel(ui, json.str(sh, "promisedBy"));
-    parts.kv(ui, L("shipment.merchant"), json.str(sh, "merchantName"));
-    parts.kv(ui, L("shipment.reference"), json.strOr(sh, "externalRef", "—"));
-    parts.kv(ui, L("common.created"), fmt.dateTime(a, json.str(sh, "createdAt")));
-    parts.kv(ui, L("shipment.promised_by"), fmt.dateTime(a, json.str(sh, "promisedBy")));
-    parts.kv(ui, L("shipment.price"), fmt.money(a, json.num(sh, "price.amount"), json.str(sh, "price.currency")));
-    parts.kv(ui, L("shipment.cod"), if (json.obj(sh, "cod")) |x| fmt.money(a, json.num(x, "amount"), json.str(x, "currency")) else L("common.none"));
-    parts.kv(ui, L("shipment.attempts"), fmt.number(a, json.numOr(sh, "attempts", 0), 0));
-    parts.kv(ui, L("shipment.custody"), labels.of("custody.", json.strOr(sh, "custody.type", "merchant")));
+    const pairs = [_][2][]const u8{
+        .{ L("shipment.merchant"), json.str(sh, "merchantName") },
+        .{ L("shipment.reference"), json.strOr(sh, "externalRef", "—") },
+        .{ L("common.created"), fmt.dateTime(a, json.str(sh, "createdAt")) },
+        .{ L("shipment.promised_by"), fmt.dateTime(a, json.str(sh, "promisedBy")) },
+        .{ L("shipment.price"), fmt.money(a, json.num(sh, "price.amount"), json.str(sh, "price.currency")) },
+        .{ L("shipment.cod"), if (json.obj(sh, "cod")) |x| fmt.money(a, json.num(x, "amount"), json.str(x, "currency")) else L("common.none") },
+        .{ L("shipment.attempts"), fmt.number(a, json.numOr(sh, "attempts", 0), 0) },
+        .{ L("shipment.custody"), labels.of("custody.", json.strOr(sh, "custody.type", "merchant")) },
+    };
+    // `.grid.cols-2` of key-values.
+    var g = kit.grid(ui, pairs.len, 2);
+    for (pairs) |p| {
+        g.cell();
+        parts.kv(ui, p[0], p[1]);
+        g.endCell();
+    }
+    g.end();
     if (json.boolean(sh, "returnRequired")) kit.notice(ui, .warn, L("shipment.return_required"));
     if (json.obj(sh, "lastFailure")) |f| {
         const reason = json.pick(json.get(c.meta.value, "failureReasons"), json.str(f, "reason"), c.lang());
@@ -439,7 +507,8 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
         .deliver => {
             shell.modalBegin(ui, .{ .title = L("shipment.confirm_delivery"), .close = kit.act(A.close, 0), .key = zui.key("deliver") });
             kit.notice(ui, .warn, L("shipment.manual_delivery_warning"));
-            kit.field(ui, L("shipment.receiver_name"), f_receiver, .{ .input = .{ .name = "receiverName" } });
+            // Enter in the one-line field confirms (the dialog's primary action).
+            kit.field(ui, L("shipment.receiver_name"), f_receiver, .{ .input = .{ .name = "receiverName", .on_submit = kit.act(A.deliver_send, 0) } });
             kit.field(ui, L("shipment.verification_note"), f_note, .{ .required = true, .input = .{ .kind = .multiline, .name = "note" } });
             if (json.obj(ship(c), "cod")) |cod| kit.check(ui, ui.tf(labels.english("shipment.cod_collected") orelse "{amount}", .{ .amount = fmt.money(ui.arena(), json.num(cod, "amount"), json.str(cod, "currency")) }), s.cod_collected, kit.act(A.cod_toggle, 0));
             footer(ui, L("common.cancel"), L("shipment.confirm_delivery"), A.deliver_send, .primary);
@@ -505,4 +574,48 @@ test "carrier shipment: internal history, tasks, mark lost, block the store" {
     D.R.dispatch(.{ .shell = .confirm_yes });
     try testing.expect(D.respond("/carrier/blocked", 200, "{}"));
     try testing.expect(D.pending("/api/app/orgs/o2") != null);
+}
+
+test "carrier shipment: live changes load the page again, not under a dialog; the courier moves" {
+    try app.startSignedIn("/o/fast/shipments/s1");
+    defer app.D.reset();
+    const D = app.D;
+    try testing.expect(D.respond("/api/app/orgs/o2", 200, carrier_org));
+    const live_json =
+        \\{"shipment":{"_id":"s1","trackingNumber":"TRF9","status":"out_for_delivery","updatedAt":"2025-10-12T11:00:00.000Z","merchantName":"Souq",
+        \\  "pickup":{"city":"Damascus"},"dropoff":{"city":"Damascus"},"price":{"amount":1,"currency":"SYP"}},"labelUrl":"/l","events":[],
+        \\ "tasks":[{"type":"delivery","status":"in_progress","courierId":"c1","courierName":"Dana","from":{"label":"Hub"},"to":{"label":"Rami"}}],
+        \\ "courier":{"name":"Dana","vehicle":"car","location":{"lat":33.5,"lng":36.3},"at":"2025-10-12T11:00:00.000Z"}}
+    ;
+    try testing.expect(D.respond("/carrier/shipments/s1", 200, live_json));
+    D.serverStatus(200);
+    // The courier of the task under way reports: the line under the map follows.
+    D.serverSend("event: courier.position\ndata: {\"courierId\":\"c1\",\"name\":\"Dana B\",\"vehicle\":\"motorbike\",\"location\":{\"lat\":33.6,\"lng\":36.4},\"at\":\"2025-10-12T11:05:00.000Z\"}\n\n");
+    _ = D.frame();
+    try testing.expect(D.findText("Dana B") != 0);
+    // An older change is ignored; a newer one loads the page, but waits for the open dialog.
+    D.serverSend("event: shipment.updated\ndata: {\"id\":\"s1\",\"updatedAt\":\"2025-10-12T10:00:00.000Z\"}\n\n");
+    D.runTimers();
+    try testing.expect(D.pending("/carrier/shipments/s1") == null);
+    D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.note_open) } });
+    D.serverSend("event: shipment.updated\ndata: {\"id\":\"s1\",\"updatedAt\":\"2025-10-12T12:00:00.000Z\"}\n\n");
+    D.runTimers();
+    try testing.expect(D.pending("/carrier/shipments/s1") == null);
+    D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.close) } });
+    try testing.expect(D.pending("/carrier/shipments/s1") != null);
+}
+
+test "carrier shipment: check boxes are sent as true or false" {
+    try app.startSignedIn("/o/fast/shipments/s1");
+    defer app.D.reset();
+    const D = app.D;
+    try testing.expect(D.respond("/api/app/orgs/o2", 200, carrier_org));
+    try testing.expect(D.respond("/carrier/shipments/s1", 200, ship_json));
+    D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.note_open) } });
+    try D.typeInto("", "Gate code 12");
+    D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.note_public) } });
+    D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.note_send) } });
+    const f = zui.host.fetches.items[zui.host.fetches.items.len - 1];
+    try testing.expect(std.mem.endsWith(u8, f.url, "/carrier/shipments/s1/notes"));
+    try testing.expect(std.mem.indexOf(u8, f.body, "\"visibleToCustomer\":true") != null);
 }

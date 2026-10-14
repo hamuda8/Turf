@@ -2,7 +2,7 @@
 //! live activity.
 //!
 //! The numbers are read again on the company's live events (Server-Sent Events), as in
-//! Turf-js; its feed of those events stays with its hint.
+//! Turf-js, and the live activity lists them (the newest 30).
 
 const std = @import("std");
 const zui = @import("zui");
@@ -24,7 +24,41 @@ const d_members: u8 = 2;
 const T_STATS: u16 = 1;
 const refresh_ms = 20_000;
 
-pub const S = struct {};
+pub const Feed = struct { when: []const u8, text: []const u8, status: []const u8 = "", id: []const u8 = "" };
+const feed_max = 30;
+
+pub const S = struct {
+    /// The live activity, newest first.
+    feed: [feed_max]Feed = undefined,
+    feed_len: usize = 0,
+};
+
+fn addFeed(s: *S, c: *Cx, text: []const u8, status: []const u8, id: []const u8) void {
+    const n = @min(s.feed_len, feed_max - 1);
+    var i = n;
+    while (i > 0) : (i -= 1) s.feed[i] = s.feed[i - 1];
+    s.feed[0] = .{ .when = fmt.isoUtc(c.arena(), fmt.now()), .text = c.dupe(text), .status = c.dupe(status), .id = c.dupe(id) };
+    s.feed_len = n + 1;
+}
+
+/// A live event of the company: a line of the live activity (Turf-js's ctx.on handlers).
+fn liveEvent(s: *S, c: *Cx, ev: zui.ServerEvent) void {
+    if (ev.kind != .message) return;
+    var arena = std.heap.ArenaAllocator.init(core.gpa);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const v = json.parse(a, ev.data) orelse return;
+    const name = ev.event;
+    if (c.can("shipments.view") and std.mem.eql(u8, name, "shipment.created")) {
+        const text = labels.tf(a, "dash.feed_new", .{ .tn = json.str(v, "trackingNumber"), .merchant = json.str(v, "merchantName") });
+        addFeed(s, c, text, json.str(v, "status"), json.str(v, "id"));
+    } else if (c.can("shipments.view") and std.mem.eql(u8, name, "shipment.updated")) {
+        addFeed(s, c, json.str(v, "trackingNumber"), json.str(v, "status"), json.str(v, "id"));
+    } else if (std.mem.eql(u8, name, "courier.duty")) {
+        const key = if (json.boolean(v, "onDuty")) "dash.feed_on_duty" else "dash.feed_off_duty";
+        addFeed(s, c, labels.tf(a, key, .{ .name = json.str(v, "name") }), "", "");
+    }
+}
 
 pub fn title(_: *const S, _: *const Cx) []const u8 {
     return L("nav.dashboard");
@@ -40,8 +74,9 @@ pub fn enter(_: *S, c: *Cx) void {
     c.orgLive(T_STATS, &.{ "shipment.created", "shipment.updated", "courier.duty", "alert" });
 }
 
-pub fn update(_: *S, c: *Cx, e: core.Ev) void {
+pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
+        .live => |ev| liveEvent(s, c, ev),
         .timer => |id| if (id == T_STATS) {
             // A failed refresh keeps the last numbers.
             c.liveDone();
@@ -108,7 +143,7 @@ pub fn stepRow(ui: *Ui, x: Step) void {
 
 const Stat = struct { label: []const u8, value: []const u8, alert: bool = false, go: ?[]const u8 = null };
 
-pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
+pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     const k = kit.k;
     var need: std.ArrayList(u8) = .empty;
     need.append(ui.arena(), d_stats) catch {};
@@ -131,7 +166,7 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
     const needs = json.numOr(st, "needsAction", 0);
     stats.append(a, .{ .label = L("dash.needs_action"), .value = num(a, st, "needsAction"), .alert = needs > 0, .go = "/shipments?view=needs_action" }) catch {};
     if (c.can("dispatch.manage")) stats.append(a, .{ .label = L("dash.pending_tasks"), .value = num(a, st, "pendingTasks"), .alert = json.numOr(st, "pendingTasks", 0) > 0, .go = "/dispatch" }) catch {};
-    inline for (.{ "awaiting_pickup", "at_hub", "in_transit", "out_for_delivery" }) |s| stats.append(a, .{ .label = labels.status(s), .value = num(a, st, "open." ++ s) }) catch {};
+    inline for (.{ "awaiting_pickup", "at_hub", "in_transit", "out_for_delivery" }) |sk| stats.append(a, .{ .label = labels.status(sk), .value = num(a, st, "open." ++ sk) }) catch {};
     stats.append(a, .{ .label = L("dash.created_today"), .value = num(a, st, "createdToday") }) catch {};
     stats.append(a, .{ .label = L("dash.delivered_today"), .value = num(a, st, "deliveredToday") }) catch {};
     if (c.can("fleet.view")) stats.append(a, .{ .label = L("dash.on_duty"), .value = num(a, st, "onDuty"), .go = "/fleet" }) catch {};
@@ -153,6 +188,16 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
     ui.text(L("common.live"), .{ .font_size = 12, .weight = 700, .color = k.ok_ink });
     ui.end();
     ui.end();
+    for (s.feed[0..s.feed_len]) |x| {
+        ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});
+        ui.text(fmt.time(a, x.when), .{ .font_size = 13.6, .color = k.ink_3 });
+        if (x.status.len > 0) kit.statusBadge(ui, x.status);
+        if (x.id.len > 0)
+            kit.link(ui, x.text, .{ .go = kit.f(ui, "/shipments/{s}", .{x.id}) }, .{})
+        else
+            kit.text(ui, x.text, .{});
+        ui.end();
+    }
     kit.small(ui, L("dash.feed_hint"));
     kit.endCard(ui, .{});
     ui.end();
@@ -189,6 +234,13 @@ test "carrier dashboard: checklist, numbers, links" {
     try testing.expect(app.D.findText("Need planning") != 0);
     try testing.expect(app.D.findText("Couriers on duty") != 0);
     try testing.expect(app.D.findText("7") != 0);
+    // The live activity.
+    app.D.serverStatus(200);
+    app.D.serverSend("event: shipment.created\ndata: {\"id\":\"s9\",\"trackingNumber\":\"TRF-9\",\"merchantName\":\"Shop\",\"status\":\"awaiting_pickup\"}\n\n");
+    app.D.serverSend("event: courier.duty\ndata: {\"name\":\"Omar\",\"onDuty\":true}\n\n");
+    _ = app.D.frame();
+    try testing.expect(app.D.findText("Omar started a shift") != 0);
+    try testing.expect(app.D.findText("New shipment TRF-9 from Shop") != 0);
     try app.D.press("Add your hubs and branches");
     try testing.expectEqualStrings("/hubs", app.D.R.appState().route());
 }
