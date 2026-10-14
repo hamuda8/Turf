@@ -58,33 +58,70 @@ pub fn enter(s: *S, c: *Cx) void {
     if (s.kind != null) c.fx.focus(kit.slotKey(f_name));
 }
 
-/// Lowercase letters, digits and dashes, at most 40 (`slugify`).
+/// Lowercase letters, digits and dashes, at most 40 (`slugify`): as Turf-js's
+/// `toLowerCase().normalize('NFKD')`, accented Latin letters keep their base letter ("Café"
+/// gives "cafe"), and full-width letters and digits, ligatures and superscripts their plain
+/// ones.
 pub fn slugify(a: std.mem.Allocator, s: []const u8) []const u8 {
     var out: std.ArrayList(u8) = .empty;
     var dash = false;
-    for (s) |ch0| {
-        const ch = std.ascii.toLower(ch0);
-        if ((ch >= 'a' and ch <= 'z') or (ch >= '0' and ch <= '9')) {
+    var it = std.unicode.Utf8View.initUnchecked(s).iterator();
+    while (it.nextCodepoint()) |cp| {
+        const plain = fold(cp);
+        if (plain.len == 0) {
+            dash = true;
+            continue;
+        }
+        for (plain) |ch| {
             if (dash and out.items.len > 0) out.append(a, '-') catch {};
             dash = false;
             out.append(a, ch) catch {};
-        } else dash = true;
+        }
     }
     return out.items[0..@min(out.items.len, 40)];
 }
 
-/// `maxlength` (zui inputs have none): keeps the first `n` characters.
-fn limit(c: *Cx, slot: u16, n: usize) void {
-    const v = c.val(slot);
-    var it = std.unicode.Utf8View.initUnchecked(v).iterator();
-    var count: usize = 0;
-    while (it.nextCodepointSlice()) |_| {
-        count += 1;
-        if (count == n) {
-            if (it.i < v.len) c.setVal(slot, c.dupe(v[0..it.i]));
-            return;
-        }
+/// What a character becomes in a slug: lower-case ASCII letters and digits, or nothing.
+fn fold(cp: u21) []const u8 {
+    const letters = "abcdefghijklmnopqrstuvwxyz";
+    const digits = "0123456789";
+    if (cp < 0x80) {
+        const ch = std.ascii.toLower(@intCast(cp));
+        if (ch >= 'a' and ch <= 'z') return letters[ch - 'a' ..][0..1];
+        if (ch >= '0' and ch <= '9') return digits[ch - '0' ..][0..1];
+        return "";
     }
+    // Full-width forms, superscript digits, ligatures.
+    if (cp >= 0xff10 and cp <= 0xff19) return digits[cp - 0xff10 ..][0..1];
+    if (cp >= 0xff21 and cp <= 0xff3a) return letters[cp - 0xff21 ..][0..1];
+    if (cp >= 0xff41 and cp <= 0xff5a) return letters[cp - 0xff41 ..][0..1];
+    switch (cp) {
+        0xb2 => return "2",
+        0xb3 => return "3",
+        0xb9 => return "1",
+        0x132, 0x133 => return "ij",
+        0x149 => return "n",
+        0x17f => return "s",
+        0xfb00 => return "ff",
+        0xfb01 => return "fi",
+        0xfb02 => return "fl",
+        else => {},
+    }
+    // Latin-1 and Latin Extended-A letters with marks: their base letter (those with none,
+    // such as æ, ø, ß, đ, ł, have no decomposition and are dropped, as in JS).
+    const ranges = [_]struct { u21, u21, u8 }{
+        .{ 0xc0, 0xc5, 'a' },   .{ 0xc7, 0xc7, 'c' },   .{ 0xc8, 0xcb, 'e' },   .{ 0xcc, 0xcf, 'i' },
+        .{ 0xd1, 0xd1, 'n' },   .{ 0xd2, 0xd6, 'o' },   .{ 0xd9, 0xdc, 'u' },   .{ 0xdd, 0xdd, 'y' },
+        .{ 0xe0, 0xe5, 'a' },   .{ 0xe7, 0xe7, 'c' },   .{ 0xe8, 0xeb, 'e' },   .{ 0xec, 0xef, 'i' },
+        .{ 0xf1, 0xf1, 'n' },   .{ 0xf2, 0xf6, 'o' },   .{ 0xf9, 0xfc, 'u' },   .{ 0xfd, 0xfd, 'y' },
+        .{ 0xff, 0xff, 'y' },   .{ 0x100, 0x105, 'a' }, .{ 0x106, 0x10d, 'c' }, .{ 0x10e, 0x10f, 'd' },
+        .{ 0x112, 0x11b, 'e' }, .{ 0x11c, 0x123, 'g' }, .{ 0x124, 0x125, 'h' }, .{ 0x128, 0x130, 'i' },
+        .{ 0x134, 0x135, 'j' }, .{ 0x136, 0x137, 'k' }, .{ 0x139, 0x140, 'l' }, .{ 0x143, 0x148, 'n' },
+        .{ 0x14c, 0x151, 'o' }, .{ 0x154, 0x159, 'r' }, .{ 0x15a, 0x161, 's' }, .{ 0x162, 0x165, 't' },
+        .{ 0x168, 0x173, 'u' }, .{ 0x174, 0x175, 'w' }, .{ 0x176, 0x178, 'y' }, .{ 0x179, 0x17e, 'z' },
+    };
+    for (ranges) |r| if (cp >= r[0] and cp <= r[1]) return letters[r[2] - 'a' ..][0..1];
+    return "";
 }
 
 /// The fields this form shows a server error under; others are toasted (showFieldError).
@@ -109,12 +146,10 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
         .text => |x| switch (x.slot) {
             f_name => {
-                limit(c, f_name, 80); // maxlength
                 if (!s.slug_touched) c.setVal(f_slug, slugify(c.arena(), c.val(f_name)));
                 checkSlug(s, c);
             },
             f_slug => {
-                limit(c, f_slug, 40); // maxlength
                 s.slug_touched = true;
                 checkSlug(s, c);
             },
@@ -284,7 +319,7 @@ fn form(s: *const S, c: *const Cx, ui: *Ui, kind: Kind) void {
     const saved = kit.width;
     kit.width = saved - 48;
     step(ui, "2", L("onb.step_details"));
-    kit.field(ui, L("org.name"), f_name, .{ .required = true, .input = .{ .name = "name", .height = 50, .size = 16, .on_submit = kit.act(A.create, 0) } });
+    kit.field(ui, L("org.name"), f_name, .{ .required = true, .input = .{ .name = "name", .height = 50, .size = 16, .max_len = 80, .on_submit = kit.act(A.create, 0) } });
 
     // The address: the host, then the company's part.
     kit.fieldBegin(ui, L("org.slug"), true);
@@ -292,7 +327,7 @@ fn form(s: *const S, c: *const Cx, ui: *Ui, kind: Kind) void {
     ui.begin(.{ .direction = .row, .align_items = .center, .padding = .xy(13.6, 0), .background = k.panel_3, .radius = 16, .max_width = (kit.width) * 0.6 }, .{});
     ui.text(kit.f(ui, "{s}/o/", .{host()}), .{ .font_size = 14.4, .color = k.ink_2, .max_lines = if (ui.env.width <= 480) 0 else 1 });
     ui.end();
-    kit.input(ui, f_slug, .{ .name = "slug", .placeholder = "my-company", .ltr = true, .grow = 1, .height = 50, .size = 16, .on_submit = kit.act(A.create, 0) });
+    kit.input(ui, f_slug, .{ .name = "slug", .placeholder = "my-company", .ltr = true, .grow = 1, .height = 50, .size = 16, .max_len = 40, .on_submit = kit.act(A.create, 0) });
     ui.end();
     if (s.slug_state != .none) {
         ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center }, .{});
@@ -402,6 +437,10 @@ test "create org: slugify" {
     defer arena.deinit();
     try testing.expectEqualStrings("fast-express-1", slugify(arena.allocator(), "  Fast Express #1! "));
     try testing.expectEqualStrings("", slugify(arena.allocator(), "شركة"));
+    // As JS's normalize('NFKD'): marks go, the letters stay.
+    try testing.expectEqualStrings("cafe-creme-zurich", slugify(arena.allocator(), "Café Crème Zürich"));
+    try testing.expectEqualStrings("souq-2-ffi", slugify(arena.allocator(), "Ｓｏｕｑ ２ ﬀi"));
+    try testing.expectEqualStrings("stra-e", slugify(arena.allocator(), "Straße"));
 }
 
 test "create org: choose, name, check the address, create" {
