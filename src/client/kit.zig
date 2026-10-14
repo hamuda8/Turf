@@ -685,6 +685,8 @@ pub const InputOpts = struct {
     disabled: bool = false,
     /// On the dark chrome or on a card of its own colour.
     background: ?Color = null,
+    /// No box of its own (the lookup bar draws it).
+    bare: bool = false,
 };
 
 /// A text field bound to form slot `slot` (`c.val(slot)`).
@@ -701,12 +703,12 @@ pub fn input(ui: *Ui, slot: u16, o: InputOpts) void {
         .grow = o.grow,
         .padding = .{ .start = 16, .end = 16, .top = if (o.kind == .multiline) 10 else 0 },
         .radius = 16,
-        .background = o.background orelse if (has_err) k.f.withAlpha(0.07) else if (focused) k.panel else k.panel_3,
-        .border_width = 1,
+        .background = if (o.bare) null else o.background orelse if (has_err) k.f.withAlpha(0.07) else if (focused) k.panel else k.panel_3,
+        .border_width = if (o.bare) 0 else 1,
         .border_color = if (has_err) k.f else if (focused) k.a.withAlpha(0.55) else k.well_line,
         // --focus-ring: 4px of the action colour at 28%.
-        .shadow = if (focused and !has_err) .{ .y = 0, .blur = 6, .color = k.a.withAlpha(0.28) } else null,
-        .hover_background = if (focused or has_err or o.background != null) null else k.s.withAlpha(0.36),
+        .shadow = if (o.bare) null else if (focused and !has_err) .{ .y = 0, .blur = 6, .color = k.a.withAlpha(0.28) } else null,
+        .hover_background = if (o.bare or focused or has_err or o.background != null) null else k.s.withAlpha(0.36),
         .transition = .{ .duration_ms = 220 },
         .opacity = if (o.disabled) 0.6 else 1,
         .no_mirror = o.ltr,

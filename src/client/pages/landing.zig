@@ -186,7 +186,7 @@ fn heroText(ui: *Ui, c: *const Cx) void {
     const k = kit.k;
     const h1 = clampVw(ui, 32, 5, 54.4);
     ui.begin(.{ .gap = 20 }, .{});
-    ui.text(L("landing.title"), .{ .font_size = h1, .weight = 850, .line_height = 1.05, .color = k.ink, .max_width = h1 * 18 * 0.6 });
+    ui.text(L("landing.title"), .{ .font_size = h1, .weight = 850, .line_height = 1.05, .letter_spacing = -0.045 * h1, .color = k.ink, .max_width = h1 * 18 * 0.6 });
     ui.text(L("landing.subtitle"), .{ .font_size = 18.4, .color = k.ink_2, .line_height = 1.5 });
     var w = kit.Wrap.begin(ui, kit.width, 9.6);
     const ctas = [_]struct { []const u8, zui.Icon, []const u8, bool }{
@@ -207,7 +207,7 @@ fn heroText(ui: *Ui, c: *const Cx) void {
 fn trackPanel(ui: *Ui, s: *const S) void {
     const k = kit.k;
     const pad = clampVw(ui, 20, 3, 28);
-    ui.begin(.{ .gap = 13.6, .padding = .all(pad), .radius = 28, .background = k.rail }, .{});
+    ui.begin(.{ .gap = 13.6, .padding = .all(pad), .radius = 28, .background = k.rail, .gradient = zui.Gradient.linear(225, &.{ .{ .color = k.a.mix(0.28, k.rail), .at = 0 }, .{ .color = k.rail, .at = 0.55 } }), .shadow = kit.shadow3() }, .{});
     const saved = kit.width;
     kit.width = saved - 2 * pad;
     ui.begin(.{ .direction = .row, .gap = 9.6, .align_items = .center }, .{});
@@ -218,18 +218,16 @@ fn trackPanel(ui: *Ui, s: *const S) void {
     ui.end();
     ui.text(L("lookup.intro"), .{ .font_size = 15.7, .color = k.rail_ink_2 });
     lookup.form(ui, &s.search, .{ .hero = true, .on_rail = true });
-    var w = kit.Wrap.begin(ui, kit.width, 16);
-    w.item(kit.estimate(L("lookup.where_number"), 13.1) + 22);
+    ui.begin(.{ .direction = .row, .wrap = true, .gap = 16, .align_items = .center, .justify = .space_between }, .{});
     ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center }, .{});
     kit.icon(ui, icons.qr_code_2, 17, k.rail_ink_2);
     ui.text(L("lookup.where_number"), .{ .font_size = 13.1, .color = k.rail_ink_2 });
     ui.end();
-    w.item(kit.estimate(L("lookup.open_page"), 13.1) + 22);
     ui.begin(.{ .direction = .row, .gap = 3.2, .align_items = .center, .pressed_opacity = 0.6 }, .{ .on_press = .{ .link = "/track" } });
     ui.text(L("lookup.open_page"), .{ .font_size = 13.1, .weight = 700, .color = k.rail_ink });
     kit.iconFlip(ui, icons.arrow_forward, 17, k.rail_ink);
     ui.end();
-    w.end();
+    ui.end();
     kit.width = saved;
     ui.end();
 }

@@ -188,6 +188,7 @@ pub fn form(ui: *Ui, f: *const Search, o: FormOpts) void {
         .padding = .{ .top = if (o.hero) 8 else 6.4, .bottom = if (o.hero) 8 else 6.4, .start = if (o.hero) 19.2 else 16, .end = if (o.hero) 8 else 6.4 },
         .background = k.panel,
         .radius = 28,
+        .shadow = kit.shadow2(),
         .border_width = if (has_err) 2 else if (k.dark) 1 else 0,
         .border_color = if (has_err) k.f else k.line,
     }, .{});
@@ -195,11 +196,12 @@ pub fn form(ui: *Ui, f: *const Search, o: FormOpts) void {
     kit.input(ui, f.slot, .{
         .placeholder = L("lookup.placeholder"),
         .ltr = true,
-        .mono = true,
+        // The number in the monospace font; the placeholder in the text font, as the CSS has it.
+        .mono = kit.cx.val(f.slot).len > 0,
         .grow = 1,
         .size = if (o.hero) 17.6 else 16,
         .height = 44,
-        .background = k.panel,
+        .bare = true,
         .on_submit = .{ .act = .{ .id = f.act } },
     });
     kit.button(ui, L("lookup.track"), .{ .act = .{ .id = f.act } }, .{ .variant = .primary, .icon = icons.search, .size = if (o.hero) .lg else .md, .busy = o.busy });

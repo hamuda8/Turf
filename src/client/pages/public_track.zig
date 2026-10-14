@@ -285,8 +285,8 @@ fn page(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     const failed = inList(status, &.{ "cancelled", "returned", "returning" });
 
     // The head: the carrier on the chrome colour, the language.
-    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 12, .background = k.rail, .radius = if (s.embed) 16 else 22, .padding = if (s.embed) .xy(12.8, 9.6) else .xy(17.6, 16) }, .{});
-    kit.logo(ui, json.obj(v, "carrier"), 44, 12);
+    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 12, .background = k.rail, .gradient = zui.Gradient.linear(225, &.{ .{ .color = k.a.mix(0.28, k.rail), .at = 0 }, .{ .color = k.rail, .at = 0.5 } }), .shadow = kit.shadow2(), .radius = if (s.embed) 16 else 22, .padding = if (s.embed) .xy(12.8, 9.6) else .xy(17.6, 16) }, .{});
+    kit.logoPanel(ui, json.obj(v, "carrier"), 46, 12);
     ui.begin(.{ .grow = 1, .gap = 1 }, .{});
     ui.text(json.str(v, "carrier.name"), .{ .font_size = 16.8, .weight = 700, .color = k.rail_ink });
     ui.text(ui.tf(labels.english("track.order_from") orelse "{merchant}", .{ .merchant = json.str(v, "merchant.name") }), .{ .font_size = 13.6, .color = k.rail_ink_2 });
@@ -321,10 +321,11 @@ fn page(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     // The delivery code.
     const code = json.str(v, "deliveryCode");
     if (code.len > 0 and inList(status, &code_statuses)) {
-        kit.card(ui, .{ .gap = 4.8, .ring = k.a, .align_items = .center });
+        // `.code-panel`: a dashed ring in CSS (zui draws it solid) over a soft accent glow.
+        kit.card(ui, .{ .gap = 4.8, .ring = k.a, .align_items = .center, .background = k.accent_soft.mix(0.5, k.panel) });
         kit.text(ui, L("track.your_code"), .{ .@"align" = .center });
         ui.begin(.{ .no_mirror = true }, .{});
-        ui.text(code, .{ .font_size = 38.4, .weight = 850, .mono = true, .color = k.ink, .text_align = .center });
+        ui.text(code, .{ .font_size = 38.4, .weight = 850, .mono = true, .letter_spacing = 13.4, .color = k.ink, .text_align = .center });
         ui.end();
         ui.text(L("track.code_hint"), .{ .font_size = 13.6, .color = k.ink_2, .text_align = .center });
         kit.endCard(ui, .{});
@@ -425,7 +426,9 @@ fn locationCard(s: *const S, ui: *Ui, v: V) void {
         .idle, .locating => {
             kit.strong(ui, if (shared) L("track.location_shared") else L("track.help_courier"));
             kit.small(ui, L("track.location_hint"));
+            ui.begin(.{ .direction = .row }, .{});
             kit.button(ui, if (shared) L("track.update_location") else L("track.share_location"), kit.act(A.locate, 0), .{ .variant = if (shared) .normal else .primary, .icon = icons.location_on, .busy = @intFromEnum(A.locate) });
+            ui.end();
         },
         .adjusting => {
             kit.strong(ui, L("track.help_courier"));
