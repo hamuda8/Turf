@@ -535,6 +535,7 @@ fn host(c: *Cx, h: core.Host) void {
                 gps.flush(c);
                 if (c.mode == .org and c.isDriver()) gps.startOutbox(c);
             }
+            pageEvent(c, .{ .online = on });
         },
         .visible => |v| {
             c.visible = v;
@@ -542,6 +543,7 @@ fn host(c: *Cx, h: core.Host) void {
             // Turf-js also uploads what is saved when the page is hidden.
             gps.flush(c);
             if (v and c.me.state == .ok) openPushed(c);
+            pageEvent(c, .{ .visible = v });
         },
     }
 }

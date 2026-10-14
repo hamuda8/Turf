@@ -41,6 +41,11 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             .none => {},
             .numbers => |n| c.openLink(c.print("/track?n={s}", .{core.encode(c.arena(), lookup.join(c.arena(), n, ","))})),
         },
+        // The title and the box's hint in the new language.
+        .lang => {
+            s.search.err = "";
+            enter(s, c);
+        },
         else => {},
     }
 }

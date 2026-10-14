@@ -135,6 +135,11 @@ pub const Ev = union(enum) {
     /// A field (form slot) got or lost the keyboard.
     focus: u16,
     blur: u16,
+    /// The language changed (texts from the server are in the old one).
+    lang,
+    /// The app came back on screen (true) or went to the background; the network came or went.
+    visible: bool,
+    online: bool,
 };
 
 /// The keys the screen takes now, set while it is drawn (`App.keyEvent` reads them): Escape

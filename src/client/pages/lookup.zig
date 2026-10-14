@@ -56,6 +56,11 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             .searching => {},
         },
         .data => |n| if (n == d_results) s.results.loaded(c),
+        // The title, the hint and the results again in the new language.
+        .lang => {
+            s.search.err = "";
+            enter(s, c);
+        },
         else => {},
     }
 }

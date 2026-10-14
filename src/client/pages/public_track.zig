@@ -44,6 +44,8 @@ const PinMode = enum { idle, locating, adjusting };
 
 pub const S = struct {
     m: mapw.Map = .{},
+    /// When the tab was hidden (ms), for the catch-up when it shows again.
+    hidden_at: i64 = 0,
     embed: bool = false,
     token: []const u8 = "",
     /// The view was set on the courier once; the visitor moved the map since.
@@ -208,6 +210,13 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 val.object.put(a, "courier", courier) catch return;
                 follow(s, c);
             };
+        },
+        // Back on the tab after half a minute or more: catch up (Turf-js visibilitychange).
+        .visible => |v| if (!v) {
+            s.hidden_at = zui.now();
+        } else if (s.hidden_at != 0 and zui.now() - s.hidden_at > 30_000) {
+            s.hidden_at = 0;
+            load(s, c);
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .lang => {
@@ -589,6 +598,17 @@ test "public track: status, code, courier, pin and day; live updates" {
     app.D.R.dispatch(.{ .live = .{ .kind = .message, .stream = c.live_stream, .event = "tracking.event", .data = "{}" } });
     app.D.runTimers();
     try testing.expect(app.D.pending("/api/public/track/abcdefghijklmnop1234?lang=en") != null);
+    try testing.expect(app.D.respond("/api/public/track/abcdefghijklmnop1234?lang=en", 200, track_json));
+    // Back on the tab after a minute: it catches up; after a moment: it does not.
+    app.D.device(.hidden);
+    zui.host.wall_ms += 5_000;
+    app.D.device(.visible);
+    try testing.expect(app.D.pending("/api/public/track/abcdefghijklmnop1234?lang=en") == null);
+    app.D.device(.hidden);
+    zui.host.wall_ms += 60_000;
+    app.D.device(.visible);
+    try testing.expect(app.D.pending("/api/public/track/abcdefghijklmnop1234?lang=en") != null);
+    zui.host.wall_ms -= 65_000;
 }
 
 test "public track: feedback after delivery; the embed hides the forms" {

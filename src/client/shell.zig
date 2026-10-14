@@ -106,6 +106,7 @@ pub fn update(c: *Cx, s: core.Shell) void {
             const next = if (c.ar()) "en" else "ar";
             zui.i18n.setLanguage(next);
             zui.storage.set("lang", next, .{});
+            app.pageEvent(c, .lang);
         },
         .sign_out => app.signOut(c),
         .toast_tap, .toast_expire => |id| for (c.toasts.items, 0..) |x, i| if (x.id == id) {
