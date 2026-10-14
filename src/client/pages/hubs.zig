@@ -136,14 +136,15 @@ fn choose(s: *S, c: *Cx, i: u32) void {
 }
 
 fn save(s: *S, c: *Cx) void {
+    // As Turf-js's formValues: trimmed, left out when empty.
     var b = json.Obj.init(c.arena());
-    b.strOpt("name", c.val(f_name));
-    b.strOpt("code", c.val(f_code));
+    b.strOpt("name", c.valTrim(f_name));
+    b.strOpt("code", c.valTrim(f_code));
     b.strOpt("type", c.val(f_type));
     b.strOpt("governorate", c.val(f_gov));
-    b.strOpt("city", c.val(f_city));
-    b.strOpt("phone", c.val(f_phone));
-    b.strOpt("address", c.val(f_address));
+    b.strOpt("city", c.valTrim(f_city));
+    b.strOpt("phone", c.valTrim(f_phone));
+    b.strOpt("address", c.valTrim(f_address));
     if (s.editing != null) b.boolean("active", s.active);
     if (s.point) |p| {
         b.begin("location");
@@ -290,12 +291,14 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
     shell.modalBegin(ui, .{ .title = if (s.editing != null) L("hubs.edit") else L("hubs.add"), .close = kit.act(A.close, 0), .wide = true, .key = zui.key("hub-dialog") });
     var type_opts: [types.len]core.Opt = undefined;
     for (types, 0..) |x, i| type_opts[i] = .{ .value = x, .label = labels.of("hubs.type.", x) };
+    // Enter in a one-line field saves (the dialog's primary action); the place search has its own.
+    const submit = kit.act(A.save, 0);
     var g = kit.formGrid(ui, 7);
     g.cell();
-    kit.field(ui, L("common.name"), f_name, .{ .required = true, .input = .{ .name = "name" } });
+    kit.field(ui, L("common.name"), f_name, .{ .required = true, .input = .{ .name = "name", .on_submit = submit } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("hubs.code"), f_code, .{ .required = true, .hint = L("hubs.code_hint"), .input = .{ .name = "code", .ltr = true, .placeholder = "DAM1" } });
+    kit.field(ui, L("hubs.code"), f_code, .{ .required = true, .hint = L("hubs.code_hint"), .input = .{ .name = "code", .ltr = true, .placeholder = "DAM1", .on_submit = submit } });
     g.endCell();
     g.cell();
     kit.selectField(ui, L("hubs.type"), f_type, &type_opts, .{ .required = true, .name = "type" });
@@ -304,13 +307,13 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.selectField(ui, L("org.governorate"), f_gov, cm.govOptions(c, a), .{ .required = true, .name = "governorate" });
     g.endCell();
     g.cell();
-    kit.field(ui, L("hubs.city"), f_city, .{ .required = true, .input = .{ .name = "city" } });
+    kit.field(ui, L("hubs.city"), f_city, .{ .required = true, .input = .{ .name = "city", .on_submit = submit } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("common.phone"), f_phone, .{ .input = .{ .kind = .phone, .ltr = true, .name = "phone" } });
+    kit.field(ui, L("common.phone"), f_phone, .{ .input = .{ .kind = .phone, .ltr = true, .name = "phone", .on_submit = submit } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("hubs.address"), f_address, .{ .input = .{ .name = "address" } });
+    kit.field(ui, L("hubs.address"), f_address, .{ .input = .{ .name = "address", .on_submit = submit } });
     g.endCell();
     g.end();
     // The location: search, the map, the coordinates.
@@ -391,7 +394,8 @@ test "hubs: add a hub placed by searching" {
     try testing.expect(std.mem.indexOf(u8, req.body, "\"governorate\":\"DAM\"") != null);
     try testing.expect(app.D.respond("/carrier/hubs", 400, "{\"error\":{\"code\":\"invalid_request\",\"message\":\"Name is required\",\"field\":\"name\"}}"));
     try testing.expect(app.D.findText("Name is required") != 0);
-    app.D.R.dispatch(kit.act(A.save, 0));
+    // Enter in a field saves.
+    try app.D.inputEvent("DAM1", .submit);
     try testing.expect(app.D.respond("/carrier/hubs", 201, "{}"));
     try testing.expect(app.D.findText("Saved") != 0);
 }

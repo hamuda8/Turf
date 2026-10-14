@@ -193,9 +193,11 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             },
             .note_public => s.note_public = !s.note_public,
             .note_send => {
+                // As Turf-js's formValues: trimmed text (left out when empty), check boxes as
+                // true or false.
                 var b = json.Obj.init(c.arena());
-                b.str("note", c.valTrim(f_note));
-                if (s.note_public) b.str("visibleToCustomer", "on");
+                b.strOpt("note", c.valTrim(f_note));
+                b.boolean("visibleToCustomer", s.note_public);
                 post(c, .note_send, "notes", b.done());
             },
             .deliver_open => {
@@ -208,8 +210,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             .deliver_send => {
                 var b = json.Obj.init(c.arena());
                 b.strOpt("receiverName", c.valTrim(f_receiver));
-                b.str("note", c.valTrim(f_note));
-                if (s.cod_collected) b.str("codCollected", "on");
+                b.strOpt("note", c.valTrim(f_note));
+                if (json.obj(ship(c), "cod") != null) b.boolean("codCollected", s.cod_collected);
                 post(c, .deliver_send, "deliver", b.done());
             },
             .return_ask => c.ask(L("shipment.start_return_confirm"), .{ .act = .{ .id = @intFromEnum(A.return_send) } }),
@@ -220,7 +222,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             },
             .cancel_send => {
                 var b = json.Obj.init(c.arena());
-                b.str("note", c.valTrim(f_note));
+                b.strOpt("note", c.valTrim(f_note));
                 post(c, .cancel_send, "cancel", b.done());
             },
             .lost_open, .damage_open => {
@@ -601,4 +603,19 @@ test "carrier shipment: live changes load the page again, not under a dialog; th
     try testing.expect(D.pending("/carrier/shipments/s1") == null);
     D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.close) } });
     try testing.expect(D.pending("/carrier/shipments/s1") != null);
+}
+
+test "carrier shipment: check boxes are sent as true or false" {
+    try app.startSignedIn("/o/fast/shipments/s1");
+    defer app.D.reset();
+    const D = app.D;
+    try testing.expect(D.respond("/api/app/orgs/o2", 200, carrier_org));
+    try testing.expect(D.respond("/carrier/shipments/s1", 200, ship_json));
+    D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.note_open) } });
+    try D.typeInto("", "Gate code 12");
+    D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.note_public) } });
+    D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.note_send) } });
+    const f = zui.host.fetches.items[zui.host.fetches.items.len - 1];
+    try testing.expect(std.mem.endsWith(u8, f.url, "/carrier/shipments/s1/notes"));
+    try testing.expect(std.mem.indexOf(u8, f.body, "\"visibleToCustomer\":true") != null);
 }
