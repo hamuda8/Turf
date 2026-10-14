@@ -96,7 +96,17 @@ pub fn enter(_: *S, c: *Cx) void {
     // The page follows the position for navigation, on shift or not.
     gps.want(c, true);
     c.fx.cancelNotify(driver.alarm_id);
-    c.orgLive(@intFromEnum(T.poll), &.{"task.changed"});
+    // `task.changed` of this task only (see `liveEvent`); connecting again reloads too.
+    c.orgLive(@intFromEnum(T.poll), &.{});
+}
+
+fn liveEvent(c: *Cx, ev: zui.ServerEvent) void {
+    if (ev.kind != .message or !std.mem.eql(u8, ev.event, "task.changed")) return;
+    var arena = std.heap.ArenaAllocator.init(core.gpa);
+    defer arena.deinit();
+    const v = json.parse(arena.allocator(), ev.data) orelse return;
+    if (!std.mem.eql(u8, json.str(v, "taskId"), json.str(task(c), "_id"))) return;
+    reload(c);
 }
 
 fn task(c: *const Cx) ?V {
@@ -250,15 +260,22 @@ fn post(s: *S, c: *Cx, kind: A, path: []const u8, extra: []const u8) void {
     s.pending_path = full;
     s.pending_body = body;
     s.pending_kind = kind;
-    // Earlier actions must reach the server first.
-    if (gps.hasWaiting(c)) return queued(s, c);
+    // Earlier actions must reach the server first: this one waits behind them, and they are
+    // sent now when there is a connection.
+    if (gps.hasWaiting(c)) {
+        queued(s, c, !c.online);
+        if (c.online) gps.startOutbox(c);
+        return;
+    }
     c.quietErrors(@intFromEnum(kind));
     c.send(@intFromEnum(kind), .POST, c.orgUrl(full), body);
 }
 
-/// The action was kept on the phone: the screen moves on as if it was accepted.
-fn queued(s: *S, c: *Cx) void {
+/// The action was kept on the phone: the screen moves on as if it was accepted (`offline`:
+/// say so).
+fn queued(s: *S, c: *Cx, offline: bool) void {
     gps.queue(c, s.pending_path, s.pending_body);
+    c.fx.vibrate(80);
     const next: []const u8 = switch (s.pending_kind) {
         .accept => "accepted",
         .start => "in_progress",
@@ -267,7 +284,7 @@ fn queued(s: *S, c: *Cx) void {
         else => "",
     };
     if (next.len > 0) s.status_override = next;
-    c.toast(L("outbox.saved_offline"), .ok);
+    if (offline) c.toast(L("outbox.saved_offline"), .ok);
     s.dialog = .none;
     switch (s.pending_kind) {
         .deliver_send, .complete, .fail_send => c.go("/driver"),
@@ -325,6 +342,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             else => {},
         },
         .located => onFix(s, c),
+        .live => |ev| liveEvent(c, ev),
         .timer => |id| if (id == @intFromEnum(T.poll)) {
             c.liveDone();
             reload(c);
@@ -376,10 +394,12 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             },
             .deliver_send => {
                 var b = json.Obj.init(c.arena());
+                // As Turf-js's formValues: empty fields left out, the cash box only when there
+                // is cash to collect.
                 b.begin("pod");
-                b.str("code", c.valTrim(f_code));
-                b.str("receiverName", c.valTrim(f_receiver));
-                b.boolean("codCollected", s.cod_collected);
+                b.strOpt("code", c.valTrim(f_code));
+                b.strOpt("receiverName", c.valTrim(f_receiver));
+                if (json.has(task(c), "shipments.0.cod")) b.boolean("codCollected", s.cod_collected);
                 if (s.photo.len > 0) b.str("photo", s.photo);
                 b.end();
                 const obj = b.done();
@@ -397,7 +417,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 var b = json.Obj.init(c.arena());
                 b.str("reason", c.val(f_reason));
                 if (std.mem.eql(u8, c.val(f_reason), "reschedule_requested")) b.strOpt("rescheduleFor", c.valTrim(f_day));
-                b.str("note", c.valTrim(f_note));
+                b.strOpt("note", c.valTrim(f_note));
                 const obj = b.done();
                 post(s, c, .fail_send, "fail", obj[1 .. obj.len - 1]);
             },
@@ -413,7 +433,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 return;
             }
             // No connection: kept on the phone.
-            if (d.status == 0) return queued(s, c);
+            if (d.status == 0) return queued(s, c, true);
             if (!d.ok) {
                 // A wrong delivery code shows under its field (the core did); others as a toast.
                 if (c.field_err == null) c.toast(core.errorMessage(c.arena(), d.status, d.v, false), .err);
@@ -534,11 +554,15 @@ fn navPanel(s: *const S, c: *const Cx, ui: *Ui) void {
     }
     ui.end();
     ui.begin(.{ .gap = 6 }, .{});
-    if (step != null) kit.iconButton(ui, icons.notifications, kit.act(A.voice, 0), .{ .size = .sm, .variant = .ghost, .disabled = false });
+    if (step != null) {
+        // Dimmed while the voice is off.
+        ui.begin(.{ .opacity = if (s.voice) 1 else 0.5, .align_self = .center }, .{});
+        kit.iconButton(ui, icons.notifications, kit.act(A.voice, 0), .{ .size = .sm, .variant = .ghost });
+        ui.end();
+    }
     kit.button(ui, L("nav.open_maps"), .{ .open = mapw.externalNavUrl(a, dest) }, .{ .size = .sm, .icon = icons.open_in_new, .flip = true });
     ui.end();
     ui.end();
-    if (step != null and !s.voice) {} // the voice button is dimmed when off (opacity in JS)
 }
 
 fn parcelsCard(c: *const Cx, ui: *Ui) void {
@@ -628,8 +652,10 @@ fn deliverDialog(s: *const S, c: *const Cx, ui: *Ui) void {
     const x = json.get(task(c), "shipments.0");
     const require_code = json.boolean(x, "requireCode");
     shell.modalBegin(ui, .{ .title = L("task.confirm_delivery"), .close = kit.act(A.close_dialog, 0), .key = zui.key("deliver") });
-    if (require_code) kit.field(ui, L("task.delivery_code"), f_code, .{ .required = true, .hint = L("task.delivery_code_hint"), .input = .{ .kind = .code, .name = "code", .ltr = true, .size = 33.6, .height = 64, .@"align" = .center, .weight = 700 } });
-    kit.field(ui, L("shipment.receiver_name"), f_receiver, .{ .input = .{ .name = "pod.receiverName" } });
+    // Enter in a one-line field confirms the delivery (the dialog's primary action).
+    const submit = kit.act(A.deliver_send, 0);
+    if (require_code) kit.field(ui, L("task.delivery_code"), f_code, .{ .required = true, .hint = L("task.delivery_code_hint"), .input = .{ .kind = .code, .name = "code", .ltr = true, .size = 33.6, .height = 64, .@"align" = .center, .weight = 700, .on_submit = submit } });
+    kit.field(ui, L("shipment.receiver_name"), f_receiver, .{ .input = .{ .name = "pod.receiverName", .on_submit = submit } });
     kit.fieldBegin(ui, L("task.photo"), false);
     // The camera on every platform (Cx.pickPhoto); the photo shows below once taken.
     kit.button(ui, L("task.photo"), kit.act(A.photo, 0), .{ .icon = icons.photo_camera, .block = true });
@@ -713,10 +739,12 @@ test "task: delivered with the code; a wrong code shows under the field" {
     try D.press("Delivered");
     try D.typeInto("", "1234");
     D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.cod_toggle) } });
-    D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.deliver_send) } });
+    // Enter in the code field confirms.
+    try D.inputEvent("", .submit);
     const f = zui.host.fetches.items[zui.host.fetches.items.len - 1];
     try testing.expect(std.mem.endsWith(u8, f.url, "/courier/tasks/t9/complete"));
     try testing.expect(std.mem.indexOf(u8, f.body, "\"codCollected\":true") != null);
+    try testing.expect(std.mem.indexOf(u8, f.body, "receiverName") == null);
     try testing.expect(D.respond("/tasks/t9/complete", 400, "{\"error\":{\"code\":\"invalid_request\",\"message\":\"The delivery code is not correct\",\"field\":\"code\",\"rule\":\"wrong_code\"}}"));
     try testing.expect(D.R.appState().fieldError("code") != null);
     D.R.dispatch(.{ .act = .{ .id = @intFromEnum(A.deliver_send) } });
@@ -740,4 +768,15 @@ test "task: without a connection the action waits on the phone, in order" {
     D.R.dispatch(.{ .host = .{ .online = true } });
     try testing.expect(D.respond("/courier/tasks/t9/fail", 200, "{}"));
     try testing.expectEqual(@as(usize, 0), D.R.appState().gps.outboxCount());
+}
+
+test "task: only this task's live changes reload it" {
+    try openTask();
+    defer app.D.reset();
+    const D = app.D;
+    D.serverStatus(200);
+    D.serverSend("event: task.changed\ndata: {\"taskId\":\"t1\"}\n\n");
+    try testing.expect(D.pending("/courier/tasks/t9") == null);
+    D.serverSend("event: task.changed\ndata: {\"taskId\":\"t9\"}\n\n");
+    try testing.expect(D.pending("/courier/tasks/t9") != null);
 }
