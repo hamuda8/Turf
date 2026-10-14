@@ -421,8 +421,8 @@ fn boardSection(s: *const S, c: *const Cx, ui: *Ui) void {
     for (tasks, 0..) |task, i| {
         const st = json.str(task, "status");
         const express = json.boolean(task, "express");
-        if (express) ui.begin(.{ .radius = 24, .border_width = 2, .border_color = k.a }, .{ .key = zui.key(cm.docId(task)) +% 1 });
-        const co: kit.CardOpts = .{ .gap = 9.6, .edge = theme.status(&k, st), .key = zui.key(cm.docId(task)) };
+        // `.task-card.express`: a ring of the action colour.
+        const co: kit.CardOpts = .{ .gap = 9.6, .edge = theme.status(&k, st), .ring = if (express) k.a else null, .key = zui.key(cm.docId(task)) };
         kit.card(ui, co);
         kit.rowBetween(ui);
         ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center, .grow = 1 }, .{});
@@ -474,7 +474,6 @@ fn boardSection(s: *const S, c: *const Cx, ui: *Ui) void {
         }
         ui.end();
         kit.endCard(ui, co);
-        if (express) ui.end();
     }
     ui.end();
 }

@@ -218,7 +218,7 @@ pub fn button(ui: *Ui, lbl: []const u8, msg: ?Msg, o: ButtonOpts) void {
         .gap = 7.2,
         .height = .{ .px = h },
         // Buttons never shrink below their label (CSS: white-space: nowrap).
-        .min_width = if (icon_only) h else estimate(lbl, fs) + 2 * pad_x + (if (o.icon != null) @as(f32, 28) else 0),
+        .min_width = if (icon_only) h else estimate(lbl, fs) * 1.12 + 2 * pad_x + (if (o.icon != null) @as(f32, 28) else 0),
         .width = if (o.block) .fill else .auto,
         .grow = o.grow,
         .align_self = if (o.block) .stretch else null,
@@ -622,6 +622,9 @@ pub fn tab(ui: *Ui, s: []const u8, active: bool, msg: Msg) void {
 }
 
 pub fn tabsEnd(ui: *Ui) void {
+    ui.end();
+    // `.tabs { margin-block-end: 1rem }`: one more gap before what follows.
+    ui.begin(.{}, .{});
     ui.end();
 }
 
