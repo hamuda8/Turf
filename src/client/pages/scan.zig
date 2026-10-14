@@ -149,8 +149,14 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             .started => s.camera = .on,
             .found => {
                 // Only Turf tracking numbers; the camera sees the same label many times a second.
-                if (ev.text.len < 3 or !std.ascii.eqlIgnoreCase(ev.text[0..3], "TRF")) return;
-                const tn = clean(c.arena(), ev.text);
+                // A label's QR code holds its tracking link (…/t/TRF…): the number is its last part.
+                var raw = ev.text;
+                if (std.mem.indexOf(u8, raw, "://") != null) {
+                    raw = raw[0 .. std.mem.indexOfAny(u8, raw, "?#") orelse raw.len];
+                    raw = raw[(std.mem.lastIndexOfScalar(u8, raw, '/') orelse 0) + 1 ..];
+                }
+                if (raw.len < 3 or !std.ascii.eqlIgnoreCase(raw[0..3], "TRF")) return;
+                const tn = clean(c.arena(), raw);
                 const now = fmt.now();
                 if (s.recent.get(tn)) |last| if (now - last < camera_repeat_ms) return;
                 s.recent.put(c.arena(), c.dupe(tn), now) catch {};
