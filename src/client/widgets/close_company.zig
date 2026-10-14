@@ -49,6 +49,8 @@ pub const CloseCompany = struct {
                 } else if (d.id == cc.base + 2) {
                     if (d.ok) {
                         cc.open = false;
+                        // The closed company is gone: forget it (JS loads /app afresh; home reads the account).
+                        c.org.reset();
                         c.openLink("/app");
                     }
                 } else return false;

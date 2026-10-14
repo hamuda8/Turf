@@ -226,10 +226,10 @@ fn period(s: *const S, ui: *Ui) void {
     const wide = kit.width > 640;
     ui.begin(.{ .direction = if (wide) .row else .column, .gap = 12, .align_items = if (wide) .end else .stretch }, .{});
     ui.begin(.{ .width = if (wide) .{ .px = 190 } else .fill }, .{});
-    kit.field(ui, L("reports.from"), f_from, .{ .input = .{ .placeholder = "YYYY-MM-DD", .ltr = true } });
+    kit.dateField(ui, L("reports.from"), f_from, .{});
     ui.end();
     ui.begin(.{ .width = if (wide) .{ .px = 190 } else .fill }, .{});
-    kit.field(ui, L("reports.to"), f_to, .{ .input = .{ .placeholder = "YYYY-MM-DD", .ltr = true } });
+    kit.dateField(ui, L("reports.to"), f_to, .{});
     ui.end();
     ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center, .grow = 1, .padding = .{ .bottom = if (wide) 13 else 0 } }, .{});
     kit.icon(ui, icons.info, 16, kit.k.ink_2);
@@ -546,7 +546,8 @@ test "reports: the period, numbers, tables and the summary CSV" {
     try app.D.press("Last 7 days");
     try testing.expect(app.D.pending("/carrier/reports?from=2025-10-06&to=2025-10-12") != null);
     // A period typed backwards is turned round.
-    try app.D.typeInto("YYYY-MM-DD", "2025-12-01");
+    app.D.R.dispatch(.{ .open_date = .{ .slot = f_from } });
+    app.D.R.dispatch(.{ .date_picked = "2025-12-01" });
     try testing.expect(app.D.pending("/carrier/reports?from=2025-10-12&to=2025-12-01") != null or app.D.pending("/carrier/reports?from=2025-10-06&to=2025-12-01") != null);
     // One row per shipment.
     try app.D.press("Download shipments (CSV)");

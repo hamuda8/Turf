@@ -203,10 +203,10 @@ pub const Statements = struct {
         kit.selectField(ui, L(if (w.side == .carrier) "statements.store" else "statements.carrier"), w.f_who, opts.items, .{ .placeholder = L("common.choose") });
         g.endCell();
         g.cell();
-        kit.field(ui, L("statements.from"), w.f_from, .{ .input = .{ .placeholder = "YYYY-MM-DD", .ltr = true } });
+        kit.dateField(ui, L("statements.from"), w.f_from, .{});
         g.endCell();
         g.cell();
-        kit.field(ui, L("statements.to"), w.f_to, .{ .input = .{ .placeholder = "YYYY-MM-DD", .ltr = true } });
+        kit.dateField(ui, L("statements.to"), w.f_to, .{});
         g.endCell();
         g.end();
 

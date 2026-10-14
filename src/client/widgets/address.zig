@@ -30,6 +30,21 @@ const V = json.V;
 const L = labels.k;
 pub const LatLng = mapw.LatLng;
 
+/// `maxlength` (zui inputs have none): keeps the first `n` characters of a form slot. Pages call
+/// it from their `.text` handler.
+pub fn limitText(c: *Cx, form_slot: u16, n: usize) void {
+    const v = c.val(form_slot);
+    var it = std.unicode.Utf8View.initUnchecked(v).iterator();
+    var count: usize = 0;
+    while (it.nextCodepointSlice()) |_| {
+        count += 1;
+        if (count == n) {
+            if (it.i < v.len) c.setVal(form_slot, c.dupe(v[0..it.i]));
+            return;
+        }
+    }
+}
+
 // Form slots, from `Config.slot`.
 pub const f_search: u16 = 0;
 pub const f_gov: u16 = 1;
@@ -69,6 +84,8 @@ pub const Config = struct {
     tag: u4 = 1,
     /// The pin's look (`placeIcon`): "home", "shop"... Empty: home for the recipient, shop else.
     kind: []const u8 = "",
+    /// Enter in a field of the address (not the search box) sends the page's form.
+    submit: ?core.Msg = null,
     /// A recipient must be reachable.
     require_phone: bool = true,
 };
@@ -111,6 +128,8 @@ pub const Address = struct {
     pin_stamp: u32 = 0,
     pending_query: []const u8 = "",
     search_timer_fired: u32 = 0,
+    /// Keystroke timers still running: only the last one searches (a debounce).
+    search_waits: u32 = 0,
 
     pub fn setup(a: *Address, c: *Cx, cfg: Config) void {
         a.* = .{ .cfg = cfg };
@@ -176,6 +195,7 @@ pub const Address = struct {
 
     fn resetSearch(a: *Address) void {
         a.search_timer +%= 1;
+        a.search_timer_fired = a.search_timer; // a timer still running must not search
         a.search_seq +%= 1; // a reply still on its way must not reopen the list
         a.found = &.{};
         a.highlighted = -1;
@@ -291,7 +311,10 @@ pub const Address = struct {
                             a.search_seq +%= 1;
                             a.searching = false;
                             a.results_open = false;
-                        } else c.after(300, a.cfg.timer + t_search);
+                        } else {
+                            a.search_waits += 1;
+                            c.after(300, a.cfg.timer + t_search);
+                        }
                     },
                     f_gov => {
                         a.auto &= ~auto_gov;
@@ -300,9 +323,20 @@ pub const Address = struct {
                             a.m.flyTo(g, 11);
                         };
                     },
-                    f_city => a.auto &= ~auto_city,
-                    f_area => a.auto &= ~auto_area,
-                    f_street => a.auto &= ~auto_street,
+                    f_city => {
+                        a.auto &= ~auto_city;
+                        limitText(c, x.slot, 80);
+                    },
+                    f_area => {
+                        a.auto &= ~auto_area;
+                        limitText(c, x.slot, 120);
+                    },
+                    f_street => {
+                        a.auto &= ~auto_street;
+                        limitText(c, x.slot, 200);
+                    },
+                    f_details => limitText(c, x.slot, 500),
+                    f_name => limitText(c, x.slot, 120),
                     else => {},
                 }
                 return true;
@@ -316,6 +350,7 @@ pub const Address = struct {
                     a_submit => {
                         // Enter takes the first (or the highlighted) match, never the whole form.
                         a.search_timer +%= 1;
+                        a.search_timer_fired = a.search_timer;
                         const text = c.valTrim(a.slot(f_search));
                         if (a.found.len > 0 and std.mem.eql(u8, text, a.last_query)) {
                             a.choose(c, if (a.highlighted >= 0) @intCast(a.highlighted) else 0);
@@ -371,6 +406,8 @@ pub const Address = struct {
             .timer => |id| {
                 if (id == a.cfg.timer + t_search) {
                     // Only the last keystroke's timer searches.
+                    if (a.search_waits > 0) a.search_waits -= 1;
+                    if (a.search_waits > 0) return true;
                     if (a.search_timer_fired != a.search_timer) {
                         a.search_timer_fired = a.search_timer;
                         a.runSearch(c);
@@ -525,10 +562,10 @@ pub const Address = struct {
         // Phone and name.
         var g = kit.formGrid(ui, 2);
         g.cell();
-        kit.field(ui, L("common.phone"), a.slot(f_phone), .{ .required = a.cfg.require_phone, .hint = if (a.cfg.require_phone) "" else L("address.phone_optional"), .input = .{ .kind = .phone, .ltr = true, .placeholder = "09xx xxx xxx", .name = a.name(ui, "phone") } });
+        kit.field(ui, L("common.phone"), a.slot(f_phone), .{ .required = a.cfg.require_phone, .hint = if (a.cfg.require_phone) "" else L("address.phone_optional"), .input = .{ .kind = .phone, .ltr = true, .placeholder = "09xx xxx xxx", .name = a.name(ui, "phone"), .on_submit = a.cfg.submit } });
         g.endCell();
         g.cell();
-        kit.field(ui, L("address.name_optional"), a.slot(f_name), .{ .input = .{ .name = a.name(ui, "name") } });
+        kit.field(ui, L("address.name_optional"), a.slot(f_name), .{ .input = .{ .name = a.name(ui, "name"), .on_submit = a.cfg.submit } });
         g.endCell();
         g.end();
 
@@ -546,16 +583,16 @@ pub const Address = struct {
             kit.selectField(ui, L("org.governorate"), a.slot(f_gov), opts.items, .{ .name = a.name(ui, "governorate") });
             fg.endCell();
             fg.cell();
-            kit.field(ui, L("address.city"), a.slot(f_city), .{ .input = .{ .name = a.name(ui, "city") } });
+            kit.field(ui, L("address.city"), a.slot(f_city), .{ .input = .{ .name = a.name(ui, "city"), .on_submit = a.cfg.submit } });
             fg.endCell();
             fg.cell();
-            kit.field(ui, L("address.area"), a.slot(f_area), .{ .input = .{ .name = a.name(ui, "area") } });
+            kit.field(ui, L("address.area"), a.slot(f_area), .{ .input = .{ .name = a.name(ui, "area"), .on_submit = a.cfg.submit } });
             fg.endCell();
             fg.cell();
-            kit.field(ui, L("address.street"), a.slot(f_street), .{ .input = .{ .name = a.name(ui, "street") } });
+            kit.field(ui, L("address.street"), a.slot(f_street), .{ .input = .{ .name = a.name(ui, "street"), .on_submit = a.cfg.submit } });
             fg.endCell();
             fg.end();
-            kit.field(ui, L("address.details"), a.slot(f_details), .{ .input = .{ .placeholder = L("address.details_placeholder"), .name = a.name(ui, "details") } });
+            kit.field(ui, L("address.details"), a.slot(f_details), .{ .input = .{ .placeholder = L("address.details_placeholder"), .name = a.name(ui, "details"), .on_submit = a.cfg.submit } });
         }
         ui.end();
         ui.end();

@@ -52,7 +52,8 @@ test "store finance: no carrier in the period, then a statement the store pays" 
     try testing.expect(app.D.findText("No delivered or returned parcels in this period.") != 0);
     try testing.expect(app.D.findText("No Turf fees for this month.") != 0);
     // Another period.
-    try app.D.typeInto("YYYY-MM-DD", "2025-01-01");
+    app.D.R.dispatch(.{ .open_date = .{ .slot = 1 } });
+    app.D.R.dispatch(.{ .date_picked = "2025-01-01" });
     try testing.expect(app.D.respond("/merchant/statements?from=", 200, "{\"carriers\":[{\"id\":\"c1\",\"name\":\"Fast\",\"shipments\":1}]}"));
     try testing.expect(app.D.respond("/merchant/statement?carrierId=c1", 200,
         \\{"currency":"SYP","totals":{"delivered":1,"returned":0,"shippingFees":5000,"codCollected":0,"payout":-5000},"rows":[]}

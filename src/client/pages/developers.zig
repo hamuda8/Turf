@@ -83,6 +83,7 @@ fn snippet(a: std.mem.Allocator) []const u8 {
 
 pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
+        .text => |x| if (x.slot == f_name) @import("../widgets/address.zig").limitText(c, f_name, 60), // maxlength
         .data => |n| if (n == d_hook and c.slot(d_hook).state == .ok) {
             c.setVal(f_url, json.str(c.data(d_hook), "webhook.url"));
             s.revealed = false;

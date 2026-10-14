@@ -1,7 +1,6 @@
 //! Merchant settings (Turf-js views/merchant/settings.js): company profile, pickup places,
 //! preferences (website, default strategy), email updates about shipments, and closing the
-//! company. The pickup places panel (Turf-js merchant/places.js) is widgets/places.zig, written
-//! separately; its place is marked below.
+//! company. The pickup places panel (Turf-js merchant/places.js) is widgets/places.zig.
 
 const std = @import("std");
 const zui = @import("zui");
@@ -19,6 +18,8 @@ const V = json.V;
 const L = labels.k;
 
 const d_close: u8 = 0;
+/// Where the places panel's ids start (places.Config defaults).
+const places_base: u16 = 440;
 
 const f_name: u16 = 0;
 const f_phone: u16 = 1;
@@ -39,6 +40,7 @@ pub const S = struct {
     daily: bool = false,
     events: cm.IdSet = .{},
     close: CloseCompany = .{ .base = @intFromEnum(A.close_base), .slot = d_close, .field = f_close },
+    places: places.Places = .{},
 };
 
 pub fn title(_: *const S, _: *const Cx) []const u8 {
@@ -65,17 +67,29 @@ fn prefill(s: *S, c: *Cx) void {
 
 pub fn enter(s: *S, c: *Cx) void {
     prefill(s, c);
+    s.places.setup(c, .{});
     @import("../app.zig").reloadOrg(c);
 }
 
 pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     if (s.close.update(c, e)) return;
+    // The pickup places panel (its own data slot, actions, form slots and timers from 440).
+    s.places.update(c, e);
+    switch (e) {
+        .act => |a| if (a.id >= places_base) return,
+        .done => |d| if (d.id >= places_base) return,
+        .text => |x| if (x.slot >= places_base) return,
+        else => {},
+    }
     switch (e) {
         .data => |n| if (n == 255 and !s.reloaded) {
             s.reloaded = true;
             if (!s.touched) prefill(s, c);
         },
-        .text => s.touched = true,
+        .text => |x| {
+            s.touched = true;
+            if (x.slot == f_name) @import("../widgets/address.zig").limitText(c, f_name, 80); // maxlength
+        },
         .act => |a| {
             s.touched = true;
             switch (@as(A, @enumFromInt(a.id))) {
@@ -141,10 +155,10 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     sectionBegin(ui, L("settings.profile"));
     var g = kit.formGrid(ui, 3);
     g.cell();
-    kit.field(ui, L("org.name"), f_name, .{ .input = .{ .name = "name" } });
+    kit.field(ui, L("org.name"), f_name, .{ .input = .{ .name = "name", .on_submit = kit.act(A.save_profile, 0) } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("common.phone"), f_phone, .{ .input = .{ .kind = .phone, .ltr = true, .name = "phone" } });
+    kit.field(ui, L("common.phone"), f_phone, .{ .input = .{ .kind = .phone, .ltr = true, .name = "phone", .on_submit = kit.act(A.save_profile, 0) } });
     g.endCell();
     g.cell();
     kit.selectField(ui, L("org.governorate"), f_gov, cm.govOptions(c, a), .{ .placeholder = L("common.choose"), .name = "governorate" });
@@ -152,14 +166,14 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     g.end();
     sectionEnd(ui, .save_profile);
 
-    // PLACES: widgets/places.zig (Turf-js merchant/places.js, the pickup places card) goes here.
+    s.places.view(c, ui);
 
     sectionBegin(ui, L("msettings.preferences"));
     var opts: std.ArrayList(core.Opt) = .empty;
     for (json.arr(c.meta.value, "strategies")) |x| if (x == .string) opts.append(a, .{ .value = x.string, .label = labels.of("strategy.", x.string) }) catch {};
     var g2 = kit.formGrid(ui, 2);
     g2.cell();
-    kit.field(ui, L("msettings.website"), f_website, .{ .input = .{ .ltr = true, .name = "website" } });
+    kit.field(ui, L("msettings.website"), f_website, .{ .input = .{ .ltr = true, .name = "website", .on_submit = kit.act(A.save_prefs, 0) } });
     g2.endCell();
     g2.cell();
     kit.selectField(ui, L("msettings.default_strategy"), f_strategy, opts.items, .{ .required = true, .name = "defaultStrategy", .hint = L("new.strategy_hint") });
@@ -174,7 +188,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         sectionBegin(ui, L("msettings.emails"));
         kit.muted(ui, L("msettings.emails_intro"));
         kit.check(ui, L("msettings.emails_enabled"), s.enabled, kit.act(A.toggle_enabled, 0));
-        kit.field(ui, L("msettings.emails_to"), f_to, .{ .hint = cm.tx(ui, "msettings.emails_to_hint", .{ .email = if (owner.len > 0) owner else "—" }), .input = .{ .kind = .email, .ltr = true, .placeholder = owner, .name = "emailNotifications.to" } });
+        kit.field(ui, L("msettings.emails_to"), f_to, .{ .hint = cm.tx(ui, "msettings.emails_to_hint", .{ .email = if (owner.len > 0) owner else "—" }), .input = .{ .kind = .email, .ltr = true, .placeholder = owner, .name = "emailNotifications.to", .on_submit = kit.act(A.save_emails, 0) } });
         kit.stackTight(ui);
         kit.strong(ui, L("msettings.emails_events"));
         var g3 = kit.Grid.begin(ui, events.len, 280, 6.4, kit.width - 40);
@@ -193,6 +207,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
 }
 
 pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
+    s.places.overlay(c, ui);
     s.close.dialog(c, ui);
 }
 
@@ -232,4 +247,24 @@ test "merchant settings: preferences and email updates" {
     app.D.R.dispatch(kit.act(A.save_prefs, 0));
     const p = zui.host.fetches.items[zui.host.fetches.items.len - 1];
     try testing.expectEqualStrings("{\"website\":null,\"defaultStrategy\":\"balanced\"}", p.body);
+}
+
+test "merchant settings: the pickup places card, and Enter saves a section" {
+    try openMerchant("/settings");
+    defer app.D.reset();
+    try testing.expect(app.D.respond("/api/app/orgs/o1/merchant/places", 200,
+        \\[{"id":"p1","label":"Main shop","isDefault":true,"city":"Damascus","governorate":"DAM"}]
+    ));
+    try testing.expect(app.D.respond("/api/app/orgs/o1", 200, merchant_org));
+    try testing.expect(app.D.findText("Pickup places") != 0);
+    try testing.expect(app.D.findText("Main shop") != 0);
+    // The places' own actions do not reach the page's.
+    try app.D.press("Add place");
+    try testing.expect(app.D.R.appState().page.m_settings.places.editing);
+    app.D.R.dispatch(.{ .act = .{ .id = 442 } }); // close the dialog
+    // Enter in the company name saves the profile.
+    try app.D.inputEvent("", .submit);
+    const req = zui.host.fetches.items[zui.host.fetches.items.len - 1];
+    try testing.expect(std.mem.endsWith(u8, req.url, "/profile"));
+    try testing.expectEqualStrings("PATCH", req.method);
 }

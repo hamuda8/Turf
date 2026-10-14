@@ -69,8 +69,8 @@ pub fn title(_: *const S, _: *const Cx) []const u8 {
 }
 
 pub fn enter(s: *S, c: *Cx) void {
-    s.dropoff.setup(c, .{ .prefix = "dropoff", .slot = 100, .act = 300, .timer = 300, .tag = 1, .require_phone = true });
-    s.pickup.setup(c, .{ .prefix = "pickup", .slot = 120, .act = 320, .timer = 320, .tag = 2, .require_phone = false, .kind = "shop" });
+    s.dropoff.setup(c, .{ .prefix = "dropoff", .slot = 100, .act = 300, .timer = 300, .tag = 1, .require_phone = true, .submit = kit.act(A.create, 0) });
+    s.pickup.setup(c, .{ .prefix = "pickup", .slot = 120, .act = 320, .timer = 320, .tag = 2, .require_phone = false, .kind = "shop", .submit = kit.act(A.create, 0) });
     c.setVal(f_weight, "1");
     c.setVal(f_pieces, "1");
     c.setVal(f_carrier, "auto");
@@ -213,9 +213,19 @@ fn handle(s: *S, c: *Cx, e: core.Ev) void {
     if (s.dropoff.update(c, e)) return;
     if (s.pickup.update(c, e)) return;
     switch (e) {
-        .data => |n| if (n == 255 and !s.pickup_touched) pickDefaultPlace(s, c),
+        // The company was read again (JS awaits it): the default place, and "save this place"
+        // ticked when there is none yet.
+        .data => |n| if (n == 255 and !s.pickup_touched) {
+            pickDefaultPlace(s, c);
+            s.save_place = places(s, c, c.arena()).len == 0;
+        },
         .text => |x| switch (x.slot) {
             f_carrier, f_strategy => clearChoice(s),
+            // maxlength
+            f_label => address.limitText(c, f_label, 80),
+            f_desc => address.limitText(c, f_desc, 300),
+            f_ref => address.limitText(c, f_ref, 100),
+            f_notes => address.limitText(c, f_notes, 500),
             else => {},
         },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
@@ -365,7 +375,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         s.pickup.view(c, ui, "");
         ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center }, .{});
         kit.check(ui, L("new.save_place"), s.save_place, kit.act(A.toggle_save, 0));
-        kit.input(ui, f_label, .{ .placeholder = L("places.label_placeholder"), .grow = 1 });
+        kit.input(ui, f_label, .{ .placeholder = L("places.label_placeholder"), .grow = 1, .on_submit = kit.act(A.create, 0) });
         ui.end();
         ui.end();
     }
@@ -376,13 +386,13 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.h2(ui, L("shipment.parcel"));
     var g = kit.formGrid(ui, 3);
     g.cell();
-    kit.field(ui, L("new.weight"), f_weight, .{ .required = true, .input = .{ .kind = .decimal, .ltr = true, .name = "parcel.weightKg" } });
+    kit.field(ui, L("new.weight"), f_weight, .{ .required = true, .input = .{ .kind = .decimal, .ltr = true, .name = "parcel.weightKg", .on_submit = kit.act(A.create, 0) } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("new.cod"), f_cod, .{ .hint = L("new.cod_hint"), .input = .{ .kind = .number, .ltr = true, .name = "cod.amount" } });
+    kit.field(ui, L("new.cod"), f_cod, .{ .hint = L("new.cod_hint"), .input = .{ .kind = .number, .ltr = true, .name = "cod.amount", .on_submit = kit.act(A.create, 0) } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("new.description"), f_desc, .{ .input = .{ .name = "parcel.description" } });
+    kit.field(ui, L("new.description"), f_desc, .{ .input = .{ .name = "parcel.description", .on_submit = kit.act(A.create, 0) } });
     g.endCell();
     g.end();
     morePanel(s, ui);
@@ -465,17 +475,17 @@ fn morePanel(s: *const S, ui: *Ui) void {
         defer kit.width = w;
         var g = kit.formGrid(ui, 3);
         g.cell();
-        kit.field(ui, L("new.pieces"), f_pieces, .{ .input = .{ .kind = .number, .ltr = true, .name = "parcel.pieces" } });
+        kit.field(ui, L("new.pieces"), f_pieces, .{ .input = .{ .kind = .number, .ltr = true, .name = "parcel.pieces", .on_submit = kit.act(A.create, 0) } });
         g.endCell();
         g.cell();
-        kit.field(ui, L("new.value"), f_value, .{ .input = .{ .kind = .number, .ltr = true, .name = "parcel.value" } });
+        kit.field(ui, L("new.value"), f_value, .{ .input = .{ .kind = .number, .ltr = true, .name = "parcel.value", .on_submit = kit.act(A.create, 0) } });
         g.endCell();
         g.cell();
-        kit.field(ui, L("shipment.reference"), f_ref, .{ .hint = L("new.reference_hint"), .input = .{ .ltr = true, .name = "reference" } });
+        kit.field(ui, L("shipment.reference"), f_ref, .{ .hint = L("new.reference_hint"), .input = .{ .ltr = true, .name = "reference", .on_submit = kit.act(A.create, 0) } });
         g.endCell();
         g.end();
-        dims(ui, f_len, f_wid, f_hei);
-        kit.field(ui, L("new.notes"), f_notes, .{ .hint = L("new.notes_hint"), .input = .{ .name = "notes" } });
+        dims(ui, f_len, f_wid, f_hei, kit.act(A.create, 0));
+        kit.field(ui, L("new.notes"), f_notes, .{ .hint = L("new.notes_hint"), .input = .{ .name = "notes", .on_submit = kit.act(A.create, 0) } });
         ui.begin(.{ .direction = .row, .gap = 16 }, .{});
         kit.check(ui, L("shipment.fragile"), s.fragile, kit.act(A.toggle_fragile, 0));
         kit.check(ui, L("new.require_code"), s.require_code, kit.act(A.toggle_code, 0));
@@ -485,12 +495,12 @@ fn morePanel(s: *const S, ui: *Ui) void {
 }
 
 /// Length, width and height in one row (`.dims`).
-pub fn dims(ui: *Ui, l: u16, w: u16, h: u16) void {
+pub fn dims(ui: *Ui, l: u16, w: u16, h: u16, submit: ?core.Msg) void {
     kit.fieldBegin(ui, L("new.dimensions"), false);
     ui.begin(.{ .direction = .row, .gap = 8 }, .{});
-    kit.input(ui, l, .{ .kind = .number, .ltr = true, .placeholder = L("new.length"), .grow = 1, .width = 0 });
-    kit.input(ui, w, .{ .kind = .number, .ltr = true, .placeholder = L("new.width"), .grow = 1, .width = 0 });
-    kit.input(ui, h, .{ .kind = .number, .ltr = true, .placeholder = L("new.height"), .grow = 1, .width = 0 });
+    kit.input(ui, l, .{ .kind = .number, .ltr = true, .placeholder = L("new.length"), .grow = 1, .width = 0, .on_submit = submit });
+    kit.input(ui, w, .{ .kind = .number, .ltr = true, .placeholder = L("new.width"), .grow = 1, .width = 0, .on_submit = submit });
+    kit.input(ui, h, .{ .kind = .number, .ltr = true, .placeholder = L("new.height"), .grow = 1, .width = 0, .on_submit = submit });
     ui.end();
     kit.fieldEnd(ui, "parcel.dimensionsCm", L("new.dimensions_hint"));
 }

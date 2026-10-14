@@ -30,7 +30,7 @@ const f_hei: u16 = 5;
 const f_cod: u16 = 6;
 const f_notes: u16 = 7;
 
-const A = enum(u16) { toggle_fragile = 1, compare, send, pick };
+const A = enum(u16) { toggle_fragile = 1, compare, send, pick, enter };
 
 const Prices = enum { none, list, stale };
 
@@ -50,8 +50,8 @@ pub fn title(_: *const S, _: *const Cx) []const u8 {
 }
 
 pub fn enter(s: *S, c: *Cx) void {
-    s.pickup.setup(c, .{ .prefix = "pickup", .slot = 100, .act = 300, .timer = 300, .tag = 1, .require_phone = true, .kind = "home" });
-    s.dropoff.setup(c, .{ .prefix = "dropoff", .slot = 120, .act = 320, .timer = 320, .tag = 2, .require_phone = true });
+    s.pickup.setup(c, .{ .prefix = "pickup", .slot = 100, .act = 300, .timer = 300, .tag = 1, .require_phone = true, .kind = "home", .submit = kit.act(A.enter, 0) });
+    s.dropoff.setup(c, .{ .prefix = "dropoff", .slot = 120, .act = 320, .timer = 320, .tag = 2, .require_phone = true, .submit = kit.act(A.enter, 0) });
     if (zui.storage.get(core.gpa, last_pickup, .{})) |saved| {
         defer core.gpa.free(saved);
         if (json.parse(c.arena(), c.dupe(saved))) |v| if (v == .object) s.pickup.setValue(c, v);
@@ -132,6 +132,16 @@ fn handle(s: *S, c: *Cx, e: core.Ev) void {
                 s.chosen = if (a.arg == 0 or a.arg > opts.len) "auto" else c.dupe(json.str(opts[a.arg - 1], "carrier.id"));
             },
             .send => c.send(@intFromEnum(A.send), .POST, c.appUrl("/direct/shipments"), body(s, c, s.chosen)),
+            // Enter in a field (the form's submit): send once the prices are shown, else ask for them.
+            .enter => if (s.prices == .list and options(c).len > 0)
+                c.send(@intFromEnum(A.send), .POST, c.appUrl("/direct/shipments"), body(s, c, s.chosen))
+            else if (!c.isBusy(@intFromEnum(A.compare)))
+                update(s, c, .{ .act = .{ .id = @intFromEnum(A.compare) } }),
+        },
+        .text => |x| {
+            // maxlength
+            if (x.slot == f_desc) address.limitText(c, f_desc, 300);
+            if (x.slot == f_notes) address.limitText(c, f_notes, 500);
         },
         .done => |d| switch (@as(A, @enumFromInt(d.id))) {
             .compare => if (d.ok) {
@@ -173,19 +183,19 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.h2(ui, L("shipment.parcel"));
     var g = kit.formGrid(ui, 2);
     g.cell();
-    kit.field(ui, L("new.weight"), f_weight, .{ .required = true, .input = .{ .kind = .decimal, .ltr = true, .name = "parcel.weightKg" } });
+    kit.field(ui, L("new.weight"), f_weight, .{ .required = true, .input = .{ .kind = .decimal, .ltr = true, .name = "parcel.weightKg", .on_submit = kit.act(A.enter, 0) } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("new.description"), f_desc, .{ .input = .{ .placeholder = L("direct.description_placeholder"), .name = "parcel.description" } });
+    kit.field(ui, L("new.description"), f_desc, .{ .input = .{ .placeholder = L("direct.description_placeholder"), .name = "parcel.description", .on_submit = kit.act(A.enter, 0) } });
     g.endCell();
     g.end();
-    m_new.dims(ui, f_len, f_wid, f_hei);
+    m_new.dims(ui, f_len, f_wid, f_hei, kit.act(A.enter, 0));
     var g2 = kit.formGrid(ui, 2);
     g2.cell();
-    kit.field(ui, L("direct.cod"), f_cod, .{ .hint = L("direct.cod_hint"), .input = .{ .kind = .number, .ltr = true, .name = "cod.amount" } });
+    kit.field(ui, L("direct.cod"), f_cod, .{ .hint = L("direct.cod_hint"), .input = .{ .kind = .number, .ltr = true, .name = "cod.amount", .on_submit = kit.act(A.enter, 0) } });
     g2.endCell();
     g2.cell();
-    kit.field(ui, L("new.notes"), f_notes, .{ .hint = L("direct.notes_hint"), .input = .{ .name = "notes" } });
+    kit.field(ui, L("new.notes"), f_notes, .{ .hint = L("direct.notes_hint"), .input = .{ .name = "notes", .on_submit = kit.act(A.enter, 0) } });
     g2.endCell();
     g2.end();
     kit.check(ui, L("shipment.fragile"), s.fragile, kit.act(A.toggle_fragile, 0));
@@ -278,13 +288,15 @@ test "send a parcel: prices, a company, send; the pickup is remembered" {
     zui.storage.remove(last_pickup, .{});
     try startDirect("/app/send");
     defer app.D.reset();
-    try app.D.press(L("direct.see_prices"));
+    // Enter in a field before the prices are shown asks for them.
+    try app.D.inputEvent("Length", .submit);
     try testing.expect(app.D.respond("/direct/quotes", 200,
         \\{"options":[{"carrier":{"id":"c1","name":"Fast Express"},"etaHours":5,"price":{"amount":3000,"currency":"SYP"}},{"carrier":{"id":"c2","name":"Slow Co"},"etaHours":24,"price":{"amount":2000,"currency":"SYP"}}]}
     ));
     try testing.expect(app.D.findText("2,000 SYP – 3,000 SYP") != 0);
     try app.D.press("Slow Co");
-    try app.D.press(L("direct.send"));
+    // Then Enter sends (the form's submit).
+    try app.D.inputEvent("Length", .submit);
     const b = m_new.lastFetch("/direct/shipments").?;
     try testing.expect(m_new.has(b.body, "\"carrier\":\"c2\""));
     try testing.expect(m_new.has(b.body, "\"requireDeliveryCode\":true"));

@@ -66,7 +66,7 @@ pub const Places = struct {
     }
 
     fn openEditor(p: *Places, c: *Cx, existing: ?V) void {
-        p.addr.setup(c, .{ .prefix = "place", .slot = p.cfg.slot + 1, .act = p.cfg.act + acts_used, .timer = p.cfg.timer, .tag = p.cfg.tag, .require_phone = false, .kind = "shop" });
+        p.addr.setup(c, .{ .prefix = "place", .slot = p.cfg.slot + 1, .act = p.cfg.act + acts_used, .timer = p.cfg.timer, .tag = p.cfg.tag, .require_phone = false, .kind = "shop", .submit = .{ .act = .{ .id = p.cfg.act + a_save } } });
         if (existing) |e| {
             p.addr.setValue(c, e);
             p.existing = c.dupe(json.str(e, "id"));
@@ -82,6 +82,7 @@ pub const Places = struct {
     /// Handles the panel's events (the list, the dialog and its address).
     pub fn update(p: *Places, c: *Cx, e: core.Ev) void {
         if (p.editing and p.addr.update(c, e)) return;
+        if (e == .text and e.text.slot == p.cfg.slot) address.limitText(c, p.cfg.slot, 80); // maxlength
         const items = p.list(c);
         switch (e) {
             .act => |x| {
@@ -99,7 +100,7 @@ pub const Places = struct {
                         else
                             c.send(p.id(a_save), .POST, c.orgUrl("/merchant/places"), b.done());
                     },
-                    a_default => if (x.arg < items.len) c.send(p.id(a_default), .POST, c.orgUrl(c.print("/merchant/places/{s}/default", .{json.str(items[x.arg], "id")})), ""),
+                    a_default => if (x.arg < items.len) c.sendArg(p.id(a_default), x.arg, .POST, c.orgUrl(c.print("/merchant/places/{s}/default", .{json.str(items[x.arg], "id")})), ""),
                     a_delete_ask => if (x.arg < items.len) {
                         c.ask(zui.i18n.tf(c.arena(), labels.english("places.delete_confirm") orelse "{label}", .{ .label = json.str(items[x.arg], "label") }), .{ .danger = true, .act = .{ .id = p.id(a_delete), .arg = x.arg } });
                     },
@@ -154,9 +155,9 @@ pub const Places = struct {
                 kit.small(ui, if (phone.len > 0) kit.f(ui, "{s} · {s}", .{ line, phone }) else line);
                 ui.end();
                 ui.begin(.{ .direction = .row, .gap = 3.2 }, .{});
-                if (!def) kit.iconButton(ui, icons.star, .{ .act = .{ .id = p.id(a_default), .arg = arg } }, .{ .size = .sm, .variant = .ghost, .busy = p.id(a_default) });
+                if (!def) kit.iconButton(ui, icons.star, .{ .act = .{ .id = p.id(a_default), .arg = arg } }, .{ .size = .sm, .variant = .ghost, .busy = rowBusy(c, p.id(a_default), i) });
                 kit.iconButton(ui, icons.edit, .{ .act = .{ .id = p.id(a_edit), .arg = arg } }, .{ .size = .sm, .variant = .ghost });
-                kit.iconButton(ui, icons.delete, .{ .act = .{ .id = p.id(a_delete_ask), .arg = arg } }, .{ .size = .sm, .variant = .ghost, .busy = p.id(a_delete) });
+                kit.iconButton(ui, icons.delete, .{ .act = .{ .id = p.id(a_delete_ask), .arg = arg } }, .{ .size = .sm, .variant = .ghost, .busy = rowBusy(c, p.id(a_delete), i) });
                 ui.end();
                 kit.endCard(ui, .{});
             }
@@ -180,6 +181,11 @@ pub const Places = struct {
         shell.modalEnd(ui, true);
     }
 };
+
+/// The busy action of row `i` only (JS: busy() on the pressed button).
+fn rowBusy(c: *const Cx, n: u16, i: usize) ?u16 {
+    return if (c.isBusy(n) and (c.act_args.get(n) orelse 0) == i) n else null;
+}
 
 /// "street، area، city، governorate" (`placeLine`).
 pub fn placeLine(a: std.mem.Allocator, c: *const Cx, x: ?V) []const u8 {
