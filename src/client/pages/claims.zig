@@ -31,6 +31,9 @@ pub const S = struct {
     view: u8 = 0,
     /// The claim being decided (index in the shown list) and how.
     deciding: ?u32 = null,
+    /// Rows are found by id: a reload in between must not hit another claim.
+    deciding_id: []const u8 = "",
+    withdraw_id: []const u8 = "",
     accept: bool = false,
 };
 
@@ -57,6 +60,13 @@ fn shown(s: *const S, c: *const Cx, a: std.mem.Allocator) []const V {
 
 pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     const list = shown(s, c, c.arena());
+    // The claim being decided stays the same claim when the list changes under it.
+    if (s.deciding != null) {
+        s.deciding = null;
+        for (list, 0..) |x, i| if (std.mem.eql(u8, json.str(x, "id"), s.deciding_id)) {
+            s.deciding = @intCast(i);
+        };
+    }
     switch (e) {
         .act => |x| switch (@as(A, @enumFromInt(x.id))) {
             .filter => if (x.arg != s.view and x.arg < views.len) {
@@ -65,21 +75,25 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             },
             .accept, .reject => if (x.arg < list.len) {
                 s.deciding = x.arg;
+                s.deciding_id = c.dupe(json.str(list[x.arg], "id"));
                 s.accept = @as(A, @enumFromInt(x.id)) == .accept;
                 c.setVal(f_amount, json.text(c.arena(), list[x.arg], "amount"));
                 c.setVal(f_response, "");
                 c.clearFieldError();
             },
             .decide_close => s.deciding = null,
-            .decide => if (s.deciding) |i| if (i < list.len) {
+            .decide => if (s.deciding != null and s.deciding_id.len > 0) {
                 var b = json.Obj.init(c.arena());
                 b.str("decision", if (s.accept) "accepted" else "rejected");
                 if (s.accept) address.numField(&b, "amount", c.val(f_amount));
                 b.strOpt("response", c.val(f_response));
-                c.send(@intFromEnum(A.decide), .POST, c.orgUrl(c.print("{s}/claims/{s}/decide", .{ base(c), json.str(list[i], "id") })), b.done());
+                c.send(@intFromEnum(A.decide), .POST, c.orgUrl(c.print("{s}/claims/{s}/decide", .{ base(c), s.deciding_id })), b.done());
             },
-            .withdraw_ask => if (x.arg < list.len) c.ask(L("claims.withdraw_confirm"), .{ .act = .{ .id = @intFromEnum(A.withdraw), .arg = x.arg } }),
-            .withdraw => if (x.arg < list.len) c.sendArg(@intFromEnum(A.withdraw), x.arg, .POST, c.orgUrl(c.print("{s}/claims/{s}/withdraw", .{ base(c), json.str(list[x.arg], "id") })), ""),
+            .withdraw_ask => if (x.arg < list.len) {
+                s.withdraw_id = c.dupe(json.str(list[x.arg], "id"));
+                c.ask(L("claims.withdraw_confirm"), .{ .act = .{ .id = @intFromEnum(A.withdraw), .arg = x.arg } });
+            },
+            .withdraw => if (s.withdraw_id.len > 0) c.sendArg(@intFromEnum(A.withdraw), x.arg, .POST, c.orgUrl(c.print("{s}/claims/{s}/withdraw", .{ base(c), s.withdraw_id })), ""),
         },
         .done => |d| if (d.ok) switch (@as(A, @enumFromInt(d.id))) {
             .decide, .withdraw => {
@@ -154,7 +168,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
                 }
                 if (open and !carrier and c.can("shipments.create")) {
                     kit.rowEnd(ui);
-                    kit.button(ui, L("claims.withdraw"), kit.act(A.withdraw_ask, @intCast(i)), .{ .size = .sm, .variant = .ghost, .busy = @intFromEnum(A.withdraw) });
+                    kit.button(ui, L("claims.withdraw"), kit.act(A.withdraw_ask, @intCast(i)), .{ .size = .sm, .variant = .ghost, .busy = if (c.isBusy(@intFromEnum(A.withdraw)) and (c.act_args.get(@intFromEnum(A.withdraw)) orelse 0) == i) @intFromEnum(A.withdraw) else null });
                     ui.end();
                 }
                 kit.endCard(ui, .{});

@@ -23,7 +23,7 @@ const d_report: u8 = 0;
 const f_from: u16 = 0;
 const f_to: u16 = 1;
 
-const A = enum(u16) { preset = 1, summary, shipments };
+const A = enum(u16) { preset = 1, summary, shipments, tip };
 
 pub const Preset = enum { d7, d30, month, last_month, year };
 
@@ -31,6 +31,8 @@ pub const S = struct {
     preset: ?Preset = .d30,
     from: []const u8 = "",
     to: []const u8 = "",
+    /// The day bar whose numbers are shown (the bar's `title` tooltip in Turf-js); 0: none.
+    tip: u32 = 0,
 };
 
 pub fn title(_: *const S, _: *const Cx) []const u8 {
@@ -90,6 +92,7 @@ pub fn enter(s: *S, c: *Cx) void {
 pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
+            .tip => s.tip = if (s.tip == a.arg + 1) 0 else a.arg + 1,
             .preset => {
                 const p: Preset = @enumFromInt(@min(a.arg, 4));
                 if (s.preset == p) return;
@@ -208,7 +211,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         kit.noticeBegin(ui, .warn, icons.warning);
         kit.text(ui, sl.err, .{});
         kit.noticeEnd(ui);
-    } else render(c, ui, c.data(d_report));
+    } else render(c, ui, c.data(d_report), s.tip);
     ui.end();
 }
 
@@ -241,7 +244,7 @@ fn period(s: *const S, ui: *Ui) void {
 
 const StatItem = struct { label: []const u8, value: []const u8, alert: bool = false };
 
-fn render(c: *const Cx, ui: *Ui, r: ?V) void {
+fn render(c: *const Cx, ui: *Ui, r: ?V, tip: u32) void {
     const a = ui.arena();
     const tt = json.obj(r, "totals");
     const by_courier = json.arr(r, "byCourier");
@@ -273,7 +276,7 @@ fn render(c: *const Cx, ui: *Ui, r: ?V) void {
     g.end();
 
     const days = json.arr(r, "byDay");
-    if (days.len > 1) dayChart(ui, days);
+    if (days.len > 1) dayChart(ui, days, tip);
 
     const cod = json.arr(r, "cod");
     if (cod.len > 0) {
@@ -389,7 +392,7 @@ fn courierTable(c: *const Cx, ui: *Ui, rows: []const V) void {
 }
 
 /// Daily bars: created (light) and delivered (solid), drawn with views.
-fn dayChart(ui: *Ui, days: []const V) void {
+fn dayChart(ui: *Ui, days: []const V, tip: u32) void {
     const k = kit.k;
     var max: f64 = 1;
     for (days) |d| max = @max(max, json.numOr(d, "created", 0));
@@ -414,7 +417,7 @@ fn dayChart(ui: *Ui, days: []const V) void {
     for (days, 0..) |d, i| {
         const created: f32 = @floatCast(json.numOr(d, "created", 0) / max);
         const delivered: f32 = @floatCast(json.numOr(d, "delivered", 0) / max);
-        ui.begin(.{ .width = .{ .px = colw }, .height = .{ .px = h } }, .{ .key = zui.key(i + 1) });
+        ui.begin(.{ .width = .{ .px = colw }, .height = .{ .px = h }, .pressed_opacity = 0.7 }, .{ .key = zui.key(i + 1), .on_press = kit.act(A.tip, @intCast(i)) });
         ui.begin(.{ .position = .absolute, .inset = .{ .bottom = 0, .start = 0 }, .width = .{ .px = colw }, .height = .{ .px = @max(1, created * h) }, .radius = @min(4, colw / 2), .background = k.accent_soft }, .{});
         ui.end();
         ui.begin(.{ .position = .absolute, .inset = .{ .bottom = 0, .start = colw * 0.2 }, .width = .{ .px = colw * 0.6 }, .height = .{ .px = @max(1, delivered * h) }, .radius = @min(4, colw * 0.3), .background = k.a }, .{});
@@ -427,6 +430,11 @@ fn dayChart(ui: *Ui, days: []const V) void {
     }
     ui.end();
     ui.end();
+    // A tapped bar's numbers: "day: created / delivered".
+    if (tip > 0 and tip <= days.len) {
+        const d = days[tip - 1];
+        kit.small(ui, kit.f(ui, "{s}: {d} / {d}", .{ json.str(d, "day"), json.numOr(d, "created", 0), json.numOr(d, "delivered", 0) }));
+    }
     kit.endCard(ui, .{});
 }
 
@@ -542,6 +550,9 @@ test "reports: the period, numbers, tables and the summary CSV" {
     try testing.expect(app.D.findText("12") != 0);
     try app.D.press("Download summary (CSV)");
     try testing.expect(std.mem.eql(u8, zui.host.saved_name.items, "turf-report-2025-09-13-2025-10-12.csv"));
+    // A tapped day bar shows its numbers.
+    app.D.R.dispatch(kit.act(A.tip, 0));
+    try testing.expect(app.D.findText("2025-10-11: 5 / 3") != 0);
     // Another preset loads that period.
     try app.D.press("Last 7 days");
     try testing.expect(app.D.pending("/carrier/reports?from=2025-10-06&to=2025-10-12") != null);

@@ -187,7 +187,9 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 for (json.arr(c.data(d_members), ""), 0..) |m, i| if (i < 400) c.setVal(f_member_role + @as(u16, @intCast(i)), json.str(m, "roleId"));
             }
         },
-        .text => |x| if (x.slot >= f_member_role and x.slot < f_member_role + 400) {
+        .text => |x| if (x.slot == f_role_name) {
+            @import("../widgets/address.zig").limitText(c, f_role_name, 40); // maxlength
+        } else if (x.slot >= f_member_role and x.slot < f_member_role + 400) {
             const i = x.slot - f_member_role;
             const m = memberAt(c, i) orelse return;
             if (eq(u8, x.text, json.str(m, "roleId"))) return;
@@ -384,7 +386,9 @@ fn membersTab(c: *const Cx, ui: *Ui) void {
             for (choices) |r| opts.append(a, .{ .value = cm.docId(r), .label = json.str(r, "name") }) catch {};
             if (c.isBusy(@intFromEnum(A.member_role)) and (c.act_args.get(@intFromEnum(A.member_role)) orelse 0) == i) {
                 kit.spinner(ui, 18, kit.k.ink_3);
-            } else kit.select(ui, f_member_role + @as(u16, @intCast(i)), opts.items, .{ .title = L("team.role") });
+            } else if (i < 400) kit.select(ui, f_member_role + @as(u16, @intCast(i)), opts.items, .{ .title = L("team.role") })
+            // Past 400 members the form slots run out: the role is shown, changed from row 1..400 only.
+            else kit.text(ui, json.strOr(roleById(c, json.str(m, "roleId")), "name", "—"), .{});
         } else kit.text(ui, json.strOr(roleById(c, json.str(m, "roleId")), "name", "—"), .{});
         tb.endCell();
         tb.cell(true);
@@ -500,7 +504,8 @@ fn invitationsTab(c: *const Cx, ui: *Ui) void {
 
 // ---- Dialogs ------------------------------------------------------------------------------
 
-fn courierFields(c: *const Cx, ui: *Ui) void {
+/// `submit`: Enter in a field sends the dialog (its form's submit).
+fn courierFields(c: *const Cx, ui: *Ui, submit: core.Msg) void {
     const a = ui.arena();
     var opts: std.ArrayList(core.Opt) = .empty;
     for (cm.vehicles(c, a)) |v| opts.append(a, .{ .value = v, .label = labels.vehicle(v) }) catch {};
@@ -509,16 +514,16 @@ fn courierFields(c: *const Cx, ui: *Ui) void {
     kit.selectField(ui, L("courier.vehicle"), f_vehicle, opts.items, .{ .required = true, .name = "courier.vehicle" });
     g.endCell();
     g.cell();
-    kit.field(ui, L("common.phone"), f_cphone, .{ .input = .{ .kind = .phone, .ltr = true, .name = "courier.phone" } });
+    kit.field(ui, L("common.phone"), f_cphone, .{ .input = .{ .kind = .phone, .ltr = true, .name = "courier.phone", .on_submit = submit } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("courier.plate"), f_plate, .{ .input = .{ .ltr = true, .name = "courier.plate" } });
+    kit.field(ui, L("courier.plate"), f_plate, .{ .input = .{ .ltr = true, .name = "courier.plate", .on_submit = submit } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("courier.range"), f_range, .{ .hint = L("courier.range_hint"), .input = .{ .kind = .number, .ltr = true, .name = "courier.rangeKm" } });
+    kit.field(ui, L("courier.range"), f_range, .{ .hint = L("courier.range_hint"), .input = .{ .kind = .number, .ltr = true, .name = "courier.rangeKm", .on_submit = submit } });
     g.endCell();
     g.cell();
-    kit.field(ui, L("courier.capacity"), f_capacity, .{ .hint = L("courier.capacity_hint"), .input = .{ .kind = .number, .ltr = true, .name = "courier.capacityKg" } });
+    kit.field(ui, L("courier.capacity"), f_capacity, .{ .hint = L("courier.capacity_hint"), .input = .{ .kind = .number, .ltr = true, .name = "courier.capacityKg", .on_submit = submit } });
     g.endCell();
     g.end();
 }
@@ -537,7 +542,7 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
             if (isCourierRole(c, c.val(f_role))) {
                 ui.begin(.{ .gap = 12, .padding = .all(16), .radius = 16, .border_width = 1, .border_color = kit.k.line }, .{});
                 kit.h3(ui, L("team.courier_details"));
-                courierFields(c, ui);
+                courierFields(c, ui, kit.act(A.invite, 0));
                 ui.end();
             }
             shell.modalFoot(ui);
@@ -565,7 +570,7 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
         },
         .courier => {
             shell.modalBegin(ui, .{ .title = L("team.courier_details"), .close = close, .key = zui.key("courier-details") });
-            courierFields(c, ui);
+            courierFields(c, ui, kit.act(A.courier_save, 0));
             shell.modalFoot(ui);
             shell.modalButton(ui, L("common.cancel"), close, .{});
             shell.modalButton(ui, L("common.save"), kit.act(A.courier_save, 0), .{ .variant = .primary, .busy = @intFromEnum(A.courier_save) });
