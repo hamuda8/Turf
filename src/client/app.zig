@@ -481,7 +481,9 @@ pub fn update(c: *State, msg: Msg, env: zui.Env, fx: zui.Fx(Msg)) void {
             pageEvent(c, .{ .photo = .{ .id = c.photo_id, .data = data } });
         },
         .file_picked => |f| pageEvent(c, .{ .file = .{ .id = c.file_id, .name = f.name, .data = f.data } }),
-        .live => |e| if (e.stream == c.live_stream) {
+        .live => |e| if (e.stream != 0 and e.stream == alert_stream) {
+            if (e.kind == .message and std.mem.eql(u8, e.event, "alert")) refreshAlertsNow(c);
+        } else if (e.stream == c.live_stream) {
             c.liveEvent(e);
             pageEvent(c, .{ .live = e });
         },
@@ -528,7 +530,8 @@ fn host(c: *Cx, h: core.Host) void {
         .visible => |v| {
             c.visible = v;
             if (c.gps.on) gps.presence(c, if (v) "foreground" else "background");
-            if (v) gps.flush(c);
+            // Turf-js also uploads what is saved when the page is hidden.
+            gps.flush(c);
         },
     }
 }
@@ -780,8 +783,30 @@ fn startOrgServices(c: *Cx) void {
         c.alerts_polling = true;
         c.alerts_seeded = false;
         pollAlerts(c);
+        // The company's live stream: an `alert` event (an SOS) rings at once, as Turf-js's
+        // ctx.on('alert'); the 30 s poll stays as the fallback.
+        var a = std.heap.ArenaAllocator.init(gpa);
+        defer a.deinit();
+        if (alert_stream != 0) c.fx.closeEvents(alert_stream);
+        var b: [128]u8 = undefined;
+        const path = std.fmt.bufPrint(&b, "/api/app/orgs/{s}/stream", .{c.orgId()}) catch return;
+        alert_stream = c.fx.openEvents(.{ .url = c.staticUrl(path), .headers = c.headers(a.allocator()) }, onAlertStream);
     }
     if (c.isDriver()) gps.startOutbox(c);
+}
+
+/// The company's event stream for safety staff (0: none).
+var alert_stream: u32 = 0;
+
+fn onAlertStream(e: zui.ServerEvent) Msg {
+    return .{ .live = e };
+}
+
+/// An alert changed: the badge and the SOS alarm follow now (`alertsAnswer`).
+fn refreshAlertsNow(c: *Cx) void {
+    if (c.mode != .org or !c.can("alerts.manage")) return;
+    var b: [128]u8 = undefined;
+    c.request(.GET, c.staticUrl(std.fmt.bufPrint(&b, "/api/app/orgs/{s}/carrier/alerts?status=open", .{c.orgId()}) catch return), "", tag(.global, 0, g_alerts));
 }
 
 /// Reloads the company (`ctx.reloadOrg`); the page gets `.data = 255` when it is in.
