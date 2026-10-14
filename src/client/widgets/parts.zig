@@ -105,7 +105,7 @@ fn timelineEntry(ui: *Ui, text: []const u8, when: []const u8, current: bool, int
     const k = kit.k;
     ui.begin(.{ .direction = .row, .gap = 16, .opacity = if (internal) 0.75 else 1 }, .{});
     ui.begin(.{ .width = .{ .px = 14 }, .align_items = .center }, .{});
-    ui.begin(.{ .width = .{ .px = 14 }, .height = .{ .px = 14 }, .radius = 7, .background = if (current) k.a else k.panel, .border_width = 2, .border_color = if (current) k.a else k.ink_4 }, .{});
+    ui.begin(.{ .width = .{ .px = 14 }, .height = .{ .px = 14 }, .radius = 7, .background = if (current) k.a else k.panel, .border_width = 2, .border_color = if (current) k.a else k.ink_4, .shadow = if (current) .{ .y = 0, .blur = 10, .color = k.a.withAlpha(0.45) } else null }, .{});
     ui.end();
     if (!last) {
         ui.begin(.{ .width = .{ .px = 2 }, .grow = 1, .min_height = 12, .background = k.line }, .{});

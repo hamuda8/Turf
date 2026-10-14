@@ -122,6 +122,10 @@ pub fn start(c: *Cx, title: []const u8, text: []const u8) void {
     loadBuffer(c);
     tr.on = true;
     tr.status = .waiting;
+    // A fix the page already had (the task screen follows the position before the shift is known).
+    if (tr.last_fix) |f| if (fmt.now() - f.at < 120_000) {
+        tr.status = if (f.accuracy <= 50) .good else .weak;
+    };
     updateWatch(c);
     // Phones: the location keeps coming with the screen off, with Turf's notification.
     c.fx.backgroundLocation(true, title, text);

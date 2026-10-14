@@ -295,8 +295,8 @@ fn bodyView(s: *const S, c: *const Cx, ui: *Ui) void {
 /// Today's and this week's finished work (and pay, when the company set courier rates).
 fn workSummary(ui: *Ui, sum: V) void {
     const k = kit.k;
-    kit.line(ui, k.line_soft);
-    ui.begin(.{ .gap = 5.6, .width = .fill }, .{});
+    // `.work-summary`: a line above, the rows left-aligned.
+    ui.begin(.{ .gap = 5.6, .width = .fill, .padding = .{ .top = 9.6 }, .borders = .{ .top = .{ .width = 1, .color = k.line_soft } } }, .{});
     inline for (.{ .{ "driver.today", "today" }, .{ "driver.last_7_days", "week" } }) |x| {
         const p = json.obj(sum, x[1]);
         ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});

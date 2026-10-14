@@ -217,7 +217,8 @@ pub fn button(ui: *Ui, lbl: []const u8, msg: ?Msg, o: ButtonOpts) void {
         .justify = .center,
         .gap = 7.2,
         .height = .{ .px = h },
-        .min_width = if (icon_only) h else 0,
+        // Buttons never shrink below their label (CSS: white-space: nowrap).
+        .min_width = if (icon_only) h else estimate(lbl, fs) + 2 * pad_x + (if (o.icon != null) @as(f32, 28) else 0),
         .width = if (o.block) .fill else .auto,
         .grow = o.grow,
         .align_self = if (o.block) .stretch else null,
@@ -400,7 +401,7 @@ pub fn card(ui: *Ui, o: CardOpts) void {
         .radius = 22,
         .background = bg,
         // `border-inline-start: 5px solid var(--st)` (task cards), or a ring (chosen options).
-        .borders = if (o.edge) |e| .{ .start = .{ .width = 5, .color = e } } else null,
+        .borders = if (o.edge) |e| (if (o.ring) |r| .{ .start = .{ .width = 5, .color = e }, .end = .{ .width = 2, .color = r }, .top = .{ .width = 2, .color = r }, .bottom = .{ .width = 2, .color = r } } else .{ .start = .{ .width = 5, .color = e } }) else null,
         .border_width = if (o.ring != null) 2 else 0,
         .border_color = o.ring orelse Color.transparent,
         .shadow = if (o.inner) null else shadow1(),
@@ -984,8 +985,7 @@ pub fn line(ui: *Ui, color: Color) void {
 /// `.kv`: a label column (38%, at least 7rem) and the value. Draw the value between
 /// `kvBegin` and `kvEnd`, or use `kv`.
 pub fn kvBegin(ui: *Ui, lbl: []const u8, last: bool) void {
-    _ = last;
-    ui.begin(.{ .direction = .row, .gap = 12, .padding = .xy(0, 7.2), .align_items = .start }, .{});
+    ui.begin(.{ .direction = .row, .gap = 12, .padding = .xy(0, 7.2), .align_items = .start, .borders = if (last) null else .{ .bottom = .{ .width = 1, .color = k.line_soft } } }, .{});
     ui.begin(.{ .width = .{ .px = @max(112, width * 0.38 - 40) } }, .{});
     ui.text(lbl, .{ .font_size = 13.6, .weight = 600, .color = k.ink_2 });
     ui.end();
@@ -993,9 +993,9 @@ pub fn kvBegin(ui: *Ui, lbl: []const u8, last: bool) void {
 }
 
 pub fn kvEnd(ui: *Ui, last: bool) void {
+    _ = last;
     ui.end();
     ui.end();
-    if (!last) line(ui, k.line_soft);
 }
 
 pub fn kv(ui: *Ui, lbl: []const u8, value: []const u8, last: bool) void {

@@ -132,7 +132,7 @@ fn gpsBadge(ui: *Ui, c: *const Cx) void {
     };
     ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center }, .{});
     kit.icon(ui, icons.navigation, 16, color);
-    ui.text(L(key), .{ .font_size = 12.8, .weight = 600, .color = k.rail_ink_2, .max_lines = 1 });
+    ui.text(L(key), .{ .font_size = 12.8, .weight = 600, .color = if (st == .off) k.rail_ink_2 else color, .max_lines = 1 });
     ui.end();
 }
 
@@ -156,7 +156,7 @@ pub fn begin(ui: *Ui, c: *const Cx, ch: *const Chrome, o: FrameOpts) void {
     const w = ui.env.width;
     ui.begin(.{ .width = .fill, .height = .fill }, .{});
     // The top bar.
-    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 11.2, .padding = .{ .top = 13.6, .bottom = 16, .start = 17.6, .end = 17.6 }, .background = k.rail, .radius = 28 }, .{});
+    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 11.2, .padding = .{ .top = 13.6, .bottom = 16, .start = 17.6, .end = 17.6 }, .background = k.rail, .gradient = zui.Gradient.linear(225, &.{ .{ .color = k.a.mix(0.32, k.rail), .at = 0 }, .{ .color = k.rail, .at = 0.5 } }), .corners = .{ .bottom_start = 28, .bottom_end = 28 }, .shadow = kit.shadow2() }, .{});
     if (o.back) {
         kit.iconButton(ui, icons.arrow_back, kit.act(A.back, 0), .{ .variant = .ghost, .on_rail = true, .flip = true });
     } else kit.logoPanel(ui, c.brand(), 38, 12);

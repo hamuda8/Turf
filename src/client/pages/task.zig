@@ -517,9 +517,9 @@ fn navPanel(s: *const S, c: *const Cx, ui: *Ui) void {
     const fix = here(c);
     const steps = routeSteps(c);
     const has_route = c.slot(d_route).state == .ok and steps.len > 0;
-    ui.begin(.{ .direction = .row, .gap = 12.8, .align_items = .center, .padding = .xy(16, 14.4), .radius = 22, .background = k.panel }, .{});
+    ui.begin(.{ .direction = .row, .gap = 12.8, .align_items = .center, .padding = .xy(16, 14.4), .radius = 22, .background = k.panel, .shadow = kit.shadow2() }, .{});
     const step: ?V = if (has_route and fix != null) steps[@min(s.step, steps.len - 1)] else null;
-    ui.begin(.{ .width = .{ .px = 51.2 }, .height = .{ .px = 51.2 }, .radius = 16, .background = k.a, .align_items = .center, .justify = .center }, .{});
+    ui.begin(.{ .width = .{ .px = 51.2 }, .height = .{ .px = 51.2 }, .radius = 16, .background = k.a, .gradient = kit.accentGradient(), .shadow = kit.glow(), .align_items = .center, .justify = .center }, .{});
     kit.icon(ui, turnIcon(step), 32, k.on_accent);
     ui.end();
     ui.begin(.{ .grow = 1, .gap = 2 }, .{});
