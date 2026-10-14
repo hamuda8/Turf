@@ -474,6 +474,7 @@ pub fn update(c: *State, msg: Msg, env: zui.Env, fx: zui.Fx(Msg)) void {
         },
         .host => |h| host(c, h),
         .push => |e| push_mod.update(c, e),
+        .web_auth => |r| webAuthDone(c, r),
         .socket => |e| pageEvent(c, .{ .socket = e }),
         .scan => |e| pageEvent(c, .{ .scan = e }),
         .copy => |s| c.copy(s),
@@ -803,6 +804,15 @@ pub fn signOutLocal(c: *Cx) void {
     enterPage(c);
 }
 
+/// Wufour's in-app sign-in ended: at the callback with the token, or closed (nothing to do).
+fn webAuthDone(c: *Cx, r: zui.WebAuthResult) void {
+    if (r == .cancelled or c.mode != .signin) return;
+    var a = std.heap.ArenaAllocator.init(gpa);
+    defer a.deinit();
+    const tok = zui.wufour.tokenOfResult(a.allocator(), r) orelse return c.toast(t("Could not sign in. Try again."), .err);
+    signedIn(c, tok);
+}
+
 /// After the in-app sign-in.
 pub fn signedIn(c: *Cx, token: []const u8) void {
     zui.storage.set("token", token, .{ .secure = true });
@@ -904,16 +914,18 @@ test "phones: sign in, keep the token, send it, sign out" {
     zui.storage.remove("token", .{ .secure = true });
     D.startWith(390, 800, "");
     defer D.reset();
-    try testing.expect(D.findText("Sign in") != 0);
-    try D.typeInto("you@example.com", "sara@example.com");
-    // A secure field: the platform hides what is typed.
-    try testing.expect(D.inputView("Password").?.input_type.secure);
-    try D.typeInto("Password", "pass");
-    try D.inputEvent("Password", .submit);
-    const login = zui.host.fetches.items[zui.host.fetches.items.len - 1];
-    try testing.expect(std.mem.endsWith(u8, login.url, "/api/auth/login"));
-    try testing.expect(std.mem.indexOf(u8, login.body, "\"password\":\"pass\"") != null);
-    try testing.expect(D.respond("/api/auth/login", 200, "{\"success\":true,\"token\":\"TOK\"}"));
+    // No email or password fields: Wufour's own page, inside the app.
+    try testing.expect(D.inputView("Password") == null);
+    try D.press("Sign in with Wufour");
+    try testing.expect(zui.host.web_auth_open);
+    try testing.expectEqualStrings(core.auth_base ++ "/auth?returnTo=https%3A%2F%2Fturf.wreseal.com%2Fauth%2Fcallback%3Fnext%3D%252F", zui.host.web_auth_url.items);
+    try testing.expectEqualStrings("https://turf.wreseal.com/auth/callback", zui.host.web_auth_prefix.items);
+    // Closed: still signed out, nothing asked of the server.
+    try D.finishWebAuth(null);
+    try testing.expect(D.findText("Sign in with Wufour") != 0);
+    try testing.expect(zui.host.fetches.items.len == 0);
+    try D.press("Sign in with Wufour");
+    try D.finishWebAuth("https://turf.wreseal.com/auth/callback?next=%2F&token=TOK");
     try testing.expectEqualStrings("TOK", zui.host.stored.get("token").?);
     const me = zui.host.fetches.items[0];
     try testing.expect(std.mem.indexOf(u8, me.headers, "Authorization: Bearer TOK") != null);
@@ -923,7 +935,13 @@ test "phones: sign in, keep the token, send it, sign out" {
     try testing.expect(D.findText("Acme Store") != 0);
     D.R.dispatch(.{ .shell = .sign_out });
     try testing.expect(zui.host.stored.get("token") == null);
-    try testing.expect(D.findText("Sign in") != 0);
+    try testing.expect(D.findText("Sign in with Wufour") != 0);
+    // A 401 later: signed out again, back to the welcome.
+    try D.press("Sign in with Wufour");
+    try D.finishWebAuth("https://turf.wreseal.com/auth/callback?next=%2F&token=TOK2");
+    try testing.expect(D.respond("/api/app/me", 401, "{\"error\":{\"code\":\"unauthorized\"}}"));
+    try testing.expect(zui.host.stored.get("token") == null);
+    try testing.expect(D.findText("Sign in with Wufour") != 0);
 }
 
 test {

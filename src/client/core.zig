@@ -28,6 +28,9 @@ const config = @import("app_config");
 pub const api_base: []const u8 = if (zui.platform == .web or zui.platform == .headless) "" else config.server;
 /// Wufour (accounts): -Dauth.
 pub const auth_base: []const u8 = config.auth;
+/// Where Wufour sends the phones' in-app sign-in (Turf's /auth/callback on -Dserver, a host
+/// Wufour accepts); the app takes the token from that address without loading it.
+pub const callback_url: []const u8 = config.server ++ "/auth/callback?next=%2F";
 /// Wufour Maps (map tiles): -Dmaps.
 pub const maps_base: []const u8 = config.maps;
 /// The phones sign in inside the app and send a bearer token; the web uses Wufour's cookies.
@@ -104,6 +107,8 @@ pub const Msg = union(enum) {
     live: zui.ServerEvent,
     /// Push notifications: the token, a push's data (push.zig).
     push: @import("push.zig").Event,
+    /// The phones' in-app Wufour sign-in ended (pages/signin.zig).
+    web_auth: zui.WebAuthResult,
 };
 
 /// What the platform tells the app (zui's linkEvent and deviceEvent).
