@@ -628,6 +628,11 @@ fn response(c: *Cx, r: zui.Response) void {
 }
 
 fn globalResponse(c: *Cx, r: zui.Response) void {
+    // Signed out meanwhile (the phones' sign-in is showing): the old session's answers are dropped.
+    if (c.mode == .signin) switch (core.tagCode(r.tag)) {
+        g_me, g_meta, g_org, g_reload_org, g_alerts => return,
+        else => {},
+    };
     switch (core.tagCode(r.tag)) {
         g_me => fillSession(c, &c.me, r, true),
         g_meta => fillSession(c, &c.meta, r, true),
