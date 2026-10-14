@@ -26,6 +26,9 @@ pub const prime = Color.hex("#030200");
 pub const Brand = struct {
     primary: ?Color = null,
     header: ?Color = null,
+    /// Text on the primary colour as the server worked it out (`carrier.onPrimary`); else
+    /// the same rule here.
+    on_primary: ?Color = null,
 };
 
 pub const Colors = struct {
@@ -176,7 +179,7 @@ pub fn colors(dark: bool, brand: Brand) Colors {
         .line = d.withAlpha(0.40),
         .line_soft = d.withAlpha(0.22),
         .accent_soft = a.withAlpha(0.16),
-        .on_accent = readableOn(a),
+        .on_accent = if (brand.on_primary != null and !dark) brand.on_primary.? else readableOn(a),
         .rail = rail,
         .rail_ink = rail_ink,
         .rail_ink_2 = rail_ink.withAlpha(0.62),

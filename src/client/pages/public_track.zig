@@ -298,6 +298,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     if (v != null) {
         var b: theme.Brand = .{};
         if (zui.Color.parseHex(json.str(v, "carrier.primaryColor"))) |x| b.primary = x else |_| {}
+        if (zui.Color.parseHex(json.str(v, "carrier.onPrimary"))) |x| b.on_primary = x else |_| {}
         kit.k = theme.colors(ui.env.dark, b);
         ui.setBackground(kit.k.canvas);
     }
