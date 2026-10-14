@@ -338,6 +338,10 @@ pub const Grid = struct {
     i: usize = 0,
     count: usize,
     gap: f32,
+    /// While a cell is drawn, `width` is the room inside a card in it (form grids inside
+    /// lay out by it, as CSS grids do by their container).
+    cell_w: ?f32 = null,
+    saved_w: f32 = 0,
 
     pub fn begin(ui: *Ui, count: usize, min: f32, gap: f32, avail: f32) Grid {
         // auto-fit: tracks without an item collapse, so a few items share the whole width.
@@ -355,10 +359,15 @@ pub const Grid = struct {
 
     pub fn cell(g: *Grid) void {
         g.ui.begin(.{}, .{});
+        if (g.cell_w) |w| {
+            g.saved_w = width;
+            width = w;
+        }
     }
 
     pub fn endCell(g: *Grid) void {
         g.ui.end();
+        if (g.cell_w != null) width = g.saved_w;
         g.i += 1;
     }
 
@@ -375,7 +384,10 @@ pub fn grid(ui: *Ui, count: usize, comptime cols: u8) Grid {
         else => 160,
     };
     if (cols == 4 and width <= 640) return Grid.fixed(ui, count, 2, 11.2);
-    return Grid.begin(ui, count, min, 16, width);
+    var g = Grid.begin(ui, count, min, 16, width);
+    // Two page columns of cards: what is inside a card has a column less its padding.
+    if (cols == 2 and g.cols > 1) g.cell_w = (width - 16) / 2 - 40;
+    return g;
 }
 
 // ---- Cards --------------------------------------------------------------------------------
@@ -867,6 +879,19 @@ pub fn check(ui: *Ui, lbl: []const u8, checked: bool, msg: Msg) void {
 pub fn box(ui: *Ui, checked: bool) void {
     ui.begin(.{ .width = .{ .px = 20 }, .height = .{ .px = 20 }, .radius = 5, .background = if (checked) k.a else k.panel, .border_width = if (checked) 0 else 1.5, .border_color = k.ink_3, .align_items = .center, .justify = .center }, .{});
     if (checked) icon(ui, icons.check, 16, k.on_accent);
+    ui.end();
+}
+
+/// A radio button with its label (`label.check` with a radio).
+pub fn radio(ui: *Ui, lbl: []const u8, chosen: bool, msg: Msg) void {
+    ui.begin(.{ .direction = .row, .gap = 9.6, .align_items = .center, .pressed_opacity = 0.75 }, .{ .on_press = msg });
+    ui.begin(.{ .width = .{ .px = 20 }, .height = .{ .px = 20 }, .radius = 10, .background = k.panel, .border_width = if (chosen) 2 else 1.5, .border_color = if (chosen) k.a else k.ink_3, .align_items = .center, .justify = .center }, .{});
+    if (chosen) {
+        ui.begin(.{ .width = .{ .px = 10 }, .height = .{ .px = 10 }, .radius = 5, .background = k.a }, .{});
+        ui.end();
+    }
+    ui.end();
+    ui.text(lbl, .{ .font_size = 15, .color = k.ink });
     ui.end();
 }
 

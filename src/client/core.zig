@@ -654,6 +654,13 @@ pub const Cx = struct {
         c.fx.pickPhoto(.{ .camera = true, .max_size = 1280, .quality = 70 }, onPhoto);
     }
 
+    /// A picture from the gallery as PNG (transparency kept), at most `max_size` a side; it
+    /// arrives as the page's `.file` event with `id` (a logo).
+    pub fn pickPng(c: *Cx, id: u16, max_size: u32) void {
+        c.file_id = id;
+        c.fx.pickPhoto(.{ .max_size = max_size, .format = .png }, onFile);
+    }
+
     /// A file (`accept`: MIME types and extensions); it arrives as the page's `.file` event.
     pub fn pickFile(c: *Cx, id: u16, accept: []const u8) void {
         c.file_id = id;
