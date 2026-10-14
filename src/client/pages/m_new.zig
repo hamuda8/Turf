@@ -669,6 +669,37 @@ test "address: a search result fills the address and the pin" {
     try testing.expect(app.D.findText("Main st, Mazzeh, Damascus, Damascus") != 0);
 }
 
+test "address: the arrows move through the matches, Enter takes one, Escape and leaving close them" {
+    try openNew();
+    defer app.D.reset();
+    try app.D.inputEvent(L("address.search_placeholder"), .focus);
+    try app.D.typeInto(L("address.search_placeholder"), "mazzeh");
+    app.D.runTimers();
+    try testing.expect(app.D.respond("/api/v1/search?q=mazzeh", 200,
+        \\{"success":true,"results":[{"name":"Mazzeh","label":"Mazzeh, Damascus","lat":33.5,"lng":36.25},{"name":"Mezzeh 86","label":"Mezzeh 86, Damascus","lat":33.49,"lng":36.24}]}
+    ));
+    // Escape closes the matches (not the page); the field taking the keyboard again shows them.
+    try testing.expect(app.D.key(.{ .key = .escape, .in_input = true }));
+    try testing.expect(app.D.findText("Mezzeh 86") == 0);
+    try testing.expect(!app.D.key(.{ .key = .down, .in_input = true }));
+    try app.D.inputEvent(L("address.search_placeholder"), .blur);
+    try app.D.inputEvent(L("address.search_placeholder"), .focus);
+    try testing.expect(app.D.findText("Mezzeh 86") != 0);
+    try testing.expect(app.D.key(.{ .key = .down, .in_input = true }));
+    try app.D.inputEvent(L("address.search_placeholder"), .submit);
+    try testing.expectEqualStrings("Mezzeh 86, Damascus", app.D.R.appState().val(100));
+    // Leaving the box closes them a moment later.
+    try app.D.typeInto(L("address.search_placeholder"), "mazzeh");
+    app.D.runTimers();
+    try testing.expect(app.D.respond("/api/v1/search?q=mazzeh", 200,
+        \\{"success":true,"results":[{"name":"Mazzeh","label":"Mazzeh, Damascus","lat":33.5,"lng":36.25}]}
+    ));
+    try testing.expect(app.D.findText("Mazzeh") != 0);
+    try app.D.inputEvent(L("address.search_placeholder"), .blur);
+    app.D.runTimers();
+    try testing.expect(app.D.findText("Mazzeh") == 0);
+}
+
 test {
     _ = address;
     _ = @import("../widgets/places.zig");

@@ -231,6 +231,7 @@ pub fn view(c: *const Cx, ui: *Ui) void {
     pageOverlay(c, ui);
     if (c.menu_open and kit.phone and !isBare(c)) {
         ui.onBack(.{ .shell = .menu_close });
+        core.keys.escape = .{ .shell = .menu_close };
         menuPanel(c, ui);
     }
     if (c.confirm) |x| confirmDialog(ui, x);
@@ -519,8 +520,9 @@ pub const ModalOpts = struct {
 /// with the close button. Draw the body, then `modalFoot` and the buttons, then `modalEnd`.
 pub fn modalBegin(ui: *Ui, o: ModalOpts) void {
     const k = kit.k;
-    // Back (Android's, the browser's, the iOS swipe) closes the dialog.
+    // Back (Android's, the browser's, the iOS swipe) and Escape close the dialog.
     ui.onBack(o.close);
+    core.keys.escape = o.close;
     const w = ui.env.width;
     const sheet = w <= 640;
     ui.begin(.{

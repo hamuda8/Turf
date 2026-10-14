@@ -429,9 +429,13 @@ pub fn update(c: *State, msg: Msg, env: zui.Env, fx: zui.Fx(Msg)) void {
             if (c.field_err != null) c.clearFieldError();
             pageEvent(c, .{ .text = .{ .slot = slot, .text = value } });
         },
-        .focus => |s| c.focused = s,
-        .blur => |s| if (c.focused == s) {
-            c.focused = null;
+        .focus => |s| {
+            c.focused = s;
+            pageEvent(c, .{ .focus = s });
+        },
+        .blur => |s| {
+            if (c.focused == s) c.focused = null;
+            pageEvent(c, .{ .blur = s });
         },
         .resp => |r| response(c, r),
         .timer => |tm| {
@@ -558,6 +562,18 @@ fn onPicked(i: u32) Msg {
 }
 
 /// Back or forward to an address: the browser's buttons, Android's Back, the iOS swipe.
+/// Keyboards (the web, hardware keyboards): Escape and the arrows do what the screen drawn
+/// last asked for (`core.keys`); other keys stay the browser's or the field's.
+pub fn keyEvent(e: zui.KeyEvent) ?Msg {
+    if (e.ctrl or e.alt) return null;
+    return switch (e.key) {
+        .escape => core.keys.escape,
+        .up => core.keys.up,
+        .down => core.keys.down,
+        else => null,
+    };
+}
+
 pub fn linkEvent(link: []const u8) ?Msg {
     return .{ .host = .{ .popstate = link } };
 }
@@ -836,6 +852,7 @@ pub fn reloadOrg(c: *Cx) void {
 
 pub fn view(c: *const State, ui: *zui.Ui(Msg)) void {
     core.shown_n = 0;
+    core.keys = .{};
     shell.view(c, ui);
 }
 

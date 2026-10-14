@@ -53,6 +53,13 @@ pub const acts_used: u16 = 6;
 // Timers, from `Config.timer`.
 const t_search: u16 = 0;
 const t_locate: u16 = 1;
+const t_blur: u16 = 2;
+
+// What `a_submit`'s argument says: Enter, the arrows, Escape.
+const key_enter: u32 = 0;
+const key_up: u32 = 1;
+const key_down: u32 = 2;
+const key_escape: u32 = 3;
 
 // The fields the map filled (they follow the pin).
 const auto_city: u4 = 1;
@@ -321,7 +328,13 @@ pub const Address = struct {
                     a_locate => a.locate(c),
                     a_choose => a.choose(c, x.arg),
                     a_more => a.more_open = !a.more_open,
-                    a_submit => {
+                    a_submit => if (x.arg == key_escape) {
+                        a.results_open = false;
+                    } else if (x.arg == key_up or x.arg == key_down) {
+                        // The arrows move through the matches, round and round.
+                        const n: i32 = @intCast(a.found.len);
+                        if (n > 0) a.highlighted = @mod(a.highlighted + (if (x.arg == key_down) @as(i32, 1) else n - 1), n);
+                    } else {
                         // Enter takes the first (or the highlighted) match, never the whole form.
                         a.search_timer +%= 1;
                         a.search_timer_fired = a.search_timer;
@@ -392,7 +405,22 @@ pub const Address = struct {
                     if (a.locating) a.locateFailed(c);
                     return true;
                 }
+                if (id == a.cfg.timer + t_blur) {
+                    // The box lost the keyboard a moment ago (time for a press on a match).
+                    if (c.focused != a.slot(f_search)) a.results_open = false;
+                    return true;
+                }
                 return false;
+            },
+            .focus => |s| {
+                if (s != a.slot(f_search)) return false;
+                if (a.found.len > 0 and std.mem.eql(u8, c.valTrim(s), a.last_query)) a.results_open = true;
+                return true;
+            },
+            .blur => |s| {
+                if (s != a.slot(f_search)) return false;
+                c.after(150, a.cfg.timer + t_blur);
+                return true;
             },
             .map => |p| {
                 if ((p.id >> 28) != a.cfg.tag) return false;
@@ -523,7 +551,16 @@ pub const Address = struct {
         const narrow = ui.env.width <= 480;
         kit.button(ui, if (narrow) "" else L("address.locate_me"), .{ .act = .{ .id = a.act(a_locate) } }, .{ .size = .sm, .icon = icons.navigation, .busy = a.act(a_locate) });
         ui.end();
-        if (a.results_open) a.results(ui);
+        if (a.results_open) {
+            a.results(ui);
+            if (c.focused == a.slot(f_search)) {
+                core.keys.escape = .{ .act = .{ .id = a.act(a_submit), .arg = key_escape } };
+                if (a.found.len > 0) {
+                    core.keys.up = .{ .act = .{ .id = a.act(a_submit), .arg = key_up } };
+                    core.keys.down = .{ .act = .{ .id = a.act(a_submit), .arg = key_down } };
+                }
+            }
+        }
         a.drawMap(ui, c, w);
         // The summary.
         ui.begin(.{ .direction = .row, .gap = 8.8, .align_items = .start, .padding = .xy(12.8, 9.6), .radius = 16, .background = if (a.point != null) k.accent_soft else k.panel_2 }, .{});

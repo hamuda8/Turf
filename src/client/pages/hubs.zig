@@ -33,6 +33,7 @@ const f_address: u16 = 6;
 const f_search: u16 = 7;
 
 const t_search: u16 = 1;
+const t_blur: u16 = 2;
 const dialog_map_h: f32 = 300;
 
 const A = enum(u16) { add = 1, edit, open, close, save, active, search, choose, search_submit };
@@ -53,6 +54,8 @@ pub const S = struct {
     search_failed: bool = false,
     /// Enter was pressed before the answer: take its first place.
     choose_first: bool = false,
+    /// The places found are hidden (Escape, or the box lost the keyboard).
+    results_hidden: bool = false,
 };
 
 pub fn title(_: *const S, _: *const Cx) []const u8 {
@@ -181,6 +184,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             if (!s.open) return;
             if (x.slot == f_gov and s.point == null) centerOnGov(s, c);
             if (x.slot == f_search) {
+                s.results_hidden = false;
                 s.search_seq += 1;
                 s.choose_first = false;
                 c.slots[d_found].reset();
@@ -188,7 +192,17 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 c.after(300, t_search);
             }
         },
-        .timer => |id| if (id == t_search and s.open and !s.searching and c.slot(d_found).state == .idle) runSearch(s, c),
+        .timer => |id| if (id == t_search and s.open and !s.searching and c.slot(d_found).state == .idle) {
+            runSearch(s, c);
+        } else if (id == t_blur and c.focused != f_search) {
+            s.results_hidden = true;
+        },
+        // Turf-js: the places close a moment after the box loses the keyboard, and come back
+        // when it has it again.
+        .blur => |slot| if (slot == f_search) c.after(150, t_blur),
+        .focus => |slot| if (slot == f_search) {
+            s.results_hidden = false;
+        },
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .add => openDialog(s, c, null),
             .edit => if (hubAt(c, a.arg)) |h| openDialog(s, c, h),
@@ -200,7 +214,10 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             .active => s.active = !s.active,
             .save => save(s, c),
             .choose => choose(s, c, a.arg),
-            .search_submit => {
+            .search_submit => if (a.arg == 1) {
+                // Escape.
+                s.results_hidden = true;
+            } else {
                 // Never submits the dialog from the search box.
                 if (json.arr(c.data(d_found), "results").len > 0) return choose(s, c, 0);
                 s.choose_first = true;
@@ -342,8 +359,9 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
 
 fn searchResults(s: *const S, c: *const Cx, ui: *Ui) void {
     const k = kit.k;
-    if (c.slot(d_found).state != .ok) return;
+    if (c.slot(d_found).state != .ok or s.results_hidden) return;
     const list = json.arr(c.data(d_found), "results");
+    if (c.focused == f_search) core.keys.escape = kit.act(A.search_submit, 1);
     ui.begin(.{ .padding = .all(5.6), .radius = 16, .background = k.panel_2, .gap = 2 }, .{});
     if (s.search_failed) {
         ui.begin(.{ .padding = .xy(11.2, 9.6) }, .{});
@@ -373,6 +391,24 @@ fn searchResults(s: *const S, c: *const Cx, ui: *Ui) void {
 const app = @import("../app.zig");
 const testing = std.testing;
 const dispatch = @import("dispatch.zig");
+
+test "hubs: Escape closes the places found, then the dialog" {
+    try dispatch.openCarrier("/hubs");
+    defer app.D.reset();
+    try testing.expect(app.D.respond("/carrier/hubs", 200, "[]"));
+    app.D.R.dispatch(kit.act(A.add, 0));
+    try app.D.inputEvent(L("address.search_placeholder"), .focus);
+    try app.D.typeInto(L("address.search_placeholder"), "Mazzeh");
+    app.D.R.dispatch(.{ .timer = .{ .gen = app.D.R.appState().gen, .id = t_search } });
+    try testing.expect(app.D.respond("/api/v1/search?q=Mazzeh", 200, "{\"success\":true,\"results\":[{\"name\":\"Mazzeh\",\"label\":\"Mazzeh, Damascus\",\"lat\":33.5,\"lng\":36.25}]}"));
+    try testing.expect(app.D.findText("Mazzeh, Damascus") != 0);
+    try testing.expect(app.D.key(.{ .key = .escape, .in_input = true }));
+    try testing.expect(app.D.findText("Mazzeh, Damascus") == 0);
+    try testing.expect(app.D.findText(L("hubs.click_map")) != 0);
+    try testing.expect(app.D.key(.{ .key = .escape }));
+    try testing.expect(app.D.findText(L("hubs.click_map")) == 0);
+    try testing.expect(!app.D.key(.{ .key = .escape }));
+}
 
 test "hubs: add a hub placed by searching" {
     try dispatch.openCarrier("/hubs");

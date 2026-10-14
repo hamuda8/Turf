@@ -132,7 +132,16 @@ pub const Ev = union(enum) {
     scan: zui.ScanEvent,
     /// An event of the page's stream (`Cx.liveEvents`).
     live: zui.ServerEvent,
+    /// A field (form slot) got or lost the keyboard.
+    focus: u16,
+    blur: u16,
 };
+
+/// The keys the screen takes now, set while it is drawn (`App.keyEvent` reads them): Escape
+/// closes the dialog on top or a list of suggestions, the arrows move in that list. Later
+/// views win (a list inside a dialog closes before the dialog).
+pub const KeyMap = struct { escape: ?Msg = null, up: ?Msg = null, down: ?Msg = null };
+pub var keys: KeyMap = .{};
 
 pub const Done = struct {
     id: u16,
