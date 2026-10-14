@@ -519,6 +519,21 @@ pub const Cx = struct {
         return std.fmt.parseFloat(f64, v) catch null;
     }
 
+    /// Whether the last frame drew a field that shows an error on `field` (Turf-js
+    /// `showFieldError` toasts only when no field takes it).
+    pub fn fieldShown(field: []const u8) bool {
+        for (shown[0..shown_n]) |h| {
+            var b: [128]u8 = undefined;
+            var cand = fieldPath(field, &b);
+            while (true) {
+                if (std.hash.Wyhash.hash(0, cand) == h) return true;
+                const dot = std.mem.lastIndexOfScalar(u8, cand, '.') orelse break;
+                cand = cand[0..dot];
+            }
+        }
+        return false;
+    }
+
     pub fn clearFieldError(c: *Cx) void {
         if (c.field_err) |e| {
             gpa.free(e.field);
@@ -529,27 +544,14 @@ pub const Cx = struct {
 
     /// The error to show under the field named `name` (server field paths, as `showFieldError`).
     pub fn fieldError(c: *const Cx, name: []const u8) ?[]const u8 {
-        const e = c.field_err orelse return null;
         if (name.len == 0) return null;
-        // "dropoff.phone" or "positions[0]" match the field "dropoff.phone", then shorter names.
-        var buf: [128]u8 = undefined;
-        var n: usize = 0;
-        var i: usize = 0;
-        while (i < e.field.len and n < buf.len) : (i += 1) {
-            if (e.field[i] == '[') {
-                while (i < e.field.len and e.field[i] != ']') i += 1;
-                continue;
-            }
-            buf[n] = e.field[i];
-            n += 1;
+        // Every field that can show an error asks here while drawn: remembered for `fieldShown`.
+        if (shown_n < shown.len) {
+            shown[shown_n] = std.hash.Wyhash.hash(0, name);
+            shown_n += 1;
         }
-        var cand: []const u8 = buf[0..n];
-        while (true) {
-            if (std.mem.eql(u8, cand, name)) return e.text;
-            const dot = std.mem.lastIndexOfScalar(u8, cand, '.') orelse break;
-            cand = cand[0..dot];
-        }
-        return null;
+        const e = c.field_err orelse return null;
+        return if (fieldMatches(e.field, name)) e.text else null;
     }
 
     // ---- Navigation -----------------------------------------------------------------------
@@ -868,4 +870,34 @@ test "query and number helpers" {
     try std.testing.expectEqualStrings("", queryOf(a, "/x?q=1", "z"));
     try std.testing.expectEqualStrings("12.5", normalizeNumber(a, "١٢٫٥", true, false));
     try std.testing.expectEqualStrings("125", normalizeNumber(a, "1.2.5", false, false));
+}
+
+/// Fields drawn in the last frame that can show a server error (hashes of their names).
+pub var shown: [160]u64 = undefined;
+pub var shown_n: usize = 0;
+
+/// "dropoff.phone" or "positions[0].x" as a path without indexes ("positions.x").
+fn fieldPath(field: []const u8, buf: *[128]u8) []const u8 {
+    var n: usize = 0;
+    var i: usize = 0;
+    while (i < field.len and n < buf.len) : (i += 1) {
+        if (field[i] == '[') {
+            while (i < field.len and field[i] != ']') i += 1;
+            continue;
+        }
+        buf[n] = field[i];
+        n += 1;
+    }
+    return buf[0..n];
+}
+
+/// The server's field path matches the field `name`, or one of its shorter prefixes does.
+fn fieldMatches(field: []const u8, name: []const u8) bool {
+    var b: [128]u8 = undefined;
+    var cand = fieldPath(field, &b);
+    while (true) {
+        if (std.mem.eql(u8, cand, name)) return true;
+        const dot = std.mem.lastIndexOfScalar(u8, cand, '.') orelse return false;
+        cand = cand[0..dot];
+    }
 }

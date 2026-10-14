@@ -424,6 +424,8 @@ test "create org: choose, name, check the address, create" {
     try testing.expectEqualStrings("{\"type\":\"carrier\",\"name\":\"Fast Express\",\"slug\":\"fast-express\",\"acceptTerms\":true}", sent.body);
     try testing.expect(app.D.respond("/api/app/orgs", 400, "{\"error\":{\"code\":\"conflict\",\"message\":\"This address is already taken.\",\"field\":\"slug\"}}"));
     try testing.expectEqualStrings("slug", c.field_err.?.field);
+    // Shown under the address field, so not toasted as well; a field the form lacks is.
+    try testing.expectEqual(@as(usize, 0), c.toasts.items.len);
     // Enter in a field sends the form too (the form's submit).
     try app.D.inputEvent("09xx xxx xxx", .submit);
     try testing.expect(app.D.respond("/api/app/orgs", 201, "{\"slug\":\"fast-express\"}"));

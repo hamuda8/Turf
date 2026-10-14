@@ -631,12 +631,14 @@ fn response(c: *Cx, r: zui.Response) void {
             defer tmp.deinit();
             const v = json.parse(tmp.allocator(), r.body);
             if (!r.ok()) {
-                // The field the server named shows the message under it; the toast always.
-                if (json.str(v, "error.field").len > 0) {
+                // The field the server named shows the message under it; the toast only when no
+                // field on the page takes it (Turf-js `showFieldError`).
+                const field = json.str(v, "error.field");
+                if (field.len > 0) {
                     c.clearFieldError();
-                    c.field_err = .{ .field = gpa.dupe(u8, json.str(v, "error.field")) catch "", .text = gpa.dupe(u8, core.errorMessage(tmp.allocator(), r.status, v, true)) catch "" };
+                    c.field_err = .{ .field = gpa.dupe(u8, field) catch "", .text = gpa.dupe(u8, core.errorMessage(tmp.allocator(), r.status, v, true)) catch "" };
                 }
-                if (!c.quiet.contains(id)) c.toast(core.errorMessage(tmp.allocator(), r.status, v, false), .err);
+                if (!c.quiet.contains(id) and !(field.len > 0 and core.Cx.fieldShown(field))) c.toast(core.errorMessage(tmp.allocator(), r.status, v, false), .err);
             }
             pageEvent(c, .{ .done = .{ .id = id, .ok = r.ok(), .status = r.status, .v = v, .body = r.body, .arg = arg } });
         },
@@ -833,6 +835,7 @@ pub fn reloadOrg(c: *Cx) void {
 // ---- View ---------------------------------------------------------------------------------
 
 pub fn view(c: *const State, ui: *zui.Ui(Msg)) void {
+    core.shown_n = 0;
     shell.view(c, ui);
 }
 
