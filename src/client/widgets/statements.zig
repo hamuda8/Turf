@@ -307,7 +307,19 @@ pub const Statements = struct {
         kit.stackTight(ui);
         kit.h2(ui, L("platform_fees.title"));
         ui.begin(.{ .max_width = 220 }, .{});
-        kit.field(ui, L("admin.billing_month"), w.f_month, .{ .input = .{ .placeholder = "YYYY-MM", .ltr = true } });
+        // Turf-js's <input type=month>: this month and the two years before it.
+        var opts: [25]core.Opt = undefined;
+        const today = fmt.isoUtc(a, fmt.now());
+        var y: i64 = std.fmt.parseInt(i64, today[0..4], 10) catch 2026;
+        var m: u8 = std.fmt.parseInt(u8, today[5..7], 10) catch 1;
+        for (&opts) |*o| {
+            o.* = .{ .value = std.fmt.allocPrint(a, "{d:0>4}-{d:0>2}", .{ @as(u64, @intCast(y)), m }) catch "", .label = fmt.monthLabel(a, y, m) };
+            if (m == 1) {
+                m = 12;
+                y -= 1;
+            } else m -= 1;
+        }
+        kit.selectField(ui, L("admin.billing_month"), w.f_month, &opts, .{});
         ui.end();
         const fs = c.slot(w.d_fees);
         if (fs.state == .failed or fs.err.len > 0) {

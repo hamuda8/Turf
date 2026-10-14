@@ -98,6 +98,12 @@ fn ar() bool {
 const months = [_][]const u8{ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 const rlm = "\u{200F}";
 
+/// A month as the date pickers show it: "Oct 2026", in Arabic "10/2026".
+pub fn monthLabel(a: std.mem.Allocator, y: i64, m: u8) []const u8 {
+    if (ar()) return std.fmt.allocPrint(a, "{d}" ++ rlm ++ "/{d}", .{ m, y }) catch "";
+    return std.fmt.allocPrint(a, "{s} {d}", .{ months[m - 1], y }) catch "";
+}
+
 fn datePart(a: std.mem.Allocator, c: Civil) []const u8 {
     if (ar()) return std.fmt.allocPrint(a, "{d}" ++ rlm ++ "/{d}" ++ rlm ++ "/{d}", .{ c.d, c.m, c.y }) catch "";
     return std.fmt.allocPrint(a, "{d} {s} {d}", .{ c.d, months[c.m - 1], c.y }) catch "";
