@@ -48,6 +48,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
         .data => |n| if (n == d_me) {
             const me = c.data(d_me) orelse return;
+            syncSession(c);
             const orgs = json.arr(me, "orgs");
             const invs = json.arr(me, "invitations");
             // Brand-new users (no company, no invitation) go straight to setting one up.
@@ -73,7 +74,11 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 c.ask(core.fill(c.arena(), L("account.leave_confirm"), objName(c, json.str(o, "name"))), .{ .danger = true, .label = L("account.leave"), .act = .{ .id = @intFromEnum(A.leave), .arg = a.arg } });
             },
             .leave => if (org(c, a.arg)) |o| c.sendArg(@intFromEnum(A.leave), a.arg, .POST, c.appUrl(c.print("/orgs/{s}/leave", .{json.str(o, "id")})), ""),
-            .delete_open => c.send(@intFromEnum(A.delete_open), .GET, c.appUrl("/me/deletion"), ""),
+            .delete_open => {
+                // A new, empty confirmation each time (JS makes a new input).
+                c.setVal(f_confirm, "");
+                c.send(@intFromEnum(A.delete_open), .GET, c.appUrl("/me/deletion"), "");
+            },
             .delete_close => s.deleting = false,
             .delete_send => {
                 var b = json.Obj.init(c.arena());
@@ -88,6 +93,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             .accept => if (d.ok) {
                 const inv = invitation(c, d.arg);
                 c.toast(core.fill(c.arena(), L("invite.joined"), objName(c, json.str(inv, "org.name"))), .ok);
+                // The new company is not in the session yet: read the account again (JS reloads).
+                c.me.reset();
                 c.openLink(c.print("/o/{s}/", .{json.str(d.v, "slug")}));
             },
             .decline => if (d.ok) c.load(d_me, c.appUrl("/me")),
@@ -111,6 +118,22 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
         },
         else => {},
     }
+}
+
+/// The busy action of row `i` only (JS: busy() on the pressed button).
+fn rowBusy(c: *const Cx, id: A, i: usize) ?u16 {
+    const n = @intFromEnum(id);
+    return if (c.isBusy(n) and (c.act_args.get(n) orelse 0) == i) n else null;
+}
+
+/// The session's account follows the page's (a company left or declined leaves the menu too).
+fn syncSession(c: *Cx) void {
+    const v = c.data(d_me) orelse return;
+    if (c.me.state != .ok) return;
+    const body = json.stringify(c.arena(), v);
+    c.me.arena.deinit();
+    c.me.arena = .init(core.gpa);
+    c.me.value = json.parse(c.me.arena.allocator(), body);
 }
 
 /// `{ name }` for the message templates.
@@ -142,8 +165,8 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
             kit.small(ui, ui.tf(labels.english("home.invited_as") orelse "{role} {by}", .{ .role = json.str(inv, "role"), .by = json.strOr(inv, "invitedBy", "—") }));
             ui.end();
             ui.begin(.{ .direction = .row, .gap = 8 }, .{});
-            kit.button(ui, L("invite.decline"), kit.act(A.decline, @intCast(i)), .{ .variant = .ghost, .busy = @intFromEnum(A.decline) });
-            kit.button(ui, L("invite.accept"), kit.act(A.accept, @intCast(i)), .{ .variant = .primary, .icon = icons.check, .busy = @intFromEnum(A.accept) });
+            kit.button(ui, L("invite.decline"), kit.act(A.decline, @intCast(i)), .{ .variant = .ghost, .busy = rowBusy(c, A.decline, i) });
+            kit.button(ui, L("invite.accept"), kit.act(A.accept, @intCast(i)), .{ .variant = .primary, .icon = icons.check, .busy = rowBusy(c, A.accept, i) });
             ui.end();
             kit.endCard(ui, .{});
         }
@@ -182,7 +205,7 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
             ui.end();
             ui.end();
             // Members (not the owner) can leave; owners close the company from its settings.
-            if (!json.boolean(o, "isOwner")) kit.button(ui, L("account.leave"), kit.act(A.leave_ask, @intCast(i)), .{ .size = .sm, .variant = .ghost, .busy = @intFromEnum(A.leave) });
+            if (!json.boolean(o, "isOwner")) kit.button(ui, L("account.leave"), kit.act(A.leave_ask, @intCast(i)), .{ .size = .sm, .variant = .ghost, .busy = rowBusy(c, A.leave, i) });
             kit.iconFlip(ui, icons.arrow_forward, 20.25, k.ink_2);
             kit.endCard(ui, .{});
             g.endCell();
@@ -251,4 +274,30 @@ fn bullet(ui: *Ui, s: []const u8) void {
     ui.text("\u{2022}", .{ .font_size = 15, .color = kit.k.ink_2 });
     ui.text(s, .{ .font_size = 15, .color = kit.k.ink, .grow = 1 });
     ui.end();
+}
+
+// ---- Tests --------------------------------------------------------------------------------
+
+const testing = std.testing;
+
+test "home: accepting an invitation reads the account again; the delete dialog starts empty" {
+    const app = @import("../app.zig");
+    try app.startSignedIn("/app");
+    defer app.D.reset();
+    try testing.expect(app.D.respond("/api/app/me", 200,
+        \\{"user":{"id":"u1","email":"sara@example.com","username":"Sara"},"orgs":[],
+        \\ "invitations":[{"token":"tok1","role":"Driver","invitedBy":"Omar","org":{"name":"Fast Express"}}]}
+    ));
+    try testing.expect(app.D.findText("Fast Express") != 0);
+    try app.D.press("Accept");
+    try testing.expect(app.D.respond("/api/app/invitations/tok1/accept", 200, "{\"slug\":\"fast\"}"));
+    try testing.expect(app.D.pending("/api/app/me") != null);
+    try testing.expectEqualStrings("/o/fast", app.D.R.appState().baseStr());
+
+    try app.startSignedIn("/app");
+    try testing.expect(app.D.respond("/api/app/me", 200, app.me_json));
+    const c: *Cx = @constCast(app.D.R.appState());
+    c.setVal(f_confirm, "DEL");
+    try app.D.press("Delete my Turf data");
+    try testing.expectEqualStrings("", c.val(f_confirm));
 }

@@ -151,10 +151,12 @@ pub const Search = struct {
         const numbers = splitNumbers(c.arena(), value);
         if (numbers.len == 0) {
             f.err = L("lookup.empty");
+            c.fx.focus(kit.slotKey(f.slot));
             return .none;
         }
         if (numbers.len > max_numbers) {
             f.err = zui.i18n.tf(c.arena(), labels.english("lookup.too_many") orelse "{n}", .{ .n = max_numbers });
+            c.fx.focus(kit.slotKey(f.slot));
             return .none;
         }
         f.err = "";

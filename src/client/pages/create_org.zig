@@ -73,6 +73,26 @@ pub fn slugify(a: std.mem.Allocator, s: []const u8) []const u8 {
     return out.items[0..@min(out.items.len, 40)];
 }
 
+/// `maxlength` (zui inputs have none): keeps the first `n` characters.
+fn limit(c: *Cx, slot: u16, n: usize) void {
+    const v = c.val(slot);
+    var it = std.unicode.Utf8View.initUnchecked(v).iterator();
+    var count: usize = 0;
+    while (it.nextCodepointSlice()) |_| {
+        count += 1;
+        if (count == n) {
+            if (it.i < v.len) c.setVal(slot, c.dupe(v[0..it.i]));
+            return;
+        }
+    }
+}
+
+/// The fields this form shows a server error under; others are toasted (showFieldError).
+fn formField(name: []const u8) bool {
+    for ([_][]const u8{ "name", "slug", "phone", "acceptTerms" }) |n| if (std.mem.eql(u8, n, name)) return true;
+    return false;
+}
+
 fn checkSlug(s: *S, c: *Cx) void {
     const value = c.valTrim(f_slug);
     if (value.len < 3) {
@@ -89,10 +109,12 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
         .text => |x| switch (x.slot) {
             f_name => {
+                limit(c, f_name, 80); // maxlength
                 if (!s.slug_touched) c.setVal(f_slug, slugify(c.arena(), c.val(f_name)));
                 checkSlug(s, c);
             },
             f_slug => {
+                limit(c, f_slug, 40); // maxlength
                 s.slug_touched = true;
                 checkSlug(s, c);
             },
@@ -139,7 +161,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
                 // The new company is not in the session yet: read the account again.
                 c.me.reset();
                 c.openLink(c.print("/o/{s}/", .{json.str(d.v, "slug")}));
-            } else if (json.str(d.v, "error.field").len == 0) c.toast(c.errorText(d.status, d.v), .err),
+            } else if (!formField(json.str(d.v, "error.field"))) c.toast(c.errorText(d.status, d.v), .err),
             else => {},
         },
         else => {},
@@ -262,15 +284,15 @@ fn form(s: *const S, c: *const Cx, ui: *Ui, kind: Kind) void {
     const saved = kit.width;
     kit.width = saved - 48;
     step(ui, "2", L("onb.step_details"));
-    kit.field(ui, L("org.name"), f_name, .{ .input = .{ .name = "name", .height = 50, .size = 16 } });
+    kit.field(ui, L("org.name"), f_name, .{ .required = true, .input = .{ .name = "name", .height = 50, .size = 16, .on_submit = kit.act(A.create, 0) } });
 
     // The address: the host, then the company's part.
-    kit.fieldBegin(ui, L("org.slug"), false);
+    kit.fieldBegin(ui, L("org.slug"), true);
     ui.begin(.{ .direction = .row, .align_items = .stretch, .no_mirror = true }, .{});
     ui.begin(.{ .direction = .row, .align_items = .center, .padding = .xy(13.6, 0), .background = k.panel_3, .radius = 16, .max_width = (kit.width) * 0.6 }, .{});
     ui.text(kit.f(ui, "{s}/o/", .{host()}), .{ .font_size = 14.4, .color = k.ink_2, .max_lines = if (ui.env.width <= 480) 0 else 1 });
     ui.end();
-    kit.input(ui, f_slug, .{ .name = "slug", .placeholder = "my-company", .ltr = true, .grow = 1, .height = 50, .size = 16 });
+    kit.input(ui, f_slug, .{ .name = "slug", .placeholder = "my-company", .ltr = true, .grow = 1, .height = 50, .size = 16, .on_submit = kit.act(A.create, 0) });
     ui.end();
     if (s.slug_state != .none) {
         ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center }, .{});
@@ -295,7 +317,7 @@ fn form(s: *const S, c: *const Cx, ui: *Ui, kind: Kind) void {
     kit.fieldEnd(ui, "slug", "");
 
     // Companies often work in several governorates: where a carrier operates is set later.
-    kit.field(ui, L("common.phone"), f_phone, .{ .input = .{ .name = "phone", .kind = .phone, .ltr = true, .placeholder = "09xx xxx xxx", .height = 50, .size = 16 } });
+    kit.field(ui, L("common.phone"), f_phone, .{ .input = .{ .name = "phone", .kind = .phone, .ltr = true, .placeholder = "09xx xxx xxx", .height = 50, .size = 16, .on_submit = kit.act(A.create, 0) } });
 
     ui.begin(.{ .gap = 6.4 }, .{});
     ui.begin(.{ .direction = .row, .gap = 9.6, .align_items = .start }, .{});
@@ -402,8 +424,8 @@ test "create org: choose, name, check the address, create" {
     try testing.expectEqualStrings("{\"type\":\"carrier\",\"name\":\"Fast Express\",\"slug\":\"fast-express\",\"acceptTerms\":true}", sent.body);
     try testing.expect(app.D.respond("/api/app/orgs", 400, "{\"error\":{\"code\":\"conflict\",\"message\":\"This address is already taken.\",\"field\":\"slug\"}}"));
     try testing.expectEqualStrings("slug", c.field_err.?.field);
-    try app.D.press("Create my shipping company");
+    // Enter in a field sends the form too (the form's submit).
+    try app.D.inputEvent("09xx xxx xxx", .submit);
     try testing.expect(app.D.respond("/api/app/orgs", 201, "{\"slug\":\"fast-express\"}"));
     try testing.expectEqualStrings("/o/fast-express", app.D.R.appState().baseStr());
 }
-

@@ -55,8 +55,8 @@ pub fn clampVw(ui: *Ui, lo: f32, vw: f32, hi: f32) f32 {
     return std.math.clamp(ui.env.width * vw / 100, lo, hi);
 }
 
-/// `.landing-nav`: Turf, the language, the API docs, Sign in.
-pub fn nav(ui: *Ui, c: *const Cx) void {
+/// `.landing-nav`: Turf, the language, the API docs (the home page only), Sign in.
+pub fn nav(ui: *Ui, c: *const Cx, docs: bool) void {
     const k = kit.k;
     const w = ui.env.width;
     ui.begin(.{ .width = .fill, .align_items = .center }, .{});
@@ -70,7 +70,7 @@ pub fn nav(ui: *Ui, c: *const Cx) void {
     kit.spacer(ui);
     kit.button(ui, if (c.ar()) "English" else "العربية", .{ .shell = .lang }, .{ .variant = .ghost, .icon = icons.language, .size = if (w <= 420) .sm else .md });
     // The API documentation hides on phones (max-width: 560px).
-    if (w > 560) kit.button(ui, L("nav.api_docs"), .{ .open = serverUrl(ui, "/developers") }, .{ .variant = .ghost });
+    if (docs and w > 560) kit.button(ui, L("nav.api_docs"), .{ .open = serverUrl(ui, "/developers") }, .{ .variant = .ghost });
     kit.button(ui, L("landing.sign_in"), .{ .link = "/app" }, .{ .variant = .primary, .size = if (w <= 420) .sm else .md });
     ui.end();
     ui.end();
@@ -95,7 +95,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     const side = clampVw(ui, 16, 3, 24);
     const inner = @min(w, 1120) - 2 * side;
     ui.beginScroll(.{ .width = .fill, .height = .fill, .padding = .{ .top = ui.env.safe.top, .bottom = ui.env.safe.bottom } }, zui.key("landing"));
-    nav(ui, c);
+    nav(ui, c, true);
 
     // The hero: the pitch and the tracking panel (first on narrow screens).
     ui.begin(.{ .width = .fill, .align_items = .center }, .{});
