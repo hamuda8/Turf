@@ -31,6 +31,32 @@ pub var phone: bool = false;
 
 pub const rem: f32 = 16;
 
+// ---- Elevation and gradients (app.css --shadow-1/2/3, the accent gradients) ----------------
+// CSS draws two shadows with a negative spread; zui draws one, so each is the visible part:
+// a soft drop tinted with --ink.
+
+pub fn shadow1() zui.Shadow {
+    return .{ .y = 8, .blur = 22, .color = k.ink.withAlpha(0.10) };
+}
+
+pub fn shadow2() zui.Shadow {
+    return .{ .y = 14, .blur = 30, .color = k.ink.withAlpha(0.15) };
+}
+
+pub fn shadow3() zui.Shadow {
+    return .{ .y = 24, .blur = 48, .color = k.ink.withAlpha(0.22) };
+}
+
+/// The action colour's glow under primary buttons, active chips and nav items.
+pub fn glow() zui.Shadow {
+    return .{ .y = 10, .blur = 22, .color = k.a.withAlpha(0.32) };
+}
+
+/// `linear-gradient(135deg, var(--color-a), var(--color-v))`.
+pub fn accentGradient() zui.Gradient {
+    return zui.Gradient.two(135, k.a, k.v);
+}
+
 pub fn ar() bool {
     return cx.ar();
 }
@@ -62,16 +88,16 @@ pub fn text(ui: *Ui, s: []const u8, o: TextOpts) void {
 
 /// Page heading (h1: 1.65rem / 800).
 pub fn h1(ui: *Ui, s: []const u8) void {
-    ui.text(s, .{ .font_size = 26.4, .weight = 800, .color = k.ink, .line_height = 1.15 });
+    ui.text(s, .{ .font_size = 26.4, .weight = 800, .color = k.ink, .line_height = 1.15, .letter_spacing = -0.92 });
 }
 
 /// Section heading (h2: 1.12rem / 800).
 pub fn h2(ui: *Ui, s: []const u8) void {
-    ui.text(s, .{ .font_size = 17.9, .weight = 800, .color = k.ink, .line_height = 1.15 });
+    ui.text(s, .{ .font_size = 17.9, .weight = 800, .color = k.ink, .line_height = 1.15, .letter_spacing = -0.45 });
 }
 
 pub fn h3(ui: *Ui, s: []const u8) void {
-    ui.text(s, .{ .font_size = 15.7, .weight = 800, .color = k.ink, .line_height = 1.15 });
+    ui.text(s, .{ .font_size = 15.7, .weight = 800, .color = k.ink, .line_height = 1.15, .letter_spacing = -0.39 });
 }
 
 pub fn muted(ui: *Ui, s: []const u8) void {
@@ -95,7 +121,7 @@ pub fn mono(ui: *Ui, s: []const u8, o: TextOpts) void {
 
 /// Section labels (table heads, nav sections): small, uppercase, spaced.
 pub fn label(ui: *Ui, s: []const u8) void {
-    ui.text(upper(ui, s), .{ .font_size = 10.6, .weight = 800, .color = k.ink_3 });
+    ui.text(s, .{ .font_size = 10.6, .weight = 800, .color = k.ink_3, .uppercase = true, .letter_spacing = 1.27 });
 }
 
 pub fn upper(ui: *Ui, s: []const u8) []const u8 {
@@ -131,29 +157,12 @@ pub fn icon(ui: *Ui, ic: Icon, size: f32, color: Color) void {
     ui.icon(ic, size, color, .{}, 0);
 }
 
+/// An icon that points a way (`FLIP` in icons.js: back, forward, logout, send, open in new):
+/// mirrored in right-to-left languages.
 pub fn iconFlip(ui: *Ui, ic: Icon, size: f32, color: Color) void {
-    if (cx.ar()) {
-        // Mirrored by a half turn around the vertical axis.
-        ui.begin(.{ .width = .{ .px = size }, .height = .{ .px = size }, .no_mirror = true }, .{});
-        ui.icon(mirror(ic), size, color, .{}, 0);
-        ui.end();
-    } else ui.icon(ic, size, color, .{}, 0);
-}
-
-/// The same icon flipped left to right (for right-to-left layouts): the paths are mapped
-/// x -> box - x by moving the origin; zui has no mirror transform.
-fn mirror(ic: Icon) Icon {
-    return mirrored(ic);
-}
-
-const MirrorCache = struct { src: ?*const anyopaque = null };
-
-fn mirrored(ic: Icon) Icon {
-    // A mirrored path needs its own point list: icons.zig keeps mirrored copies for the few
-    // directional icons (arrow_back etc. are drawn as their opposite).
-    if (ic.paths.ptr == icons.arrow_back.paths.ptr) return icons.arrow_forward;
-    if (ic.paths.ptr == icons.arrow_forward.paths.ptr) return icons.arrow_back;
-    return ic;
+    var x = ic;
+    x.rtl_mirror = true;
+    ui.icon(x, size, color, .{}, 0);
 }
 
 // ---- Buttons ------------------------------------------------------------------------------
@@ -215,14 +224,23 @@ pub fn button(ui: *Ui, lbl: []const u8, msg: ?Msg, o: ButtonOpts) void {
         .padding = .xy(pad_x, 0),
         .radius = h / 2,
         .background = bg,
+        .gradient = if (o.variant == .primary) accentGradient() else null,
+        .shadow = if (o.variant == .primary and !o.disabled and !o.on_rail) glow() else null,
         .border_width = if (o.variant == .normal and k.dark and !o.on_rail) 1 else 0,
         .border_color = k.well_line,
-        .opacity = if (o.disabled) 0.5 else 1,
+        .opacity = if (o.disabled) 0.5 else if (working) 0.85 else 1,
         .pressed_background = switch (o.variant) {
             .primary => k.v,
             .danger => k.fatal_ink,
             .normal, .ghost => if (o.on_rail) k.rail_hover else k.press,
         },
+        .hover_background = if (off) null else switch (o.variant) {
+            .primary => k.v,
+            .danger => k.fatal_ink,
+            .normal => if (o.on_rail) k.rail_hover else k.press,
+            .ghost => if (o.on_rail) k.rail_hover else k.panel_3,
+        },
+        .transition = .{ .duration_ms = 220 },
     }, .{ .on_press = if (off) null else msg, .key = o.key });
     if (working) {
         spinner(ui, if (o.size == .lg) 20 else 16, fg);
@@ -248,8 +266,8 @@ pub fn iconButton(ui: *Ui, ic: Icon, msg: ?Msg, o: ButtonOpts) void {
 
 /// A turning ring (`.spin`), drawn with the frame clock.
 pub fn spinner(ui: *Ui, size: f32, color: Color) void {
-    const turn: f32 = @floatCast(@mod(ui.env.time_ms * 0.514, 360));
-    ui.begin(.{ .width = .{ .px = size }, .height = .{ .px = size }, .rotate = turn }, .{});
+    // The platform turns the bright quarter (spin_ms): no frames from Zig.
+    ui.begin(.{ .width = .{ .px = size }, .height = .{ .px = size } }, .{});
     const r = size / 2 - 1.25;
     var pts: [40][2]f32 = undefined;
     // The track (22% of the colour), then the moving quarter.
@@ -263,9 +281,8 @@ pub fn spinner(ui: *Ui, size: f32, color: Color) void {
         const a = -std.math.pi / 2.0 + @as(f32, @floatFromInt(i)) / 11 * (std.math.pi / 2.0);
         arc[i] = .{ size / 2 + r * @cos(a), size / 2 + r * @sin(a) };
     }
-    ui.path(&arc, .{ .color = color, .width = 2.5 }, .{ .position = .absolute, .width = .{ .px = size }, .height = .{ .px = size } }, 0);
+    ui.path(&arc, .{ .color = color, .width = 2.5 }, .{ .position = .absolute, .width = .{ .px = size }, .height = .{ .px = size }, .spin_ms = 700 }, 0);
     ui.end();
-    ui.requestFrame(.frame);
 }
 
 /// The page is loading (`loading()`): a spinner in the middle.
@@ -319,37 +336,29 @@ pub const Grid = struct {
     gap: f32,
 
     pub fn begin(ui: *Ui, count: usize, min: f32, gap: f32, avail: f32) Grid {
-        const cols = @max(1, @as(usize, @intFromFloat(@floor((avail + gap) / (@min(min, avail) + gap)))));
-        ui.begin(.{ .gap = gap }, .{});
-        return .{ .ui = ui, .cols = @min(cols, @max(count, 1)), .count = count, .gap = gap };
+        // auto-fit: tracks without an item collapse, so a few items share the whole width.
+        const spec: zui.Grid = .{ .min_width = @min(min, avail) };
+        const cols = @min(spec.count(avail, gap), @max(count, 1));
+        ui.begin(.{ .gap = gap, .grid = .{ .columns = @intCast(cols) } }, .{});
+        return .{ .ui = ui, .cols = cols, .count = count, .gap = gap };
     }
 
     /// A fixed number of columns.
     pub fn fixed(ui: *Ui, count: usize, cols: usize, gap: f32) Grid {
-        ui.begin(.{ .gap = gap }, .{});
+        ui.begin(.{ .gap = gap, .grid = .{ .columns = @intCast(@max(cols, 1)) } }, .{});
         return .{ .ui = ui, .cols = @max(cols, 1), .count = count, .gap = gap };
     }
 
     pub fn cell(g: *Grid) void {
-        if (g.i % g.cols == 0) g.ui.begin(.{ .direction = .row, .gap = g.gap, .align_items = .stretch }, .{});
-        g.ui.begin(.{ .width = .fill }, .{});
+        g.ui.begin(.{}, .{});
     }
 
     pub fn endCell(g: *Grid) void {
         g.ui.end();
         g.i += 1;
-        if (g.i % g.cols == 0) g.ui.end();
     }
 
     pub fn end(g: *Grid) void {
-        if (g.i % g.cols != 0) {
-            // Empty cells keep the last row's columns as wide as the others.
-            while (g.i % g.cols != 0) : (g.i += 1) {
-                g.ui.begin(.{ .width = .fill }, .{});
-                g.ui.end();
-            }
-            g.ui.end();
-        }
         g.ui.end();
     }
 };
@@ -385,29 +394,26 @@ pub const CardOpts = struct {
 
 pub fn card(ui: *Ui, o: CardOpts) void {
     const bg = o.background orelse if (o.inner) k.panel_2 else k.panel;
-    if (o.edge) |e| {
-        // `border-inline-start: 5px solid`: a strip on the start side, under the radius.
-        ui.begin(.{ .direction = .row, .radius = 22, .background = e, .clip = true }, .{ .on_press = o.on_press, .key = o.key });
-        ui.begin(.{ .width = .{ .px = 5 } }, .{});
-        ui.end();
-        ui.begin(.{ .grow = 1, .padding = .all(o.pad), .gap = o.gap, .background = bg, .direction = o.direction, .align_items = o.align_items }, .{});
-        return;
-    }
     ui.begin(.{
         .padding = .all(o.pad),
         .gap = o.gap,
         .radius = 22,
         .background = bg,
+        // `border-inline-start: 5px solid var(--st)` (task cards), or a ring (chosen options).
+        .borders = if (o.edge) |e| .{ .start = .{ .width = 5, .color = e } } else null,
         .border_width = if (o.ring != null) 2 else 0,
         .border_color = o.ring orelse Color.transparent,
+        .shadow = if (o.inner) null else shadow1(),
         .pressed_background = if (o.on_press != null) k.panel_2.mix(0.5, bg) else null,
+        .hover_background = if (o.on_press != null) bg.mix(0.85, k.panel_3) else null,
+        .transition = if (o.on_press != null) .{ .duration_ms = 220 } else null,
         .direction = o.direction,
         .align_items = o.align_items,
     }, .{ .on_press = o.on_press, .key = o.key });
 }
 
 pub fn endCard(ui: *Ui, o: CardOpts) void {
-    if (o.edge != null) ui.end();
+    _ = o;
     ui.end();
 }
 
@@ -420,11 +426,11 @@ pub fn cardHead(ui: *Ui, title: []const u8) void {
 /// A stat tile: the accent bar, the value, the label (`stat()`).
 pub fn stat(ui: *Ui, lbl: []const u8, value: []const u8, o: struct { alert: bool = false, on_press: ?Msg = null }) void {
     const compact = width <= 640;
-    ui.begin(.{ .padding = if (compact) .xy(16, 14.4) else .all(20), .gap = 5.6, .radius = 22, .background = k.panel, .pressed_background = if (o.on_press != null) k.panel_2.mix(0.5, k.panel) else null, .height = .fill }, .{ .on_press = o.on_press });
-    ui.begin(.{ .width = .{ .px = 28 }, .height = .{ .px = 4 }, .radius = 2, .background = if (o.alert) k.f else k.a }, .{});
+    ui.begin(.{ .padding = if (compact) .xy(16, 14.4) else .all(20), .gap = 5.6, .radius = 22, .background = k.panel, .shadow = shadow1(), .pressed_background = if (o.on_press != null) k.panel_2.mix(0.5, k.panel) else null, .hover_background = if (o.on_press != null) k.panel.mix(0.85, k.panel_3) else null, .height = .fill }, .{ .on_press = o.on_press });
+    ui.begin(.{ .width = .{ .px = 28 }, .height = .{ .px = 4 }, .radius = 2, .background = if (o.alert) k.f else k.a, .gradient = if (o.alert) null else zui.Gradient.two(90, k.a, k.v) }, .{});
     ui.end();
-    ui.text(value, .{ .font_size = if (compact) 25.6 else 32, .weight = 850, .line_height = 1, .color = if (o.alert) k.fatal_ink else k.ink });
-    ui.text(lbl, .{ .font_size = 12.5, .weight = 700, .color = k.ink_2 });
+    ui.text(value, .{ .font_size = if (compact) 25.6 else 32, .weight = 850, .line_height = 1, .letter_spacing = if (compact) -1.15 else -1.44, .color = if (o.alert) k.fatal_ink else k.ink });
+    ui.text(lbl, .{ .font_size = 12.5, .weight = 700, .letter_spacing = 0.25, .color = k.ink_2 });
     ui.end();
 }
 
@@ -437,7 +443,8 @@ pub fn avatar(ui: *Ui, ic: Icon) void {
 
 /// A company's logo, or a tile with its first letter on the action colour (`logoBox`).
 pub fn logo(ui: *Ui, brand: ?json.V, size: f32, radius: f32) void {
-    const url = json.str(brand, "logoUrl");
+    // No company (the account area, sign-in): Turf's own icon, as the server's default brand.
+    const url = if (brand == null) "/img/icon-192.png" else json.str(brand, "logoUrl");
     if (url.len > 0) {
         ui.begin(.{ .width = .{ .px = size }, .height = .{ .px = size }, .radius = radius, .background = k.panel, .clip = true }, .{});
         ui.image(cx.asset(ui.arena(), url), .{ .width = .{ .px = size }, .height = .{ .px = size } }, 0);
@@ -445,14 +452,14 @@ pub fn logo(ui: *Ui, brand: ?json.V, size: f32, radius: f32) void {
         return;
     }
     const name = std.mem.trim(u8, json.strOr(brand, "appName", json.strOr(brand, "name", "T")), " ");
-    ui.begin(.{ .width = .{ .px = size }, .height = .{ .px = size }, .radius = radius, .background = k.a, .align_items = .center, .justify = .center }, .{});
+    ui.begin(.{ .width = .{ .px = size }, .height = .{ .px = size }, .radius = radius, .background = k.a, .gradient = zui.Gradient.two(145, k.a, k.v), .align_items = .center, .justify = .center }, .{});
     ui.text(firstLetter(ui, name), .{ .font_size = size * 0.42, .weight = 800, .color = k.on_accent });
     ui.end();
 }
 
 /// A fallback tile with an icon (create-company cards).
 pub fn iconTile(ui: *Ui, ic: Icon, size: f32) void {
-    ui.begin(.{ .width = .{ .px = size }, .height = .{ .px = size }, .radius = size * 0.3, .background = k.a, .align_items = .center, .justify = .center }, .{});
+    ui.begin(.{ .width = .{ .px = size }, .height = .{ .px = size }, .radius = size * 0.3, .background = k.a, .gradient = zui.Gradient.two(145, k.a, k.v), .align_items = .center, .justify = .center }, .{});
     icon(ui, ic, size * 0.5, k.on_accent);
     ui.end();
 }
@@ -503,7 +510,7 @@ pub fn statusBadgeText(ui: *Ui, status: []const u8, s: []const u8) void {
 
 /// The express (same-hour) badge.
 pub fn expressBadge(ui: *Ui) void {
-    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 4.8, .padding = .xy(10.4, 2.4), .radius = 999, .background = k.a, .align_self = .start }, .{});
+    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 4.8, .padding = .xy(10.4, 2.4), .radius = 999, .background = k.a, .gradient = accentGradient(), .align_self = .start }, .{});
     icon(ui, icons.bolt, 16, k.on_accent);
     ui.text(labels.k("express.badge"), .{ .font_size = 12, .weight = 700, .color = k.on_accent, .max_lines = 1 });
     ui.end();
@@ -592,7 +599,7 @@ pub fn tabsBegin(ui: *Ui) void {
 }
 
 pub fn tab(ui: *Ui, s: []const u8, active: bool, msg: Msg) void {
-    ui.begin(.{ .padding = .xy(16, 8), .radius = 999, .background = if (active) k.panel else null, .pressed_opacity = 0.7 }, .{ .on_press = msg });
+    ui.begin(.{ .padding = .xy(16, 8), .radius = 999, .background = if (active) k.panel else null, .shadow = if (active) shadow1() else null, .pressed_opacity = 0.7, .hover_opacity = if (active) null else 0.8, .transition = .{ .duration_ms = 220 } }, .{ .on_press = msg });
     ui.text(s, .{ .font_size = 13.8, .weight = 700, .color = if (active) k.ink else k.ink_2, .max_lines = 1 });
     ui.end();
 }
@@ -606,37 +613,29 @@ pub fn chip(ui: *Ui, s: []const u8, active: bool, msg: Msg) void {
 }
 
 pub fn chipIcon(ui: *Ui, s: []const u8, active: bool, msg: Msg, ic: ?Icon) void {
-    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 3.2, .padding = .xy(15.2, 7.2), .radius = 999, .background = if (active) k.a else k.panel_3, .pressed_background = if (active) k.v else k.press, .border_width = if (k.dark and !active) 1 else 0, .border_color = k.well_line }, .{ .on_press = msg });
+    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 3.2, .padding = .xy(15.2, 7.2), .radius = 999, .background = if (active) k.a else k.panel_3, .gradient = if (active) accentGradient() else null, .shadow = if (active) glow() else null, .pressed_background = if (active) k.v else k.press, .hover_background = if (active) null else k.press, .border_width = if (k.dark and !active) 1 else 0, .border_color = k.well_line, .transition = .{ .duration_ms = 220 } }, .{ .on_press = msg });
     if (ic) |i| icon(ui, i, 16, if (active) k.on_accent else k.ink);
     ui.text(s, .{ .font_size = 13.4, .weight = 600, .color = if (active) k.on_accent else k.ink, .max_lines = 1 });
     ui.end();
 }
 
-/// Chips that wrap onto more lines (`.chips`): give their labels to size the rows.
+/// Items that flow onto more lines (`.row` with flex-wrap, `.chips`): zui wraps them itself.
+/// `item` is kept for the callers that still size their items; it does nothing.
 pub const Wrap = struct {
     ui: *Ui,
-    used: f32 = 0,
-    avail: f32,
-    gap: f32,
-    open: bool = false,
 
     pub fn begin(ui: *Ui, avail: f32, gap: f32) Wrap {
-        ui.begin(.{ .gap = gap }, .{});
-        return .{ .ui = ui, .avail = avail, .gap = gap };
+        _ = avail;
+        ui.begin(.{ .direction = .row, .wrap = true, .gap = gap, .align_items = .center }, .{});
+        return .{ .ui = ui };
     }
 
-    /// Call before each item with its estimated width.
     pub fn item(w: *Wrap, est: f32) void {
-        if (!w.open or w.used + w.gap + est > w.avail) {
-            if (w.open) w.ui.end();
-            w.ui.begin(.{ .direction = .row, .gap = w.gap, .align_items = .center }, .{});
-            w.open = true;
-            w.used = est;
-        } else w.used += w.gap + est;
+        _ = w;
+        _ = est;
     }
 
     pub fn end(w: *Wrap) void {
-        if (w.open) w.ui.end();
         w.ui.end();
     }
 };
@@ -688,6 +687,10 @@ pub fn input(ui: *Ui, slot: u16, o: InputOpts) void {
         .background = o.background orelse if (has_err) k.f.withAlpha(0.07) else if (focused) k.panel else k.panel_3,
         .border_width = 1,
         .border_color = if (has_err) k.f else if (focused) k.a.withAlpha(0.55) else k.well_line,
+        // --focus-ring: 4px of the action colour at 28%.
+        .shadow = if (focused and !has_err) .{ .y = 0, .blur = 6, .color = k.a.withAlpha(0.28) } else null,
+        .hover_background = if (focused or has_err or o.background != null) null else k.s.withAlpha(0.36),
+        .transition = .{ .duration_ms = 220 },
         .opacity = if (o.disabled) 0.6 else 1,
         .no_mirror = o.ltr,
     }, .{ .key = zui.key(slot) +% 7 });
@@ -838,8 +841,8 @@ pub fn box(ui: *Ui, checked: bool) void {
 
 /// A radio choice card (`.service-option`).
 pub fn option(ui: *Ui, ic: Icon, title: []const u8, sub: []const u8, chosen: bool, msg: Msg) void {
-    ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center, .padding = .xy(16, 14.4), .radius = 16, .background = if (chosen) k.panel else k.panel_2, .border_width = if (chosen) 2 else 1, .border_color = if (chosen) k.a else k.line_soft, .pressed_background = k.press, .grow = 1 }, .{ .on_press = msg });
-    ui.begin(.{ .width = .{ .px = 42 }, .height = .{ .px = 42 }, .radius = 13, .background = if (chosen) k.a else k.panel_3, .align_items = .center, .justify = .center }, .{});
+    ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center, .padding = .xy(16, 14.4), .radius = 16, .background = if (chosen) k.panel else k.panel_2, .border_width = if (chosen) 2 else 1, .border_color = if (chosen) k.a else k.line_soft, .shadow = if (chosen) shadow1() else null, .pressed_background = k.press, .hover_background = if (chosen) null else k.s.withAlpha(0.30), .grow = 1 }, .{ .on_press = msg });
+    ui.begin(.{ .width = .{ .px = 42 }, .height = .{ .px = 42 }, .radius = 13, .background = if (chosen) k.a else k.panel_3, .gradient = if (chosen) accentGradient() else null, .align_items = .center, .justify = .center }, .{});
     icon(ui, ic, 23.2, if (chosen) k.on_accent else k.ink_2);
     ui.end();
     ui.begin(.{ .grow = 1, .gap = 2.4 }, .{});
@@ -902,7 +905,7 @@ pub const Table = struct {
 
     pub fn begin(ui: *Ui, cols: []const Col) Table {
         const stacked = width <= 700;
-        ui.begin(.{ .radius = 22, .background = k.panel, .clip = true }, .{});
+        ui.begin(.{ .radius = 22, .background = k.panel, .shadow = shadow1() }, .{});
         if (!stacked) {
             ui.begin(.{ .direction = .row, .padding = .xy(0, 0), .align_items = .center }, .{});
             for (cols) |c| {
@@ -921,9 +924,9 @@ pub const Table = struct {
         tb.rows += 1;
         tb.cell_i = 0;
         if (tb.stacked) {
-            tb.ui.begin(.{ .padding = .xy(15.2, 12.8), .gap = 3.2, .pressed_background = if (on_press != null) k.panel_2 else null }, .{ .on_press = on_press, .key = key });
+            tb.ui.begin(.{ .padding = .xy(15.2, 12.8), .gap = 3.2, .pressed_background = if (on_press != null) k.panel_2 else null, .hover_background = if (on_press != null) k.panel_2 else null }, .{ .on_press = on_press, .key = key });
         } else {
-            tb.ui.begin(.{ .direction = .row, .align_items = .center, .pressed_background = if (on_press != null) k.panel_2 else null }, .{ .on_press = on_press, .key = key });
+            tb.ui.begin(.{ .direction = .row, .align_items = .center, .pressed_background = if (on_press != null) k.panel_2 else null, .hover_background = if (on_press != null) k.panel_2 else null }, .{ .on_press = on_press, .key = key });
         }
     }
 

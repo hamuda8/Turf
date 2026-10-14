@@ -246,7 +246,7 @@ fn console(c: *const Cx, ui: *Ui) void {
         ui.begin(.{ .direction = .row, .width = .fill, .height = .fill, .padding = .all(12), .gap = 12 }, .{});
         rail(c, ui, items);
         // The workspace sheet.
-        ui.begin(.{ .grow = 1, .height = .fill, .radius = 28, .background = k.sheet, .clip = true }, .{});
+        ui.begin(.{ .grow = 1, .height = .fill, .radius = 28, .background = k.sheet, .shadow = kit.shadow1(), .clip = true }, .{});
         topBar(c, ui, false);
         banner(c, ui);
         const pad = sidePad(w);
@@ -322,7 +322,7 @@ fn topBar(c: *const Cx, ui: *Ui, phone: bool) void {
         kit.logo(ui, c.brand(), 34, 10);
         ui.end();
     }
-    ui.text(pageTitle(c), .{ .font_size = if (phone) 20 else 24, .weight = 800, .color = k.ink, .max_lines = 1, .grow = 1, .line_height = 1.15 });
+    ui.text(pageTitle(c), .{ .letter_spacing = if (phone) -0.7 else -0.84, .font_size = if (phone) 20 else 24, .weight = 800, .color = k.ink, .max_lines = 1, .grow = 1, .line_height = 1.15 });
     ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center }, .{});
     pageActions(c, ui);
     ui.end();
@@ -331,7 +331,9 @@ fn topBar(c: *const Cx, ui: *Ui, phone: bool) void {
 
 fn rail(c: *const Cx, ui: *Ui, items: []const NavItem) void {
     const k = kit.k;
-    ui.begin(.{ .width = .{ .px = 264 }, .height = .fill, .radius = 28, .background = k.rail, .clip = true }, .{});
+    // The rail: the chrome colour with a glow of the action colour in its top corner (the CSS has
+    // two radial glows; zui draws one linear gradient).
+    ui.begin(.{ .width = .{ .px = 264 }, .height = .fill, .radius = 28, .background = k.rail, .gradient = zui.Gradient.linear(160, &.{ .{ .color = k.a.mix(0.30, k.rail), .at = 0 }, .{ .color = k.rail, .at = 0.45 } }), .shadow = kit.shadow2(), .clip = true }, .{});
     // The brand.
     ui.begin(.{ .direction = .row, .align_items = .center, .gap = 12, .padding = .{ .top = 20, .bottom = 16, .start = 19.2, .end = 19.2 }, .pressed_opacity = 0.8 }, .{ .on_press = .{ .go = "/" } });
     kit.logo(ui, c.brand(), 44, 14);
@@ -347,7 +349,7 @@ fn rail(c: *const Cx, ui: *Ui, items: []const NavItem) void {
     for (items) |it| {
         if (it.section) {
             ui.begin(.{ .padding = .{ .top = 17.6, .bottom = 5.6, .start = 14.4, .end = 14.4 } }, .{});
-            ui.text(kit.upper(ui, it.label), .{ .font_size = 10.2, .weight = 800, .color = k.rail_ink_2 });
+            ui.text(it.label, .{ .font_size = 10.2, .weight = 800, .color = k.rail_ink_2, .uppercase = true, .letter_spacing = 1.43 });
             ui.end();
             continue;
         }
@@ -383,7 +385,12 @@ fn navLink(c: *const Cx, ui: *Ui, it: NavItem, active: bool, where: Where) void 
         .padding = .xy(14.4, 10.6),
         .radius = 14,
         .background = bg,
+        // The active rail item: linear-gradient(135deg, a 92% + b, a 70%, v) and its glow.
+        .gradient = if (active and where == .rail) zui.Gradient.linear(135, &.{ .{ .color = k.a.mix(0.92, k.b), .at = 0 }, .{ .color = k.a, .at = 0.7 }, .{ .color = k.v, .at = 1 } }) else null,
+        .shadow = if (active and where == .rail) kit.glow() else null,
         .pressed_background = if (where == .rail) k.rail_hover else k.panel_2,
+        .hover_background = if (active) null else if (where == .rail) k.rail_hover else k.panel_2,
+        .transition = .{ .duration_ms = 220 },
     }, .{ .on_press = .{ .go = it.path }, .key = zui.key(it.path) });
     const filled = if (active) it.fill else it.icon;
     kit.icon(ui, filled, 22.4, ink);
@@ -432,13 +439,14 @@ fn bottomBar(c: *const Cx, ui: *Ui, items: []const NavItem) void {
         .background = k.panel.withAlpha(0.94),
         .border_width = 1,
         .border_color = k.line_soft,
+        .shadow = kit.shadow3(),
     }, .{});
     var shown: usize = 0;
     for (items) |it| {
         if (it.section or shown == 4) continue;
         shown += 1;
         const on = std.mem.eql(u8, it.path, active);
-        ui.begin(.{ .width = .fill, .align_items = .center, .justify = .center, .gap = 2.4, .radius = 18, .background = if (on) k.a else null, .pressed_opacity = 0.7 }, .{ .on_press = .{ .go = it.path }, .key = zui.key(it.path) });
+        ui.begin(.{ .width = .fill, .align_items = .center, .justify = .center, .gap = 2.4, .radius = 18, .background = if (on) k.a else null, .gradient = if (on) kit.accentGradient() else null, .shadow = if (on) kit.glow() else null, .pressed_opacity = 0.7, .transition = .{ .duration_ms = 220 } }, .{ .on_press = .{ .go = it.path }, .key = zui.key(it.path) });
         const ink = if (on) k.on_accent else k.ink_3;
         kit.icon(ui, if (on) it.fill else it.icon, 24, ink);
         ui.text(it.label, .{ .font_size = 10.2, .weight = 700, .color = ink, .max_lines = 1 });
@@ -491,7 +499,7 @@ fn menuPanel(c: *const Cx, ui: *Ui) void {
 
 fn sheetSection(ui: *Ui, s: []const u8) void {
     ui.begin(.{ .padding = .{ .top = 14.4, .bottom = 4.8, .start = 14.4, .end = 14.4 } }, .{});
-    ui.text(kit.upper(ui, s), .{ .font_size = 10.2, .weight = 800, .color = kit.k.ink_3 });
+    ui.text(s, .{ .font_size = 10.2, .weight = 800, .color = kit.k.ink_3, .uppercase = true, .letter_spacing = 1.43 });
     ui.end();
 }
 
@@ -527,8 +535,10 @@ pub fn modalBegin(ui: *Ui, o: ModalOpts) void {
     ui.begin(.{
         .width = .{ .px = width },
         .max_height = ui.env.height - (if (sheet) @as(f32, 48) else 32),
-        .radius = if (sheet) 26 else 28,
+        .radius = if (sheet) 0 else 28,
+        .corners = if (sheet) .{ .top_start = 26, .top_end = 26 } else null,
         .background = k.panel,
+        .shadow = kit.shadow3(),
         .clip = true,
     }, .{ .on_press = .frame, .key = o.key });
     if (sheet) {
@@ -584,7 +594,7 @@ fn toasts(c: *const Cx, ui: *Ui) void {
     const lift: f32 = if (driver) 88 else if (kit.phone and !isBare(c)) 68 + 24 else 16;
     ui.begin(.{ .position = .absolute, .inset = .{ .start = 16, .end = 16, .bottom = lift + ui.env.safe.bottom }, .align_items = .center, .gap = 8 }, .{});
     for (c.toasts.items) |x| {
-        ui.begin(.{ .direction = .row, .align_items = .center, .gap = 8.8, .padding = .xy(18.4, 12), .radius = 999, .background = k.c, .max_width = @min(520, ui.env.width - 32) }, .{ .on_press = .{ .shell = .{ .toast_tap = x.id } }, .key = zui.key(x.id) });
+        ui.begin(.{ .direction = .row, .align_items = .center, .gap = 8.8, .padding = .xy(18.4, 12), .radius = 999, .background = k.c, .shadow = kit.shadow3(), .max_width = @min(520, ui.env.width - 32) }, .{ .on_press = .{ .shell = .{ .toast_tap = x.id } }, .key = zui.key(x.id) });
         ui.begin(.{ .width = .{ .px = 8 }, .height = .{ .px = 8 }, .radius = 4, .background = switch (x.kind) {
             .info => k.a,
             .ok => k.o,
