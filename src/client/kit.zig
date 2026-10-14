@@ -179,6 +179,8 @@ pub const ButtonOpts = struct {
     block: bool = false,
     /// Shows a spinner and ignores presses while this action runs.
     busy: ?u16 = null,
+    /// The same, for work the page tracks itself (a data load).
+    working: bool = false,
     disabled: bool = false,
     key: u64 = 0,
     /// On the dark chrome (driver top bar, tracking header).
@@ -190,7 +192,7 @@ pub const ButtonOpts = struct {
 };
 
 pub fn button(ui: *Ui, lbl: []const u8, msg: ?Msg, o: ButtonOpts) void {
-    const working = if (o.busy) |id| cx.isBusy(id) else false;
+    const working = o.working or (if (o.busy) |id| cx.isBusy(id) else false);
     const h: f32 = switch (o.size) {
         .sm => 36,
         .md => 44,

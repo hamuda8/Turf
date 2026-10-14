@@ -161,6 +161,7 @@ fn pins(c: *const Cx, ui: *Ui) []const mapw.Pin {
         .icon = mapw.vehicleIcon(json.str(a, "vehicle")),
         .kind = if (eq(u8, json.str(a, "status"), "open")) .alert else .vehicle,
         .key = zui.key(cm.docId(a)),
+        .tip = kit.f(ui, "{s}: {s}", .{ json.str(a, "courierName"), labels.of("alert.type.", json.str(a, "type")) }),
     }) catch {};
     return out.items;
 }

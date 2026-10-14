@@ -260,7 +260,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.stack(ui);
     kit.card(ui, .{});
     var pins: std.ArrayList(mapw.Pin) = .empty;
-    for (list, 0..) |h, i| if (mapw.ll(h, "location")) |p| pins.append(ui.arena(), .{ .at = p, .kind = if (json.boolean(h, "active")) .place else .off, .icon = mapw.placeIcon(json.str(h, "type")), .key = zui.key(cm.docId(h)), .on_press = kit.act(A.edit, @intCast(i)) }) catch {};
+    for (list, 0..) |h, i| if (mapw.ll(h, "location")) |p| pins.append(ui.arena(), .{ .at = p, .kind = if (json.boolean(h, "active")) .place else .off, .icon = mapw.placeIcon(json.str(h, "type")), .key = zui.key(cm.docId(h)), .on_press = kit.act(A.edit, @intCast(i)), .tip = json.str(h, "name") }) catch {};
     mapw.draw(ui, &s.m, .{ .width = kit.width - 40, .pins = pins.items, .key = zui.key("hubs-map") });
     kit.endCard(ui, .{});
     if (list.len == 0) {

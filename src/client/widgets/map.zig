@@ -115,6 +115,9 @@ pub const Pin = struct {
     on_press: ?core.Msg = null,
     /// A small label under it.
     label: []const u8 = "",
+    /// What it is, as Leaflet's `bindTooltip`: the web's tooltip, screen readers, a long
+    /// press on the phones (when it can be pressed).
+    tip: []const u8 = "",
     /// The pin `eventDrag` moves: drawn under the finger while it is dragged.
     draggable: bool = false,
 };
@@ -217,7 +220,7 @@ fn marker(ui: *Ui, p: Pin, x: f32, y: f32, key: u64) void {
                 .justify = .center,
                 .opacity = if (p.kind == .off) 0.85 else 1,
                 .pressed_opacity = if (p.on_press != null) 0.7 else null,
-            }, .{ .key = key, .on_press = p.on_press });
+            }, .{ .key = key, .on_press = p.on_press, .label = p.tip });
             if (p.icon) |ic| ui.icon(ic, 21.6, ink, .{}, 0);
             ui.end();
             if (p.label.len > 0) {

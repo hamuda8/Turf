@@ -202,7 +202,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
 fn pins(s: *const S, c: *const Cx, ui: *Ui) []const mapw.Pin {
     const a = ui.arena();
     var out: std.ArrayList(mapw.Pin) = .empty;
-    for (json.arr(c.data(d_hubs), "")) |h| if (mapw.ll(h, "location")) |p| out.append(a, .{ .at = p, .kind = .place, .icon = mapw.placeIcon(json.str(h, "type")), .key = zui.key(cm.docId(h)) }) catch {};
+    for (json.arr(c.data(d_hubs), "")) |h| if (mapw.ll(h, "location")) |p| out.append(a, .{ .at = p, .kind = .place, .icon = mapw.placeIcon(json.str(h, "type")), .key = zui.key(cm.docId(h)), .tip = kit.f(ui, "{s} ({s})", .{ json.str(h, "name"), json.str(h, "code") }) }) catch {};
     for (json.arr(c.data(d_fleet), ""), 0..) |x, i| {
         if (!s.all and !json.boolean(x, "onDuty")) continue;
         const p = mapw.ll(x, "location") orelse continue;
@@ -214,6 +214,7 @@ fn pins(s: *const S, c: *const Cx, ui: *Ui) []const mapw.Pin {
             .icon = mapw.vehicleIcon(json.str(x, "vehicle")),
             .key = zui.key(id),
             .on_press = kit.act(A.select, @intCast(i)),
+            .tip = kit.f(ui, "{s} · {s}", .{ json.str(x, "name"), fmt.relative(a, json.str(x, "at")) }),
             .label = if (chosen) kit.f(ui, "{s} · {s}", .{ json.str(x, "name"), fmt.relative(a, json.str(x, "at")) }) else "",
         }) catch {};
     }

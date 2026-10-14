@@ -490,16 +490,18 @@ fn bodyView(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.card(ui, .{ .pad = 8, .gap = 8.8 });
     navPanel(s, c, ui);
     var pins: std.ArrayList(mapw.Pin) = .empty;
-    if (mapw.ll(t, "from.location")) |p| if (!std.mem.eql(u8, json.str(t, "from.kind"), "courier")) pins.append(a, .{ .at = p, .icon = mapw.placeIcon(if (std.mem.eql(u8, json.str(t, "from.kind"), "hub")) "hub" else "shop"), .kind = .place, .key = zui.key("from") }) catch {};
+    if (mapw.ll(t, "from.location")) |p| if (!std.mem.eql(u8, json.str(t, "from.kind"), "courier")) pins.append(a, .{ .at = p, .icon = mapw.placeIcon(if (std.mem.eql(u8, json.str(t, "from.kind"), "hub")) "hub" else "shop"), .kind = .place, .key = zui.key("from"), .tip = json.str(t, "from.label") }) catch {};
     const dest = if (isDelivery(c)) mapw.ll(t, "shipments.0.dropoff.location") orelse mapw.ll(t, "to.location") else mapw.ll(t, "to.location");
-    if (dest) |p| pins.append(a, .{ .at = p, .icon = mapw.placeIcon(if (std.mem.eql(u8, json.str(t, "to.kind"), "hub")) "hub" else if (isDelivery(c)) "home" else "shop"), .kind = .place, .key = zui.key("to") }) catch {};
+    if (dest) |p| pins.append(a, .{ .at = p, .icon = mapw.placeIcon(if (std.mem.eql(u8, json.str(t, "to.kind"), "hub")) "hub" else if (isDelivery(c)) "home" else "shop"), .kind = .place, .key = zui.key("to"), .tip = json.str(t, "to.label") }) catch {};
     if (here(c)) |p| pins.append(a, .{ .at = p, .kind = .me, .key = zui.key("me") }) catch {};
     var lines: std.ArrayList(mapw.Line) = .empty;
     const route_pts = routePoints(a, c);
     if (route_pts.len > 1) lines.append(a, .{ .points = route_pts, .width = 6, .opacity = 0.75 }) catch {};
     mapw.draw(ui, &s.m, .{ .width = kit.width - 16, .height = mapHeight(ui.env.height), .radius = 16, .pins = pins.items, .lines = lines.items });
     ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center }, .{});
-    kit.button(ui, L("nav.recalculate"), kit.act(A.recalc, 0), .{ .size = .sm, .icon = icons.refresh });
+    // Turf-js `busy()`: it spins while the route it asked for loads.
+    const sl = c.slot(d_route);
+    kit.button(ui, L("nav.recalculate"), kit.act(A.recalc, 0), .{ .size = .sm, .icon = icons.refresh, .working = s.manual_route and (sl.state == .loading or sl.reloading) });
     kit.small(ui, if (goingToStart(s, c)) L("nav.heading_to_start") else L("nav.heading_to_destination"));
     ui.end();
     kit.endCard(ui, .{});
