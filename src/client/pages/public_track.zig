@@ -36,7 +36,6 @@ const f_comment: u16 = 2;
 const A = enum(u16) { lang = 1, locate, pin_save, pin_cancel, choose_day, star, send_feedback };
 const T_POLL: u16 = 1;
 const T_LOCATE: u16 = 2;
-const poll_ms = 10_000;
 
 const code_statuses = [_][]const u8{ "out_for_delivery", "delivery_failed", "at_hub", "in_transit", "picked_up", "awaiting_pickup" };
 const problems = [_][]const u8{ "not_received", "damaged", "missing_items", "courier_behaviour", "cod_wrong", "other" };
@@ -58,7 +57,6 @@ pub const S = struct {
     /// What the visitor changed since the last load.
     location_shared: bool = false,
     scheduled: []const u8 = "",
-    day_filled: bool = false,
     rating: u8 = 0,
 };
 
@@ -88,9 +86,38 @@ pub fn enter(s: *S, c: *Cx) void {
     const route = c.route();
     s.token = c.dupe(route[(std.mem.lastIndexOfScalar(u8, route, '/') orelse 0) + 1 ..]);
     const lang = c.query(c.arena(), "lang");
-    if (eq(lang, "ar") or eq(lang, "en")) zui.i18n.setLanguage(lang);
+    if (eq(lang, "ar") or eq(lang, "en")) {
+        zui.i18n.setLanguage(lang);
+        zui.storage.set("lang", lang, .{}); // setLang remembers it
+    }
     load(s, c);
-    c.liveAt(c.print("/api/public/track/{s}/stream?lang={s}", .{ s.token, c.lang() }), T_POLL, &.{ "courier.position", "tracking.event" });
+    connect(s, c);
+}
+
+/// Follows the parcel: a courier's position moves the marker right away; a status change
+/// reloads everything (texts, code panel, courier visibility). The stream is in the language.
+fn connect(s: *const S, c: *Cx) void {
+    c.liveAt(c.print("/api/public/track/{s}/stream?lang={s}", .{ core.encode(c.arena(), s.token), c.lang() }), T_POLL, &.{"tracking.event"});
+}
+
+/// "YYYY-MM-DD" in Syria (UTC+3), `days` from today (the server's days).
+fn syriaDay(a: std.mem.Allocator, days: i64) []const u8 {
+    const ms = fmt.now() + (180 - @as(i64, fmt.offsetMinutes())) * 60_000 + days * 86_400_000;
+    return fmt.isoDay(a, ms);
+}
+
+/// `maxlength` (zui inputs have none): keeps the first `n` characters.
+fn limit(c: *Cx, slot: u16, n: usize) void {
+    const v = c.val(slot);
+    var it = std.unicode.Utf8View.initUnchecked(v).iterator();
+    var count: usize = 0;
+    while (it.nextCodepointSlice()) |_| {
+        count += 1;
+        if (count == n) {
+            if (it.i < v.len) c.setVal(slot, c.dupe(v[0..it.i]));
+            return;
+        }
+    }
 }
 
 /// The map's width: the page is at most 760 wide, a card has 20 of padding each side.
@@ -113,6 +140,8 @@ fn cancelPin(s: *S, c: *Cx) void {
     _ = c.busy.remove(@intFromEnum(A.locate));
     s.pin_mode = .idle;
     s.pin = null;
+    // Back to the courier (unless the visitor moved the map).
+    follow(s, c);
 }
 
 fn startPin(s: *S, c: *Cx, p: ?LatLng, accuracy: f32) void {
@@ -121,6 +150,8 @@ fn startPin(s: *S, c: *Cx, p: ?LatLng, accuracy: f32) void {
     s.pin = p;
     s.accuracy = accuracy;
     s.m.setSize(mapWidth(c, s.embed), mapHeight(s.embed));
+    // The map comes into view (scrollIntoView).
+    c.fx.scrollTo(zui.key("track"), .{ .child = zui.key("track-map") }, true);
     if (p) |at| {
         s.m.flyTo(at, 17);
     } else if (courierAt(c.data(d_track)) == null) {
@@ -147,10 +178,8 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             if (c.slot(d_track).err.len > 0) return; // a failed reload keeps the current view
             s.location_shared = false;
             s.scheduled = "";
-            if (!s.day_filled) {
-                s.day_filled = true;
-                c.setVal(f_day, json.strOr(v, "scheduledFor", fmt.isoDay(c.arena(), fmt.now())));
-            }
+            // The day box shows the chosen day, or today (drawn again at every load, as in JS).
+            c.setVal(f_day, json.strOr(v, "scheduledFor", syriaDay(c.arena(), 0)));
             if (!json.boolean(v, "canSetLocation") or s.embed) cancelPin(s, c);
             follow(s, c);
             c.post("{{\"type\":\"title\",\"title\":{f}}}", .{std.json.fmt(c.print("{s} · {s}", .{ json.str(v, "statusText"), json.str(v, "trackingNumber") }), .{})});
@@ -175,18 +204,37 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
             }
         },
         .map, .frame => {
-            if (e == .map and (e.map.kind == .move or e.map.kind == .wheel)) s.user_moved = true;
+            const before = s.m.st.camera;
             if (s.m.eventDrag(c, e, if (s.pin_mode == .adjusting) s.pin else null)) |at| if (s.pin_mode == .adjusting) {
                 s.pin = .{ .lat = mapw.round6(at.lat), .lng = mapw.round6(at.lng) };
             };
+            // Only the visitor's own pans and zooms stop the following (not taps, not the pin).
+            const cam = s.m.st.camera;
+            if (e == .map and s.pin_mode != .adjusting and (cam.center.lat != before.center.lat or cam.center.lng != before.center.lng or cam.zoom != before.zoom)) s.user_moved = true;
         },
+        .live => |ev| if (ev.kind == .message and eq(ev.event, "courier.position")) {
+            // `data.courier = c`: the marker and the courier line move without a reload.
+            const slot = &c.slots[d_track];
+            const a = slot.arena.allocator();
+            if (slot.value) |*val| if (val.* == .object) {
+                const courier = json.parse(a, ev.data) orelse return;
+                val.object.put(a, "courier", courier) catch return;
+                follow(s, c);
+            };
+        },
+        .text => |x| if (x.slot == f_comment) limit(c, f_comment, 1000),
         .act => |a| switch (@as(A, @enumFromInt(a.id))) {
             .lang => {
                 const next = if (c.ar()) "en" else "ar";
                 zui.i18n.setLanguage(next);
                 zui.storage.set("lang", next, .{});
                 cancelPin(s, c);
+                // The forms start again (JS draws them anew) and the stream follows the language.
+                s.rating = 0;
+                c.setVal(f_problem, "");
+                c.setVal(f_comment, "");
                 load(s, c);
+                connect(s, c);
             },
             .locate => {
                 cancelPin(s, c);
@@ -437,7 +485,7 @@ fn locationCard(s: *const S, ui: *Ui, v: V) void {
                 ui.text(ui.tf(labels.english("track.pin_accuracy") orelse "{m}", .{ .m = @as(i64, @intFromFloat(@round(s.accuracy))) }), .{ .font_size = 13.6, .color = k.ink });
                 kit.noticeEnd(ui);
             }
-            // zui maps have no draggable markers: a tap moves the pin.
+            // Drag the pin, or tap the map to move it.
             kit.small(ui, if (s.pin != null) L("track.pin_adjust") else L("track.pin_tap"));
             kit.row(ui);
             kit.button(ui, L("track.pin_save"), kit.act(A.pin_save, 0), .{ .variant = .primary, .icon = icons.check, .busy = @intFromEnum(A.pin_save) });
@@ -455,7 +503,10 @@ fn dayCard(s: *const S, ui: *Ui, v: V) void {
     kit.strong(ui, if (day.len > 0) ui.tf(labels.english("track.day_chosen") orelse "{date}", .{ .date = fmt.date(ui.arena(), day) }) else L("track.not_home"));
     kit.small(ui, L("track.day_hint"));
     kit.row(ui);
-    kit.input(ui, f_day, .{ .placeholder = "YYYY-MM-DD", .ltr = true, .width = 200, .on_submit = kit.act(A.choose_day, 0) });
+    // A day from today to 14 days ahead, in Syria's time (UTC+3).
+    ui.begin(.{ .width = .{ .px = 200 } }, .{});
+    kit.dateField(ui, "", f_day, .{ .min = syriaDay(ui.arena(), 0), .max = syriaDay(ui.arena(), 14) });
+    ui.end();
     kit.button(ui, L("track.choose_day"), kit.act(A.choose_day, 0), .{ .icon = icons.schedule, .busy = @intFromEnum(A.choose_day) });
     ui.end();
     kit.endCard(ui, .{});
@@ -511,7 +562,7 @@ const track_json =
     \\ "events":[{"at":"2025-10-12T09:00:00.000Z","textEn":"Order placed","textAr":"x"},{"at":"2025-10-12T11:00:00.000Z","textEn":"With the courier","textAr":"y"}]}
 ;
 
-test "public track: status, code, courier, pin and day; polling" {
+test "public track: status, code, courier, pin and day; live updates" {
     const app = @import("../app.zig");
     app.D.startWith(390, 800, "/t/abcdefghijklmnop1234");
     defer app.D.reset();
@@ -536,12 +587,21 @@ test "public track: status, code, courier, pin and day; polling" {
     try testing.expect(app.D.respond("/location", 200, "{}"));
     try testing.expect(app.D.findText("You shared your exact location") != 0);
     // Another day.
-    try app.D.typeInto("YYYY-MM-DD", "2025-10-15");
+    // The day box starts on today (in Syria) and opens the date picker within 14 days.
+    try testing.expect(c.val(f_day).len == 10);
+    @constCast(c).setVal(f_day, "2025-10-15");
     try app.D.press("Save day");
+    const day_sent = zui.host.fetches.items[zui.host.fetches.items.len - 1];
+    try testing.expectEqualStrings("{\"date\":\"2025-10-15\"}", day_sent.body);
     try testing.expect(app.D.respond("/reschedule", 200, "{\"scheduledFor\":\"2025-10-15\"}"));
     try testing.expect(app.D.findText("Delivery day: 15 Oct 2025") != 0);
-    // Polling reloads.
-    app.D.R.dispatch(.{ .timer = .{ .gen = c.gen, .id = T_POLL } });
+    // A courier's position moves the marker without a reload.
+    app.D.R.dispatch(.{ .live = .{ .kind = .message, .stream = c.live_stream, .event = "courier.position", .data = "{\"name\":\"Omar\",\"vehicle\":\"motorbike\",\"location\":{\"lat\":33.6,\"lng\":36.3}}" } });
+    try testing.expectEqual(@as(f64, 33.6), c.page.public_track.m.st.camera.center.lat);
+    try testing.expect(app.D.pending("/api/public/track/abcdefghijklmnop1234?lang=en") == null);
+    // A status change reloads.
+    app.D.R.dispatch(.{ .live = .{ .kind = .message, .stream = c.live_stream, .event = "tracking.event", .data = "{}" } });
+    app.D.runTimers();
     try testing.expect(app.D.pending("/api/public/track/abcdefghijklmnop1234?lang=en") != null);
 }
 
