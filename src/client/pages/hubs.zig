@@ -161,7 +161,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
     switch (e) {
         .map, .frame => {
             if (s.open) {
-                if (s.dm.event(c, e)) |p| {
+                if (s.dm.eventDrag(c, e, s.point)) |p| {
                     // A pin dropped by hand wins over the search.
                     resetSearch(s, c);
                     c.setVal(f_search, "");
@@ -322,7 +322,7 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
     searchResults(s, c, ui);
     var pin: [1]mapw.Pin = undefined;
     const pins: []const mapw.Pin = if (s.point) |p| blk: {
-        pin[0] = .{ .at = p, .kind = .place, .icon = mapw.placeIcon(c.val(f_type)), .key = zui.key("hub-point") };
+        pin[0] = .{ .at = p, .kind = .place, .icon = mapw.placeIcon(c.val(f_type)), .key = zui.key("hub-point"), .draggable = true };
         break :blk &pin;
     } else &.{};
     mapw.draw(ui, &s.dm, .{ .height = dialog_map_h, .pins = pins, .key = zui.key("hub-dialog-map") });

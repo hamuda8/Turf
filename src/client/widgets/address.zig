@@ -388,7 +388,14 @@ pub const Address = struct {
                 var q = p;
                 q.id &= 0x0fffffff;
                 a.m.setSize(mapWidth(), mapHeight(c));
-                const g = a.m.st.handle(q);
+                // The pin can be dragged (`draggable: true` in Turf-js); a tap elsewhere moves it.
+                const g = a.m.st.handleMarkers(q, a.pinMarker());
+                if (g.marker_drop) |drop| {
+                    c.setVal(a.slot(f_search), "");
+                    a.resetSearch();
+                    a.setPoint(c, .{ .lat = mapw.round6(drop.at.lat), .lng = mapw.round6(drop.at.lng) }, null);
+                    return true;
+                }
                 if (g.tap) |at| if (a.m.st.view().toMap(at[0], at[1])) |ll| {
                     c.setVal(a.slot(f_search), "");
                     a.resetSearch();
@@ -578,6 +585,16 @@ pub const Address = struct {
         ui.end();
     }
 
+    /// The pin as a draggable map marker (for the gestures; it is drawn below as Turf's marker).
+    fn pinMarker(a: *const Address) []const map.Marker {
+        const p = a.point orelse return &.{};
+        const S2 = struct {
+            var one: [1]map.Marker = undefined;
+        };
+        S2.one[0] = .{ .at = p, .size = 34, .draggable = true, .key = pin_key };
+        return &S2.one;
+    }
+
     fn drawMap(a: *const Address, ui: *Ui, c: *const Cx, w: f32) void {
         const k = kit.k;
         const h = mapHeight(c);
@@ -586,7 +603,9 @@ pub const Address = struct {
         if (st.moving()) ui.requestFrame(.frame);
         ui.begin(.{ .width = .{ .px = w }, .height = .{ .px = h }, .radius = 22, .clip = true, .background = k.panel_3, .no_mirror = true }, .{ .key = zui.key(a.cfg.prefix) +% 11 });
         map.draw(core.Msg, ui, &st, .{ .tile_url = mapw.tile_url, .on_pointer = pointer_fns[a.cfg.tag] });
-        if (a.point) |p| if (st.view().toScreen(p)) |at| {
+        // While dragged, the pin follows the finger.
+        const shown: ?LatLng = if (st.drag) |d| d.at else a.point;
+        if (shown) |p| if (st.view().toScreen(p)) |at| {
             const x: f32 = @floatCast(at[0]);
             const y: f32 = @floatCast(at[1]);
             // `placeIcon(kind)`: the place marker (a rounded square with the icon).
@@ -597,6 +616,8 @@ pub const Address = struct {
         ui.end();
     }
 };
+
+const pin_key: u64 = 0x7069_6e;
 
 fn mapWidth() f32 {
     return @max(kit.width - 40, 200);

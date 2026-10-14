@@ -176,7 +176,7 @@ pub fn update(s: *S, c: *Cx, e: core.Ev) void {
         },
         .map, .frame => {
             if (e == .map and (e.map.kind == .move or e.map.kind == .wheel)) s.user_moved = true;
-            if (s.m.event(c, e)) |at| if (s.pin_mode == .adjusting) {
+            if (s.m.eventDrag(c, e, if (s.pin_mode == .adjusting) s.pin else null)) |at| if (s.pin_mode == .adjusting) {
                 s.pin = .{ .lat = mapw.round6(at.lat), .lng = mapw.round6(at.lng) };
             };
         },
@@ -337,7 +337,7 @@ fn page(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     if (courier != null or s.pin_mode == .adjusting) {
         var pins: std.ArrayList(mapw.Pin) = .empty;
         if (courier) |at| pins.append(ui.arena(), .{ .at = at, .icon = mapw.vehicleIcon(json.str(v, "courier.vehicle")), .key = zui.key("courier") }) catch {};
-        if (s.pin_mode == .adjusting) if (s.pin) |p| pins.append(ui.arena(), .{ .at = p, .icon = mapw.placeIcon("home"), .kind = .place, .key = zui.key("pin") }) catch {};
+        if (s.pin_mode == .adjusting) if (s.pin) |p| pins.append(ui.arena(), .{ .at = p, .icon = mapw.placeIcon("home"), .kind = .place, .key = zui.key("pin"), .draggable = true }) catch {};
         mapw.draw(ui, &s.m, .{ .height = mapHeight(s.embed), .width = kit.width - 40, .pins = pins.items, .key = zui.key("track-map") });
     }
     if (json.obj(v, "courier")) |cr| {

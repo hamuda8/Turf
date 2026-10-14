@@ -46,6 +46,27 @@ pub const Map = struct {
         return null;
     }
 
+    /// Like `event`, with one pin the user can drag (`pickPoint` in core/map.js: drag the pin or
+    /// tap the map): returns the new point after a drop or a tap.
+    pub fn eventDrag(m: *Map, c: *core.Cx, e: core.Ev, pin: ?LatLng) ?LatLng {
+        switch (e) {
+            .map => |p| {
+                var one: [1]map.Marker = undefined;
+                var markers: []const map.Marker = &.{};
+                if (pin) |at| {
+                    one[0] = .{ .at = at, .size = 40, .draggable = true, .key = drag_key };
+                    markers = &one;
+                }
+                const g = m.st.handleMarkers(p, markers);
+                if (g.marker_drop) |d| return d.at;
+                if (g.tap) |at| return m.st.view().toMap(at[0], at[1]);
+            },
+            .frame => _ = m.st.step(c.env.time_ms),
+            else => {},
+        }
+        return null;
+    }
+
     pub fn moving(m: *const Map) bool {
         return m.st.moving();
     }
@@ -94,7 +115,11 @@ pub const Pin = struct {
     on_press: ?core.Msg = null,
     /// A small label under it.
     label: []const u8 = "",
+    /// The pin `eventDrag` moves: drawn under the finger while it is dragged.
+    draggable: bool = false,
 };
+
+const drag_key: u64 = 0x6472_6167;
 
 pub const Line = struct {
     points: []const LatLng,
@@ -137,7 +162,8 @@ pub fn draw(ui: *Ui, m: *const Map, o: DrawOpts) void {
     // Turf's markers, over the map.
     const v = st.view();
     for (o.pins, 0..) |p, i| {
-        const at = v.toScreen(p.at) orelse continue;
+        const where = if (p.draggable) (if (st.drag) |d| d.at else p.at) else p.at;
+        const at = v.toScreen(where) orelse continue;
         if (at[0] < -40 or at[1] < -40 or at[0] > w + 40 or at[1] > h + 40) continue;
         marker(ui, p, @floatCast(at[0]), @floatCast(at[1]), if (p.key != 0) p.key else zui.key(i + 7000));
     }
