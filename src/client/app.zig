@@ -507,7 +507,8 @@ fn start(c: *Cx) void {
         if (std.mem.eql(u8, l, "ar") or std.mem.eql(u8, l, "en")) zui.i18n.setLanguage(l);
     }
     if (core.nativeAuth()) {
-        if (zui.storage.get(gpa, "token", .{ .secure = true })) |tok| c.token = tok;
+        // This app's token, else one another of our apps keeps (one sign-in on the phone).
+        if (zui.wufour.saved(gpa)) |tok| c.token = tok;
     }
     const link = if (c.env.link.len > 0) c.env.link else "/app";
     openLink(c, link, true);
@@ -544,6 +545,7 @@ fn host(c: *Cx, h: core.Host) void {
             // Turf-js also uploads what is saved when the page is hidden.
             gps.flush(c);
             if (v and c.me.state == .ok) openPushed(c);
+            if (v and core.nativeAuth()) recheckSignIn(c);
             pageEvent(c, .{ .visible = v });
         },
     }
@@ -767,6 +769,8 @@ pub fn signInAgain(c: *Cx) void {
         c.fx.openUrl(url, false);
         return;
     }
+    // Not taken from another of our apps again (that one signs out on its own 401).
+    if (c.token) |tok| zui.wufour.refused(tok);
     signOutLocal(c);
 }
 
@@ -781,6 +785,8 @@ pub fn signOut(c: *Cx) void {
         const url = std.fmt.allocPrint(a.allocator(), "{s}/api/auth/logout", .{core.auth_base}) catch "";
         c.fx.fetch(.{ .url = url, .method = .POST, .body = b.done(), .tag = tag(.global, 0, g_logout) }, onResp);
     }
+    // Our other apps on this phone are signed out too.
+    zui.wufour.signOutEverywhere();
     signOutLocal(c);
 }
 
@@ -813,9 +819,24 @@ fn webAuthDone(c: *Cx, r: zui.WebAuthResult) void {
     signedIn(c, tok);
 }
 
+/// Back on screen: signed in or out in another of our apps meanwhile (one sign-in on the phone).
+fn recheckSignIn(c: *Cx) void {
+    // Public pages (tracking, lookup) without an account stay as they are.
+    if (c.token == null and c.mode != .signin) return;
+    switch (zui.wufour.recheck(gpa, c.token)) {
+        .same => {},
+        .signed_out => if (c.mode != .signin) signOutLocal(c),
+        .signed_in => |tok| {
+            defer gpa.free(tok);
+            if (c.mode != .signin) signOutLocal(c);
+            signedIn(c, tok);
+        },
+    }
+}
+
 /// After the in-app sign-in.
 pub fn signedIn(c: *Cx, token: []const u8) void {
-    zui.storage.set("token", token, .{ .secure = true });
+    zui.wufour.save(token);
     if (c.token) |old| gpa.free(old);
     c.token = gpa.dupe(u8, token) catch null;
     c.mode = .account;
@@ -933,8 +954,11 @@ test "phones: sign in, keep the token, send it, sign out" {
     try testing.expect(D.respond("/api/app/meta", 200, meta_json));
     try testing.expect(D.respond("/api/app/me", 200, me_json));
     try testing.expect(D.findText("Acme Store") != 0);
+    const cleared = zui.host.shared_cleared;
     D.R.dispatch(.{ .shell = .sign_out });
     try testing.expect(zui.host.stored.get("token") == null);
+    // Our other apps on the phone are signed out too.
+    try testing.expectEqual(cleared + 1, zui.host.shared_cleared);
     try testing.expect(D.findText("Sign in with Wufour") != 0);
     // A 401 later: signed out again, back to the welcome.
     try D.press("Sign in with Wufour");
@@ -942,6 +966,37 @@ test "phones: sign in, keep the token, send it, sign out" {
     try testing.expect(D.respond("/api/app/me", 401, "{\"error\":{\"code\":\"unauthorized\"}}"));
     try testing.expect(zui.host.stored.get("token") == null);
     try testing.expect(D.findText("Sign in with Wufour") != 0);
+}
+
+test "phones: one sign-in for our apps (signed in in Reseal: Turf opens signed in; signed out there: here too)" {
+    core.force_native_auth_runtime = true;
+    defer core.force_native_auth_runtime = false;
+    zui.storage.remove("token", .{ .secure = true });
+    zui.storage.remove("token_refused", .{});
+    zui.host.shared_token.clearRetainingCapacity();
+    defer zui.host.shared_token.clearRetainingCapacity();
+    try zui.host.shared_token.appendSlice(std.heap.page_allocator, "SHARED");
+    D.startWith(390, 800, "");
+    defer D.reset();
+    // No welcome: the other app's token is used (and checked by Turf's server).
+    try testing.expect(D.findText("Sign in with Wufour") == 0);
+    try testing.expect(std.mem.indexOf(u8, zui.host.fetches.items[0].headers, "Authorization: Bearer SHARED") != null);
+    try testing.expect(D.respond("/api/app/me", 200, me_json));
+    try testing.expect(D.respond("/api/app/meta", 200, meta_json));
+    try testing.expect(D.respond("/api/app/me", 200, me_json));
+    try testing.expect(D.findText("Acme Store") != 0);
+    // Signed out in the other app (it cleared ours) while Turf was in the background.
+    zui.storage.remove("token", .{ .secure = true });
+    zui.host.shared_token.clearRetainingCapacity();
+    D.device(.hidden);
+    D.device(.visible);
+    try testing.expect(D.findText("Sign in with Wufour") != 0);
+    // Signed in there again: back on screen, Turf is signed in.
+    try zui.host.shared_token.appendSlice(std.heap.page_allocator, "SHARED2");
+    D.device(.hidden);
+    D.device(.visible);
+    try testing.expectEqualStrings("SHARED2", zui.host.stored.get("token").?);
+    try testing.expect(D.findText("Sign in with Wufour") == 0);
 }
 
 test {

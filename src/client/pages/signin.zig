@@ -34,7 +34,16 @@ pub fn update(_: *S, c: *Cx, e: core.Ev) void {
 
 /// Wufour's sign-in page, in the app; the answer comes back as `Msg.web_auth`.
 pub fn signIn(c: *Cx) void {
-    zui.wufour.signIn(core.Msg, c.fx, .{ .auth_host = core.auth_base, .callback = core.callback_url }, onWebAuth);
+    // Wufour's page as one of Turf's: the phone top bar's colours, the button's words as title.
+    const k = c.colors(c.env.dark);
+    zui.wufour.signIn(core.Msg, c.fx, .{
+        .auth_host = core.auth_base,
+        .callback = core.callback_url,
+        .title = t("Sign in with Wufour"),
+        .bar = k.canvas,
+        .ink = k.ink,
+        .background = k.canvas,
+    }, onWebAuth);
 }
 
 fn onWebAuth(r: zui.WebAuthResult) core.Msg {
