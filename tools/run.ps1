@@ -1,13 +1,16 @@
 # Builds and runs the Turf server, like the npm scripts of Turf-js:
 #   zig build local        ->  run.ps1 -Mode local       (this machine, Turf-js/.env.local, in this window)
-#   zig build staging      ->  run.ps1 -Mode staging     (turf.wreseal.com, Turf-js/.env.staging, in the background)
+#   zig build staging      ->  run.ps1 -Mode staging     (turf.wreseal.com, Turf-js/.env.staging, in this window;
+#                                                       -Background starts it hidden instead)
 #   zig build production   ->  run.ps1 -Mode production  (the Linux server and pages for Proxmox, in zig-out/production)
 # Settings, including PORT, come from Turf-js's .env file for that mode. Roll back staging to Node:
 # stop turf-server.exe, then `npm run staging` in C:\MProjects\Turf-js.
 
 param(
     [ValidateSet('local', 'staging', 'production')][string]$Mode = 'staging',
-    [string]$Zig = 'C:\Tools\zig-0.17.0\zig.exe'
+    [string]$Zig = 'C:\Tools\zig-0.17.0\zig.exe',
+    # Start staging hidden in the background instead of in this window.
+    [switch]$Background
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -54,9 +57,10 @@ $vars['TURF_PUBLIC_DIR'] = Join-Path $dir 'web'
 $fcm = Join-Path (Split-Path -Parent $repo) 'secrets\firebase-service-account.json'
 if (Test-Path $fcm) { $vars['FCM_SERVICE_ACCOUNT_FILE'] = $fcm }
 
-if ($Mode -eq 'local') {
+# In this window, like npm run dev / npm run staging: the log shows here and Ctrl+C stops it.
+if (-not $Background) {
     foreach ($k in $vars.Keys) { [Environment]::SetEnvironmentVariable($k, $vars[$k], 'Process') }
-    Write-Output "Turf on this machine (Ctrl+C stops it)"
+    Write-Output "Turf ($Mode) running in this window (Ctrl+C stops it)"
     Push-Location $dir
     try { & $exe } finally { Pop-Location }
     return

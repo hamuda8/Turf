@@ -60,12 +60,12 @@ of `.env.local`, `.env.production`, `.env`.
 | Command | Like | What it does |
 |---|---|---|
 | `zig build dev` (or `local`) | `npm run dev` | builds, then runs on this machine in the window, with `../Turf-js/.env.local` (Ctrl+C stops it) |
-| `zig build staging` | `npm run staging` | builds, then (re)starts turf.wreseal.com in the background with `../Turf-js/.env.staging`; logs in `zig-out/staging` |
+| `zig build staging` | `npm run staging` | builds, then runs turf.wreseal.com in this window with `../Turf-js/.env.staging` (Ctrl+C stops it; `tools\run.ps1 -Mode staging -Background` starts it hidden instead) |
 | `zig build production` | `npm start` | builds the Linux server and pages into `zig-out/production` and prints how to run them on Proxmox with `.env.production` |
 
 All three run `tools/run.ps1` (`powershell -File tools\run.ps1 -Mode local|staging|production` does the same).
-Staging runs behind Cloudflare Tunnel on this laptop and does not survive a restart: run
-`zig build staging` again after one. Roll back to Node: stop `turf-server.exe` and run
+Staging runs behind Cloudflare Tunnel on this laptop: keep its window open (and Wufour's
+`npm run staging`) while people use it. Roll back to Node: stop `turf-server.exe` and run
 `npm run staging` in Turf-js.
 
 ## Tests
