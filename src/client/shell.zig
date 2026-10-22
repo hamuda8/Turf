@@ -130,12 +130,70 @@ pub fn update(c: *Cx, s: core.Shell) void {
         .pick_close => c.picker = null,
         .retry => if (c.mode == .failed) app.retryStart(c) else app.enterPage(c),
         .to_all_companies => app.openLink(c, "/app", true),
-        .devices => {
-            var buf: [256]u8 = undefined;
-            c.external(std.fmt.bufPrint(&buf, "{s}/auth/devices", .{core.auth_base}) catch return, false);
-        },
         .sos => {},
     }
+}
+
+// ---- The Wufour account menu ------------------------------------------------------------------
+//
+// The profile picture at the end of the top bar opens zui.account's menu: the Wufour account
+// (devices, sign out), then Turf's own items (the language, all companies), then the person's
+// apps from the Wufour start page.
+
+/// Turf's own items, in this order (`account` maps a press back by its index).
+const Own = enum { lang, all_companies };
+
+fn ownItems(c: *const Cx, a: std.mem.Allocator) struct { items: []const zui.account.Item, which: []const Own } {
+    var items: std.ArrayList(zui.account.Item) = .empty;
+    var which: std.ArrayList(Own) = .empty;
+    items.append(a, .{ .label = if (c.ar()) "English" else "العربية", .icon = zui.account.icons.globe }) catch {};
+    which.append(a, .lang) catch {};
+    if (c.mode == .org) {
+        items.append(a, .{ .label = L("nav.all_companies"), .icon = zui.account.icons.grid }) catch {};
+        which.append(a, .all_companies) catch {};
+    }
+    return .{ .items = items.items, .which = which.items };
+}
+
+fn onAccount(act: zui.account.Action) Msg {
+    return .{ .account = act };
+}
+
+fn accountOptions(c: *const Cx, a: std.mem.Allocator, w: f32) zui.account.Options(Msg) {
+    const phone = w <= 900;
+    return .{
+        .msg = onAccount,
+        .ar = c.ar(),
+        .app = "turf",
+        .name = json.str(c.me.value, "user.username"),
+        .email = json.str(c.me.value, "user.email"),
+        .items = ownItems(c, a).items,
+        // Under the picture: the bar of the phones, or the workspace sheet's bar (12 points in).
+        .anchor = if (phone) .{ .top = 60, .end = 12 } else .{ .top = 12 + 76 - 4, .end = 12 + sidePad(w) - 4 },
+    };
+}
+
+pub fn account(c: *Cx, act: zui.account.Action) void {
+    const left = c.account.update(Msg, act, c.fx) orelse return;
+    switch (left) {
+        .sign_out => app.signOut(c),
+        .sign_in => app.signInAgain(c),
+        .item => |i| {
+            var a = std.heap.ArenaAllocator.init(gpa);
+            defer a.deinit();
+            const which = ownItems(c, a.allocator()).which;
+            if (i >= which.len) return;
+            switch (which[i]) {
+                .lang => update(c, .lang),
+                .all_companies => update(c, .to_all_companies),
+            }
+        },
+        else => {},
+    }
+}
+
+fn accountPicture(c: *const Cx, ui: *Ui) void {
+    zui.account.picture(Msg, ui, &c.account, accountOptions(c, ui.arena(), ui.env.width), if (kit.phone) 36 else 40);
 }
 
 // ---- View ---------------------------------------------------------------------------------
@@ -230,6 +288,8 @@ pub fn view(c: *const Cx, ui: *Ui) void {
     }
 
     pageOverlay(c, ui);
+    if (c.account.open) core.keys.escape = .{ .account = .close };
+    zui.account.panel(Msg, ui, &c.account, accountOptions(c, ui.arena(), w));
     if (c.menu_open and kit.phone and !isBare(c)) {
         ui.onBack(.{ .shell = .menu_close });
         core.keys.escape = .{ .shell = .menu_close };
@@ -329,6 +389,7 @@ fn topBar(c: *const Cx, ui: *Ui, phone: bool) void {
     ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center }, .{});
     pageActions(c, ui);
     ui.end();
+    accountPicture(c, ui);
     ui.end();
 }
 
@@ -358,11 +419,6 @@ fn rail(c: *const Cx, ui: *Ui, items: []const NavItem) void {
         }
         navLink(c, ui, it, std.mem.eql(u8, it.path, active), .rail);
     }
-    ui.end();
-    // Language, all companies, devices, sign out.
-    kit.line(ui, k.rail_ink.withAlpha(0.1));
-    ui.begin(.{ .padding = .{ .top = 9.6, .bottom = 14.4, .start = 12.8, .end = 12.8 }, .gap = 1.6 }, .{});
-    accountLinks(c, ui, .rail);
     ui.end();
     ui.end();
 }
@@ -409,24 +465,6 @@ fn count(ui: *Ui, n: u32, on_accent: bool) void {
     ui.begin(.{ .min_width = 20.8, .padding = .xy(7.2, 0), .radius = 999, .background = if (on_accent) k.on_accent else k.f, .align_items = .center }, .{});
     ui.text(ui.arena().dupe(u8, s) catch "", .{ .font_size = 10.9, .weight = 800, .color = if (on_accent) k.a else k.c, .line_height = 1.9 });
     ui.end();
-}
-
-fn accountLinks(c: *const Cx, ui: *Ui, where: Where) void {
-    const k = kit.k;
-    const ink = if (where == .rail) k.rail_ink_2 else k.ink;
-    const entry = struct {
-        fn f(u: *Ui, lbl: []const u8, ic: zui.Icon, msg: Msg, color: Color, rail_: bool) void {
-            const kk = kit.k;
-            u.begin(.{ .direction = .row, .align_items = .center, .gap = 7.2, .min_height = if (rail_) 38 else 44, .padding = .xy(18.4, 6), .radius = if (rail_) 12 else 999, .pressed_background = if (rail_) kk.rail_hover else kk.panel_3 }, .{ .on_press = msg });
-            kit.icon(u, ic, 20.8, color);
-            u.text(lbl, .{ .font_size = if (rail_) 13.8 else 14.4, .weight = if (rail_) 600 else 700, .color = color });
-            u.end();
-        }
-    }.f;
-    entry(ui, if (c.ar()) "English" else "العربية", icons.language, .{ .shell = .lang }, ink, where == .rail);
-    if (c.mode == .org) entry(ui, L("nav.all_companies"), icons.apps, .{ .shell = .to_all_companies }, ink, where == .rail);
-    entry(ui, L("nav.devices"), icons.shield, .{ .shell = .devices }, ink, where == .rail);
-    entry(ui, L("nav.sign_out"), icons.logout, .{ .shell = .sign_out }, ink, where == .rail);
 }
 
 fn bottomBar(c: *const Cx, ui: *Ui, items: []const NavItem) void {
@@ -492,8 +530,6 @@ fn menuPanel(c: *const Cx, ui: *Ui) void {
         }
         navLink(c, ui, it, std.mem.eql(u8, it.path, active), .sheet);
     }
-    sheetSection(ui, L("nav.account"));
-    accountLinks(c, ui, .sheet);
     ui.end();
     ui.end();
     // The bottom bar stays above it.

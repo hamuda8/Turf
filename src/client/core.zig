@@ -62,7 +62,6 @@ pub const Shell = union(enum) {
     pick_close,
     retry,
     to_all_companies,
-    devices,
     sos,
 };
 
@@ -109,6 +108,8 @@ pub const Msg = union(enum) {
     push: @import("push.zig").Event,
     /// The phones' in-app Wufour sign-in ended (pages/signin.zig).
     web_auth: zui.WebAuthResult,
+    /// The Wufour account menu behind the profile picture (zui.account, shell.zig).
+    account: zui.account.Action,
 };
 
 /// What the platform tells the app (zui's linkEvent and deviceEvent).
@@ -251,6 +252,8 @@ pub const Cx = struct {
     token: ?[]u8 = null,
     me: Slot = .{},
     meta: Slot = .{},
+    /// The Wufour account menu (zui.account): Wufour's answer from /api/app/account-menu.
+    account: zui.account.Menu = .{},
     org: Slot = .{},
     boot_pending: u8 = 0,
     alerts_open: u32 = 0,

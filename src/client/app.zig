@@ -283,6 +283,7 @@ fn resumeStart(c: *Cx) void {
             c.meta.state = .loading;
             c.request(.GET, c.staticUrl("/api/app/me"), "", tag(.global, 0, g_me));
             c.request(.GET, c.staticUrl("/api/app/meta"), "", tag(.global, 0, g_meta));
+            c.request(.GET, c.staticUrl("/api/app/account-menu"), "", tag(.global, 0, g_account));
         }
         c.mode = .starting;
         clearPage(c);
@@ -398,6 +399,7 @@ pub const g_org: u16 = 3;
 pub const g_alerts: u16 = 4;
 pub const g_logout: u16 = 5;
 pub const g_reload_org: u16 = 6;
+pub const g_account: u16 = 7;
 // Global timers.
 const gt_alerts: u16 = 10;
 
@@ -448,6 +450,7 @@ pub fn update(c: *State, msg: Msg, env: zui.Env, fx: zui.Fx(Msg)) void {
         },
         .map => |p| pageEvent(c, .{ .map = p }),
         .shell => |s| shell.update(c, s),
+        .account => |act| shell.account(c, act),
         .open_picker => |p| {
             _ = c.picker_arena.reset(.retain_capacity);
             const a = c.picker_arena.allocator();
@@ -670,7 +673,7 @@ fn response(c: *Cx, r: zui.Response) void {
 fn globalResponse(c: *Cx, r: zui.Response) void {
     // Signed out meanwhile (the phones' sign-in is showing): the old session's answers are dropped.
     if (c.mode == .signin) switch (core.tagCode(r.tag)) {
-        g_me, g_meta, g_org, g_reload_org, g_alerts => return,
+        g_me, g_meta, g_org, g_reload_org, g_alerts, g_account => return,
         else => {},
     };
     switch (core.tagCode(r.tag)) {
@@ -690,6 +693,8 @@ fn globalResponse(c: *Cx, r: zui.Response) void {
             pageEvent(c, .{ .data = 255 });
         },
         g_alerts => if (r.ok()) alertsAnswer(c, r),
+        // Not there (Wufour not answering): the menu still shows the person and sign out.
+        g_account => if (r.ok()) c.account.load(r.body),
         else => {},
     }
 }
@@ -802,6 +807,8 @@ pub fn signOutLocal(c: *Cx) void {
     c.me.reset();
     c.meta.reset();
     c.org.reset();
+    c.account.deinit();
+    c.account = .{};
     gps.stop(c, true);
     c.mode_before_boot = .account;
     setBase(c, "/app");

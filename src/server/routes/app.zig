@@ -102,6 +102,7 @@ fn ok(r: *Req) !void {
 const account_routes = [_]web.Route{
     route(.GET, "/me", me),
     route(.GET, "/meta", meta),
+    route(.GET, "/account-menu", accountMenu),
     route(.GET, "/push/key", pushKey),
     route(.POST, "/push/subscribe", pushSubscribe),
     route(.POST, "/push/unsubscribe", pushUnsubscribe),
@@ -143,6 +144,14 @@ fn me(r: *Req) !void {
         .expiresAt = i.get("expiresAt"),
     });
     return r.json(200, .{ .user = r.user, .orgs = out_orgs, .invitations = out_inv });
+}
+
+/// The Wufour account menu behind the profile picture (zui.account in zig-core): Wufour's answer
+/// for this session, passed on unchanged. It holds the person's name and email: never stored.
+fn accountMenu(r: *Req) !void {
+    const body = a_.app.wufour.accountMenu(r.a, r.token) orelse return r.fail(503, "wufour_unavailable", "Wufour is not answering right now", .{});
+    try r.setHeader("cache-control", "no-store");
+    return r.send(200, "application/json", body);
 }
 
 fn meta(r: *Req) !void {

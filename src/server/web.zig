@@ -312,8 +312,10 @@ fn tileOrigin(a: Allocator) ![]const u8 {
 pub fn csp(a: Allocator, allow_framing: bool, script_extra: []const u8) ![]const u8 {
     const maps = originOf(a_.cfg().maps_url);
     const tiles = try tileOrigin(a);
-    return std.fmt.allocPrint(a, "default-src 'self'; script-src 'self'{s} {s}; style-src 'self' 'unsafe-inline' {s}; font-src 'self'; img-src 'self' data: blob: {s} {s}; connect-src 'self' {s} {s}; worker-src 'self' blob:; child-src blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors {s}", .{
-        script_extra, maps, maps, tiles, maps, maps, tiles, if (allow_framing) "*" else "'none'",
+    // Wufour: the app logos of the account menu.
+    const wufour = originOf(a_.cfg().auth_host);
+    return std.fmt.allocPrint(a, "default-src 'self'; script-src 'self'{s} {s}; style-src 'self' 'unsafe-inline' {s}; font-src 'self'; img-src 'self' data: blob: {s} {s} {s}; connect-src 'self' {s} {s}; worker-src 'self' blob:; child-src blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors {s}", .{
+        script_extra, maps, maps, tiles, wufour, maps, maps, tiles, if (allow_framing) "*" else "'none'",
     });
 }
 
