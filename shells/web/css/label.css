@@ -1,0 +1,34 @@
+/* 100 x 150 mm shipping label (common thermal label size); prints on A4 too. */
+@page { size: 100mm 150mm; margin: 4mm; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif; color: #030200; background: #D3DDE3; }
+.label {
+  width: 100mm; min-height: 142mm; margin: 1rem auto; background: #fff; padding: 4mm;
+  display: grid; gap: 3mm; align-content: start; border: 1px solid #000;
+}
+header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #000; padding-bottom: 2mm; gap: 2mm; }
+header strong { font-size: 15pt; }
+.barcode { text-align: center; }
+.barcode svg { width: 100%; height: 22mm; }
+.tn { font-family: ui-monospace, Consolas, monospace; font-size: 14pt; font-weight: 700; letter-spacing: .1em; direction: ltr; }
+section { border: 1px solid #000; padding: 2mm 3mm; font-size: 10pt; display: grid; gap: 1mm; }
+section h2 { margin: 0; font-size: 8pt; text-transform: uppercase; letter-spacing: .05em; }
+.to .name { font-size: 14pt; font-weight: 700; }
+.to .phone { font-size: 13pt; font-weight: 700; text-align: start; }
+.to .gov { font-size: 20pt; font-weight: 800; text-align: center; border-top: 1px dashed #000; margin-top: 1mm; padding-top: 1mm; }
+.details { font-style: italic; }
+footer { display: grid; gap: 1mm; font-size: 9pt; }
+.cod { border: 2px solid #000; padding: 1.5mm 2mm; font-size: 12pt; text-align: center; }
+.print { display: block; margin: 0 auto 1rem; padding: .7rem 1.4rem; font-size: 1rem; border-radius: 8px; border: none; background: #8A3324; color: #D3DDE3; cursor: pointer; }
+@media print {
+  body { background: #fff; }
+  .label { margin: 0; border: none; }
+  .print { display: none; }
+}
+
+/* Several labels (bulk printing): one per page */
+.label + .label { margin-top: 1rem; }
+@media print { .label + .label { margin-top: 0; break-before: page; page-break-before: always; } }
+
+/* On a phone screen the 100 mm label is wider than the viewport: fit it (print keeps 100 mm). */
+@media screen { .label { max-width: 100%; } }

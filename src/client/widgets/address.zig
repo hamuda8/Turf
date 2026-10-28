@@ -711,9 +711,10 @@ const pointer_fns = blk: {
     break :blk out;
 };
 
-/// Requests to Wufour Maps go without Turf's headers (no account token for another service);
-/// the answer comes back as `.done` like any action.
-fn mapsGet(c: *Cx, id: u16, arg: u32, url: []const u8) void {
+/// Requests to Wufour Maps go without Turf's headers (no account token for another service,
+/// and `X-Requested-With` would fail Maps' CORS preflight); the answer comes back as `.done`
+/// like any action. The hub dialog's place search uses it too.
+pub fn mapsGet(c: *Cx, id: u16, arg: u32, url: []const u8) void {
     c.quietErrors(id);
     c.busy.put(core.gpa, id, {}) catch {};
     c.act_args.put(core.gpa, id, arg) catch {};

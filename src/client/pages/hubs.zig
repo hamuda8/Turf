@@ -13,6 +13,7 @@ const labels = @import("../labels.zig");
 const parts = @import("../widgets/parts.zig");
 const mapw = @import("../widgets/map.zig");
 const cm = @import("../widgets/common.zig");
+const address = @import("../widgets/address.zig");
 
 const Cx = core.Cx;
 const Ui = core.Ui;
@@ -124,7 +125,8 @@ fn runSearch(s: *S, c: *Cx) void {
         c.print("{s}/api/v1/search?q={s}&limit=5&lat={d:.5}&lng={d:.5}&lang={s}", .{ core.maps_base, core.encode(c.arena(), text), p.lat, p.lng, c.lang() })
     else
         c.print("{s}/api/v1/search?q={s}&limit=5&lang={s}", .{ core.maps_base, core.encode(c.arena(), text), c.lang() });
-    c.sendArg(@intFromEnum(A.search), s.search_seq, .GET, url, "");
+    // Without Turf's headers: Maps is another origin and allows no X-Requested-With.
+    address.mapsGet(c, @intFromEnum(A.search), s.search_seq, url);
 }
 
 fn choose(s: *S, c: *Cx, i: u32) void {

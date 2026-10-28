@@ -552,7 +552,12 @@ fn navPanel(s: *const S, c: *const Cx, ui: *Ui) void {
         ui.text(kit.f(ui, "{s} · {s}", .{ fmt.distance(a, to_step), remaining }), .{ .font_size = 14, .weight = 500, .color = k.ink_2 });
     } else {
         ui.text(targetLabel(s, c), .{ .font_size = 20, .weight = 700, .color = k.ink });
-        ui.text(if (fix != null) L("nav.calculating") else L("nav.waiting_gps"), .{ .font_size = 14, .weight = 500, .color = k.ink_2 });
+        // Says so when the route could not be fetched (Maps' routing down, no road found),
+        // instead of "Calculating route…" for ever; Recalculate and the Maps app stay there.
+        const sl = c.slot(d_route);
+        const route_failed = fix != null and (sl.state == .failed or (sl.state == .ok and sl.err.len > 0 and sl.status >= 400));
+        const hint = if (fix == null) L("nav.waiting_gps") else if (!route_failed) L("nav.calculating") else if (sl.status == 422) L("error.no_route") else L("error.routing_unavailable");
+        ui.text(hint, .{ .font_size = 14, .weight = 500, .color = if (route_failed) k.fatal_ink else k.ink_2 });
     }
     ui.end();
     ui.begin(.{ .gap = 6 }, .{});

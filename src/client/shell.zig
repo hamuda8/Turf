@@ -388,7 +388,9 @@ fn topBar(c: *const Cx, ui: *Ui, phone: bool) void {
     ui.text(pageTitle(c), .{ .letter_spacing = if (phone) -0.7 else -0.84, .font_size = if (phone) 20 else 24, .weight = 700, .color = k.ink, .max_lines = 1, .grow = 1, .line_height = 1.15 });
     // Phones: the page's buttons are their icons alone (the label stays for screen readers), so
     // the title, the buttons and the account picture fit 360 points with 12 between them.
-    ui.begin(.{ .direction = .row, .gap = if (phone) 12 else 6.4, .align_items = .center }, .{});
+    // Wraps: a page with many actions (the shipment page) would otherwise push the last ones
+    // under the account picture when the row is squeezed (phones, and 1280 with the rail).
+    ui.begin(.{ .direction = .row, .wrap = true, .gap = if (phone) 12 else 6.4, .line_gap = 6.4, .align_items = .center, .justify = .end }, .{});
     kit.bar_compact = phone;
     pageActions(c, ui);
     kit.bar_compact = false;
