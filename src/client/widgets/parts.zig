@@ -69,7 +69,7 @@ pub fn addressBlock(ui: *Ui, c: *const core.Cx, title: []const u8, a: ?V) void {
     if (phone.len > 0) {
         ui.begin(.{ .direction = .row, .gap = 5.6, .align_items = .center, .align_self = .start, .pressed_opacity = 0.6, .no_mirror = true }, .{ .on_press = .{ .open = kit.f(ui, "tel:{s}", .{phone}) } });
         kit.icon(ui, icons.call, 20, k.a);
-        ui.text(phone, .{ .font_size = 15, .weight = 600, .color = k.a });
+        ui.text(phone, .{ .font_size = 16, .weight = 500, .color = k.a });
         ui.end();
     }
     kit.text(ui, addressLine(ui.arena(), c, x), .{});
@@ -114,10 +114,10 @@ fn timelineEntry(ui: *Ui, text: []const u8, when: []const u8, current: bool, int
     ui.end();
     ui.begin(.{ .grow = 1, .padding = .{ .bottom = 16.8 }, .gap = 1 }, .{});
     ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center }, .{});
-    ui.text(text, .{ .font_size = 15, .color = k.ink, .grow = 1 });
+    ui.text(text, .{ .font_size = 16, .color = k.ink, .grow = 1 });
     if (internal) kit.badge(ui, L("shipment.internal"), .plain);
     ui.end();
-    ui.text(when, .{ .font_size = 12.5, .color = k.ink_3 });
+    ui.text(when, .{ .font_size = 13, .color = k.ink_3 });
     ui.end();
     ui.end();
 }
@@ -174,13 +174,13 @@ pub fn routeBlock(ui: *Ui, c: *const core.Cx, legs: []const V, o: struct { highl
         const name = json.str(l, "name");
         const bold = o.highlight.len > 0 and std.mem.eql(u8, o.highlight, name);
         ui.begin(.{ .direction = .row, .gap = 8, .align_items = .start }, .{ .key = zui.key(i + 1) });
-        ui.text(kit.f(ui, "{d}.", .{i + 1}), .{ .font_size = 15, .color = k.ink_2 });
+        ui.text(kit.f(ui, "{d}.", .{i + 1}), .{ .font_size = 16, .color = k.ink_2 });
         ui.begin(.{ .grow = 1, .gap = 2 }, .{});
         ui.begin(.{ .direction = .row, .justify = .space_between, .align_items = .center, .gap = 8 }, .{});
         ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center, .grow = 1 }, .{});
-        ui.text(kit.f(ui, "{s}: {s}", .{ name, gov(c, json.str(l, "from")) }), .{ .font_size = 15, .weight = if (bold) 600 else 400, .color = k.ink });
+        ui.text(kit.f(ui, "{s}: {s}", .{ name, gov(c, json.str(l, "from")) }), .{ .font_size = 16, .weight = if (bold) 500 else 400, .color = k.ink });
         kit.iconFlip(ui, icons.arrow_forward, 16.5, k.ink_2);
-        ui.text(if (json.str(l, "to").len > 0) gov(c, json.str(l, "to")) else L("route.recipient"), .{ .font_size = 15, .weight = if (bold) 600 else 400, .color = k.ink });
+        ui.text(if (json.str(l, "to").len > 0) gov(c, json.str(l, "to")) else L("route.recipient"), .{ .font_size = 16, .weight = if (bold) 500 else 400, .color = k.ink });
         ui.end();
         const st = json.str(l, "status");
         kit.badge(ui, labels.of("route.status.", st), if (std.mem.eql(u8, st, "done")) .green else if (std.mem.eql(u8, st, "active")) .brand else .plain);

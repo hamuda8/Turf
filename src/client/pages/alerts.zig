@@ -192,7 +192,7 @@ fn alertList(c: *const Cx, ui: *Ui) void {
         kit.icon(ui, if (json.str(a, "vehicle").len > 0) mapw.vehicleIcon(json.str(a, "vehicle")) else icons.person, 20, k.ink);
         kit.strong(ui, json.str(a, "courierName"));
         ui.end();
-        ui.text(details(ui, a), .{ .font_size = 13.6, .color = k.ink });
+        ui.text(details(ui, a), .{ .font_size = 14, .color = k.ink });
         if (!eq(u8, st, "open")) {
             const note = json.str(a, "resolutionNote");
             kit.small(ui, if (note.len > 0) kit.f(ui, "{s} — {s}", .{ labels.of("alerts.status.", st), note }) else labels.of("alerts.status.", st));

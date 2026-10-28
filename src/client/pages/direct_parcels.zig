@@ -54,7 +54,7 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
         const id = json.str(p, "id");
         tb.row(.{ .go = kit.f(ui, "/parcels/{s}", .{id}) }, zui.key(id));
         tb.cell(false);
-        ui.text(json.str(p, "trackingNumber"), .{ .font_size = 15, .weight = 600, .color = k.a, .mono = true });
+        ui.text(json.str(p, "trackingNumber"), .{ .font_size = 16, .weight = 500, .color = k.a, .mono = true });
         tb.endCell();
         tb.cell(true);
         const name = json.str(p, "dropoff.name");

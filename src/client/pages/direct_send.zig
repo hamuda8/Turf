@@ -258,7 +258,7 @@ fn optionRow(ui: *Ui, i: u32, on: bool, name: []const u8, sub: []const u8, price
     kit.strong(ui, name);
     kit.small(ui, sub);
     ui.end();
-    ui.text(price, .{ .font_size = 18.4, .weight = 850, .color = k.ink, .max_lines = 1 });
+    ui.text(price, .{ .font_size = 18, .weight = 700, .color = k.ink, .max_lines = 1 });
     kit.endCard(ui, .{});
 }
 

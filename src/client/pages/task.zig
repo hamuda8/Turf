@@ -497,7 +497,7 @@ fn bodyView(s: *const S, c: *const Cx, ui: *Ui) void {
     var lines: std.ArrayList(mapw.Line) = .empty;
     const route_pts = routePoints(a, c);
     if (route_pts.len > 1) lines.append(a, .{ .points = route_pts, .width = 6, .opacity = 0.75 }) catch {};
-    mapw.draw(ui, &s.m, .{ .width = kit.width - 16, .height = mapHeight(ui.env.height), .radius = 16, .pins = pins.items, .lines = lines.items });
+    mapw.draw(ui, &s.m, .{ .width = kit.width - 16, .height = mapHeight(ui.env.height), .radius = 18, .pins = pins.items, .lines = lines.items });
     ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center }, .{});
     // Turf-js `busy()`: it spins while the route it asked for loads.
     const sl = c.slot(d_route);
@@ -539,19 +539,19 @@ fn navPanel(s: *const S, c: *const Cx, ui: *Ui) void {
     const fix = here(c);
     const steps = routeSteps(c);
     const has_route = c.slot(d_route).state == .ok and steps.len > 0;
-    ui.begin(.{ .direction = .row, .gap = 12.8, .align_items = .center, .padding = .xy(16, 14.4), .radius = 22, .background = k.panel, .shadow = kit.shadow2() }, .{});
+    ui.begin(.{ .direction = .row, .gap = 12.8, .align_items = .center, .padding = .xy(16, 14.4), .radius = 18, .background = k.panel }, .{});
     const step: ?V = if (has_route and fix != null) steps[@min(s.step, steps.len - 1)] else null;
-    ui.begin(.{ .width = .{ .px = 51.2 }, .height = .{ .px = 51.2 }, .radius = 16, .background = k.a, .gradient = kit.accentGradient(), .shadow = kit.glow(), .align_items = .center, .justify = .center }, .{});
+    ui.begin(.{ .width = .{ .px = 51.2 }, .height = .{ .px = 51.2 }, .radius = 12, .background = k.a, .align_items = .center, .justify = .center }, .{});
     kit.icon(ui, turnIcon(step), 32, k.on_accent);
     ui.end();
     ui.begin(.{ .grow = 1, .gap = 2 }, .{});
     if (step) |stp| {
-        ui.text(instruction(a, stp), .{ .font_size = 16.8, .weight = 700, .color = k.ink });
+        ui.text(instruction(a, stp), .{ .font_size = 20, .weight = 700, .color = k.ink });
         const to_step = if (pt(json.get(stp, "location") orelse .null)) |loc| meters(fix.?, loc) else 0;
         const remaining = ui.tf(labels.english("nav.remaining") orelse "{d} {time}", .{ .d = fmt.distance(a, json.num(c.data(d_route), "distanceM")), .time = fmt.duration(a, (json.num(c.data(d_route), "durationS") orelse 0) / 60) });
         ui.text(kit.f(ui, "{s} · {s}", .{ fmt.distance(a, to_step), remaining }), .{ .font_size = 14, .weight = 500, .color = k.ink_2 });
     } else {
-        ui.text(targetLabel(s, c), .{ .font_size = 16.8, .weight = 700, .color = k.ink });
+        ui.text(targetLabel(s, c), .{ .font_size = 20, .weight = 700, .color = k.ink });
         ui.text(if (fix != null) L("nav.calculating") else L("nav.waiting_gps"), .{ .font_size = 14, .weight = 500, .color = k.ink_2 });
     }
     ui.end();
@@ -596,7 +596,7 @@ fn parcelsCard(c: *const Cx, ui: *Ui) void {
         if (isDelivery(c) and std.mem.eql(u8, json.str(x, "dropoff.locationSource"), "recipient")) {
             ui.begin(.{ .direction = .row, .gap = 4, .align_items = .center }, .{});
             kit.icon(ui, icons.location_on, 16, k.ok_ink);
-            ui.text(L("task.recipient_pinned"), .{ .font_size = 13.6, .color = k.ok_ink });
+            ui.text(L("task.recipient_pinned"), .{ .font_size = 14, .color = k.ok_ink });
             ui.end();
         }
         ui.begin(.{ .direction = .row, .gap = 8 }, .{});
@@ -663,7 +663,7 @@ fn deliverDialog(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.button(ui, L("task.photo"), kit.act(A.photo, 0), .{ .icon = icons.photo_camera, .block = true });
     kit.fieldEnd(ui, "pod.photo", if (require_code) L("task.photo_optional") else L("task.photo_recommended"));
     if (s.photo.len > 0) {
-        ui.begin(.{ .radius = 16, .background = k.panel_2, .clip = true, .height = .{ .px = 240 } }, .{});
+        ui.begin(.{ .radius = 18, .background = k.panel_2, .clip = true, .height = .{ .px = 240 } }, .{});
         ui.image(s.photo, .{ .width = .fill, .height = .{ .px = 240 } }, zui.key("photo"));
         ui.end();
     }

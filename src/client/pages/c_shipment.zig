@@ -329,7 +329,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         parts.kv(ui, L("common.when"), fmt.dateTime(a, json.str(pod, "at")));
         if (json.str(pod, "note").len > 0) parts.kv(ui, L("shipment.note"), json.str(pod, "note"));
         if (json.has(pod, "photoId")) {
-            ui.begin(.{ .radius = 16, .background = kit.k.panel_2, .clip = true, .height = .{ .px = 240 } }, .{});
+            ui.begin(.{ .radius = 18, .background = kit.k.panel_2, .clip = true, .height = .{ .px = 240 } }, .{});
             ui.imageWith(kit.f(ui, "{s}/api/app/orgs/{s}/carrier/shipments/{s}/pod-photo", .{ core.api_base, c.orgId(), json.str(sh, "_id") }), .{ .headers = c.headers(ui.arena()) }, .{ .width = .fill, .height = .{ .px = 240 } }, zui.key("pod"));
             ui.end();
         }
@@ -349,12 +349,12 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     const cr_loc = if (live != null and live.?.loc != null) live.?.loc else mapw.ll(dv, "courier.location");
     const cr_vehicle = if (live) |x| x.vehicle else json.str(cr, "vehicle");
     if (cr_loc) |p| pins.append(a, .{ .at = p, .icon = mapw.vehicleIcon(cr_vehicle), .key = zui.key("courier") }) catch {};
-    mapw.draw(ui, &s.m, .{ .width = kit.width - 40, .height = 360, .radius = 16, .pins = pins.items });
+    mapw.draw(ui, &s.m, .{ .width = kit.width - 40, .height = 360, .radius = 18, .pins = pins.items });
     if (live != null or cr != null) {
         const k = kit.k;
         ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});
         kit.icon(ui, icons.navigation, 18, k.ink_2);
-        ui.text(if (live) |x| x.name else json.str(cr, "name"), .{ .font_size = 13.6, .weight = 700, .color = k.ink });
+        ui.text(if (live) |x| x.name else json.str(cr, "name"), .{ .font_size = 14, .weight = 700, .color = k.ink });
         kit.small(ui, labels.vehicle(cr_vehicle));
         const at = if (live) |x| x.at else json.strOr(cr, "at", json.str(cr, "updatedAt"));
         if (at.len > 0) kit.small(ui, fmt.relative(a, at));

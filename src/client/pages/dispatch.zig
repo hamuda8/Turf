@@ -364,7 +364,7 @@ fn queueSection(s: *const S, c: *const Cx, ui: *Ui) void {
         for (list, 0..) |x, i| {
             if (!eq(u8, json.str(x, "status"), dt[0])) continue;
             const id = cm.docId(x);
-            ui.begin(.{ .direction = .row, .align_items = .center, .gap = 9.6, .padding = .xy(12.8, 9.6), .radius = 22, .background = k.panel, .shadow = kit.shadow1(), .pressed_background = k.panel_2, .hover_background = k.panel_2 }, .{ .on_press = kit.act(A.toggle, @intCast(i)), .key = zui.key(id) });
+            ui.begin(.{ .direction = .row, .align_items = .center, .gap = 9.6, .padding = .xy(12.8, 9.6), .radius = 18, .background = k.panel, .pressed_background = k.panel_2, .hover_background = k.panel_2 }, .{ .on_press = kit.act(A.toggle, @intCast(i)), .key = zui.key(id) });
             kit.box(ui, s.selected.has(id));
             ui.begin(.{ .grow = 1, .gap = 2 }, .{});
             kit.rowBetween(ui);
@@ -393,7 +393,7 @@ fn queueSection(s: *const S, c: *const Cx, ui: *Ui) void {
             line.print(ui.arena(), "{s} {s}", .{ json.text(ui.arena(), x, "parcel.weightKg"), L("unit.kg") }) catch {};
             if (json.boolean(x, "cod")) line.print(ui.arena(), " · {s}", .{L("shipment.cod")}) catch {};
             if (json.boolean(x, "returnRequired")) line.print(ui.arena(), " · {s}", .{L("shipment.return_required_short")}) catch {};
-            ui.text(line.items, .{ .font_size = 13.6, .color = k.ink });
+            ui.text(line.items, .{ .font_size = 14, .color = k.ink });
             ui.end();
             kit.iconButton(ui, icons.route, kit.act(A.plan_one, @intCast(i)), .{ .size = .sm, .variant = .ghost, .label = L("dispatch.plan_task") });
             ui.end();
@@ -442,7 +442,7 @@ fn boardSection(s: *const S, c: *const Cx, ui: *Ui) void {
         if (courier.len > 0) {
             ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center }, .{});
             kit.icon(ui, if (json.str(task, "courierVehicle").len > 0) mapw.vehicleIcon(json.str(task, "courierVehicle")) else icons.person, 18, k.ink);
-            ui.text(courier, .{ .font_size = 13.6, .color = k.ink, .max_lines = 1 });
+            ui.text(courier, .{ .font_size = 14, .color = k.ink, .max_lines = 1 });
             ui.end();
         } else kit.badge(ui, L("dispatch.unassigned"), .amber);
         kit.small(ui, cm.tx(ui, "dispatch.parcels_n", .{ .n = json.arr(task, "shipmentIds").len }));
@@ -481,7 +481,7 @@ fn boardSection(s: *const S, c: *const Cx, ui: *Ui) void {
 fn routeLine(ui: *Ui, ic: zui.Icon, s: []const u8, flip: bool) void {
     ui.begin(.{ .direction = .row, .gap = 8, .align_items = .start }, .{});
     if (flip) kit.iconFlip(ui, ic, 18, kit.k.ink_3) else kit.icon(ui, ic, 18, kit.k.ink_3);
-    ui.text(s, .{ .font_size = 13.6, .color = kit.k.ink, .grow = 1 });
+    ui.text(s, .{ .font_size = 14, .color = kit.k.ink, .grow = 1 });
     ui.end();
 }
 
@@ -557,7 +557,7 @@ fn courierPicker(s: *const S, c: *const Cx, ui: *Ui, n: u8, pick: A, locked: boo
     kit.stackTight(ui);
     for (list, 0..) |sg, i| {
         const eligible = json.boolean(sg, "eligible");
-        ui.begin(.{ .direction = .row, .align_items = .center, .gap = 12, .padding = .xy(12.8, 9.6), .radius = 22, .background = k.panel_2, .opacity = if (eligible) 1 else 0.6 }, .{ .key = zui.key(json.str(sg, "courierId")) });
+        ui.begin(.{ .direction = .row, .align_items = .center, .gap = 12, .padding = .xy(12.8, 9.6), .radius = 18, .background = k.panel_2, .opacity = if (eligible) 1 else 0.6 }, .{ .key = zui.key(json.str(sg, "courierId")) });
         kit.avatar(ui, if (json.str(sg, "vehicle").len > 0) mapw.vehicleIcon(json.str(sg, "vehicle")) else icons.package_2);
         ui.begin(.{ .grow = 1, .gap = 2 }, .{});
         kit.strong(ui, json.str(sg, "name"));
@@ -570,7 +570,7 @@ fn courierPicker(s: *const S, c: *const Cx, ui: *Ui, n: u8, pick: A, locked: boo
         if (json.boolean(sg, "locationStale")) line.print(ui.arena(), " · {s}", .{L("dispatch.stale")}) catch {};
         kit.small(ui, line.items);
         const reason = json.str(sg, "reason");
-        if (reason.len > 0) ui.text(labels.of("dispatch.reason.", reason), .{ .font_size = 13.6, .color = k.fatal_ink });
+        if (reason.len > 0) ui.text(labels.of("dispatch.reason.", reason), .{ .font_size = 14, .color = k.fatal_ink });
         ui.end();
         const mine = s.picking != null and s.picking.? == i;
         kit.button(ui, L("dispatch.choose"), kit.act(pick, @intCast(i)), .{ .size = .sm, .variant = .primary, .disabled = !eligible or (busy and !mine), .busy = if (mine) @intFromEnum(pick) else null });

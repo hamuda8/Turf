@@ -9,12 +9,13 @@
 //   in or out removes the account's part.
 // - Push notifications.
 
-const VERSION = 'turf-zig-v1';
+const VERSION = 'turf-zig-v2';
 const SHELL = `${VERSION}-shell`;
 const DATA = 'turf-data'; // kept across versions: the last loaded status must survive an update
 const DATA_LIMIT = 80;
 const OFFLINE_PAGE = '/offline.html';
-const PRECACHE = ['/', '/index.html', '/zui.js', '/app.wasm', '/manifest.json', OFFLINE_PAGE, '/img/icon-192.png', '/img/icon-512.png'];
+const PRECACHE = ['/', '/index.html', '/zui.js', '/app.wasm', '/manifest.json', OFFLINE_PAGE, '/img/icon-192.png', '/img/icon-512.png',
+  '/fonts/WufourSansGolden-Regular.woff2', '/fonts/WufourSansGolden-Medium.woff2', '/fonts/WufourSansGolden-Bold.woff2', '/fonts/WufourArabicGolden-Regular.woff2', '/fonts/WufourArabicGolden-Medium.woff2', '/fonts/WufourArabicGolden-Bold.woff2'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

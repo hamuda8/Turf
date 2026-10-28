@@ -185,14 +185,14 @@ fn colorField(s: *const S, c: *const Cx, ui: *Ui, lbl: []const u8, slot: u16, na
     kit.fieldBegin(ui, lbl, false);
     ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});
     // The swatch opens the palette.
-    ui.begin(.{ .width = .{ .px = 54 }, .height = .{ .px = 48 }, .radius = 16, .background = k.panel_3, .padding = .all(4), .pressed_opacity = 0.75 }, .{ .on_press = kit.act(A.palette, slot), .label = lbl });
+    ui.begin(.{ .width = .{ .px = 54 }, .height = .{ .px = 48 }, .radius = 12, .background = k.panel_3, .padding = .all(4), .pressed_opacity = 0.75 }, .{ .on_press = kit.act(A.palette, slot), .label = lbl });
     ui.begin(.{ .grow = 1, .width = .fill, .radius = 12, .background = colorOf(c, slot, saved) orelse k.panel_3 }, .{});
     ui.end();
     ui.end();
     kit.input(ui, slot, .{ .ltr = true, .placeholder = "#000000", .name = name, .max_len = 7, .grow = 1, .mono = true, .on_submit = kit.act(A.save, 0) });
     ui.end();
     if (s.palette_for == slot) {
-        ui.begin(.{ .wrap = true, .gap = 8, .padding = .all(10), .radius = 16, .background = k.panel_2, .no_mirror = true }, .{});
+        ui.begin(.{ .wrap = true, .gap = 8, .padding = .all(10), .radius = 12, .background = k.panel_2, .no_mirror = true }, .{});
         for (palette, 0..) |hex, i| {
             const col = Color.parseHex(hex) catch continue;
             const chosen = std.ascii.eqlIgnoreCase(c.valTrim(slot), hex);
@@ -278,15 +278,15 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         ui.imageBytes(p, previewKey(ui, s), .{ .width = .{ .px = 72 }, .height = .{ .px = 72 } }, 0);
     } else if (icon.len > 0) ui.image(c.asset(ui.arena(), icon), .{ .width = .{ .px = 72 }, .height = .{ .px = 72 } }, 0);
     ui.end();
-    ui.text(short, .{ .font_size = 13.6, .color = k.ink, .text_align = .center, .max_lines = 1 });
+    ui.text(short, .{ .font_size = 14, .color = k.ink, .text_align = .center, .max_lines = 1 });
     ui.end();
     ui.begin(.{ .grow = 1, .radius = 12, .clip = true, .border_width = 1, .border_color = k.line }, .{});
     ui.begin(.{ .background = primary, .padding = .xy(16, 12) }, .{});
-    ui.text(app_name, .{ .font_size = 15, .weight = 700, .color = on });
+    ui.text(app_name, .{ .font_size = 16, .weight = 700, .color = on });
     ui.end();
     ui.begin(.{ .padding = .all(16), .align_items = .start }, .{});
-    ui.begin(.{ .height = .{ .px = 44 }, .padding = .xy(18.4, 0), .radius = 22, .background = primary, .justify = .center }, .{});
-    ui.text(L("branding.sample_button"), .{ .font_size = 14.4, .weight = 700, .color = on });
+    ui.begin(.{ .height = .{ .px = 44 }, .padding = .xy(18.4, 0), .radius = 12, .background = primary, .justify = .center }, .{});
+    ui.text(L("branding.sample_button"), .{ .font_size = 14, .weight = 700, .color = on });
     ui.end();
     ui.end();
     ui.end();

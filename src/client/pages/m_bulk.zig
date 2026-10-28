@@ -175,7 +175,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     if (!web) kit.notice(ui, .warn, t("Choosing a file works in the web app only."));
     kit.row(ui);
     kit.button(ui, t("Choose a CSV file"), kit.act(A.pick, 0), .{ .icon = icons.add, .disabled = !web });
-    if (s.file_name.len > 0) ui.text(s.file_name, .{ .font_size = 13.6, .color = k.ink_2, .grow = 1, .max_lines = 1 });
+    if (s.file_name.len > 0) ui.text(s.file_name, .{ .font_size = 14, .color = k.ink_2, .grow = 1, .max_lines = 1 });
     ui.end();
     switch (s.preview) {
         .none => {},
@@ -241,8 +241,8 @@ fn report(c: *const Cx, ui: *Ui) void {
         if (!ok) {
             const field = json.str(r, "error.field");
             ui.begin(.{ .direction = .row, .gap = 6, .align_items = .start }, .{});
-            if (field.len > 0) ui.text(field, .{ .font_size = 13.6, .mono = true, .color = k.ink_2 });
-            ui.text(rowError(a, json.get(r, "error")), .{ .font_size = 15, .color = k.ink, .grow = 1 });
+            if (field.len > 0) ui.text(field, .{ .font_size = 14, .mono = true, .color = k.ink_2 });
+            ui.text(rowError(a, json.get(r, "error")), .{ .font_size = 16, .color = k.ink, .grow = 1 });
             ui.end();
         }
         tb.endCell();

@@ -271,8 +271,8 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
 
 fn bullet(ui: *Ui, s: []const u8) void {
     ui.begin(.{ .direction = .row, .gap = 8, .align_items = .start }, .{});
-    ui.text("\u{2022}", .{ .font_size = 15, .color = kit.k.ink_2 });
-    ui.text(s, .{ .font_size = 15, .color = kit.k.ink, .grow = 1 });
+    ui.text("\u{2022}", .{ .font_size = 16, .color = kit.k.ink_2 });
+    ui.text(s, .{ .font_size = 16, .color = kit.k.ink, .grow = 1 });
     ui.end();
 }
 

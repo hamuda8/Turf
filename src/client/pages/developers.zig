@@ -280,7 +280,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.muted(ui, L("dev.quick_start_intro"));
     const snip = snippet(a);
     ui.beginScroll(.{ .direction = .row, .background = k.panel_2, .padding = .all(16), .radius = 8, .no_mirror = true }, zui.key("snippet"));
-    ui.text(snip, .{ .font_size = 13.6, .mono = true, .color = k.ink });
+    ui.text(snip, .{ .font_size = 14, .mono = true, .color = k.ink });
     ui.end();
     ui.begin(.{ .direction = .row }, .{});
     kit.copyButton(ui, snip, null);
@@ -310,7 +310,7 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
             const secret = json.str(c.data(d_secret), "secret");
             shell.modalBegin(ui, .{ .title = L("dev.key_created"), .close = close, .key = zui.key("key-created") });
             kit.notice(ui, .warn, L("dev.key_once"));
-            ui.begin(.{ .padding = .xy(16, 12), .radius = 16, .background = kit.k.panel_3, .no_mirror = true }, .{});
+            ui.begin(.{ .padding = .xy(16, 12), .radius = 12, .background = kit.k.panel_3, .no_mirror = true }, .{});
             kit.mono(ui, secret, .{});
             ui.end();
             ui.begin(.{ .direction = .row }, .{});

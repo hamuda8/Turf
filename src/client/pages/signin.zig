@@ -58,7 +58,7 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
     kit.width = @min(w - 32, 420);
     kit.iconTile(ui, icons.local_shipping, 72);
     ui.begin(.{ .gap = 8, .align_items = .center }, .{});
-    ui.text("Turf", .{ .font_size = 32, .weight = 800, .color = k.ink });
+    ui.text("Turf", .{ .font_size = 32, .weight = 700, .color = k.ink });
     kit.muted(ui, labels.k("landing.tagline"));
     ui.end();
     ui.begin(.{ .width = .fill, .gap = 12, .padding = .{ .top = 16 } }, .{});

@@ -75,7 +75,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     ui.begin(.{ .width = .{ .px = inner + 2 * side }, .gap = 20, .padding = .{ .top = landing.clampVw(ui, 16, 4, 40), .bottom = 48, .start = side, .end = side } }, .{});
     kit.width = inner;
     ui.begin(.{ .gap = 10.4 }, .{});
-    ui.text(L("lookup.title"), .{ .font_size = landing.clampVw(ui, 28.8, 4.5, 41.6), .weight = 850, .line_height = 1.1, .color = kit.k.ink });
+    ui.text(L("lookup.title"), .{ .font_size = landing.clampVw(ui, 28.8, 4.5, 41.6), .weight = 700, .line_height = 1.1, .color = kit.k.ink });
     kit.muted(ui, L("lookup.intro"));
     ui.end();
     lookup.form(ui, &s.search, .{ .busy = @intFromEnum(A.searching) });
@@ -127,7 +127,8 @@ test "lookup: the address's numbers are looked up, cards and history" {
 
 test "lookup: a failed search says why" {
     const app = @import("../app.zig");
-    app.D.startWith(390, 800, "/track");
+    // Wider than a phone: there the Track button is the search icon with "Track" as its label.
+    app.D.startWith(600, 800, "/track");
     defer app.D.reset();
     try app.D.typeInto("Enter tracking number", "TRF1");
     try app.D.press("Track");

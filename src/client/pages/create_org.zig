@@ -224,7 +224,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     ui.begin(.{ .width = .{ .px = 34 }, .height = .{ .px = 34 }, .radius = 10, .clip = true }, .{});
     ui.image(c.asset(ui.arena(), "/img/icon-192.png"), .{ .width = .{ .px = 34 }, .height = .{ .px = 34 } }, 0);
     ui.end();
-    ui.text("Turf", .{ .font_size = 18.4, .weight = 800, .color = k.ink });
+    ui.text("Turf", .{ .font_size = 20, .weight = 700, .color = k.ink });
     ui.end();
     kit.spacer(ui);
     const narrow = w < 520;
@@ -237,8 +237,8 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.width = inner;
     ui.begin(.{ .gap = 5.6 }, .{});
     const welcome = if (has_companies) L("onb.title_more") else ui.tf(labels.english("onb.title_welcome") orelse "{name}", .{ .name = json.str(c.me.value, "user.username") });
-    ui.text(welcome, .{ .font_size = landing.clampVw(ui, 28.8, 3.8, 41.6), .weight = 800, .line_height = 1.1, .letter_spacing = -0.045 * landing.clampVw(ui, 28.8, 3.8, 41.6), .color = k.ink });
-    ui.text(L("onb.subtitle"), .{ .font_size = 16.8, .color = k.ink_2, .max_width = 60 * 16.8 * 0.5 });
+    ui.text(welcome, .{ .font_size = landing.clampVw(ui, 28.8, 3.8, 41.6), .weight = 700, .line_height = 1.1, .letter_spacing = -0.045 * landing.clampVw(ui, 28.8, 3.8, 41.6), .color = k.ink });
+    ui.text(L("onb.subtitle"), .{ .font_size = 16, .color = k.ink_2, .max_width = 60 * 16.8 * 0.5 });
     ui.end();
 
     step(ui, "1", L("onb.step_type"));
@@ -275,10 +275,10 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
 fn step(ui: *Ui, n: []const u8, s: []const u8) void {
     const k = kit.k;
     ui.begin(.{ .direction = .row, .gap = 9.6, .align_items = .center }, .{});
-    ui.begin(.{ .width = .{ .px = 26 }, .height = .{ .px = 26 }, .radius = 13, .background = k.a, .gradient = kit.accentGradient(), .align_items = .center, .justify = .center }, .{});
-    ui.text(n, .{ .font_size = 12.8, .weight = 800, .color = k.on_accent });
+    ui.begin(.{ .width = .{ .px = 26 }, .height = .{ .px = 26 }, .radius = 13, .background = k.a, .align_items = .center, .justify = .center }, .{});
+    ui.text(n, .{ .font_size = 13, .weight = 700, .color = k.on_accent });
     ui.end();
-    ui.text(s, .{ .font_size = 11.2, .weight = 800, .color = k.ink_3, .uppercase = true, .letter_spacing = 1.57 });
+    ui.text(s, .{ .font_size = 12, .weight = 700, .color = k.ink_3, .uppercase = true, .letter_spacing = 1.57 });
     ui.end();
 }
 
@@ -292,20 +292,19 @@ fn typeCard(ui: *Ui, kind: Kind, chosen: bool) void {
         .padding = .all(20),
         .radius = 22,
         .background = k.panel,
-        .shadow = if (chosen) kit.shadow2() else kit.shadow1(),
-        .hover_background = if (chosen) null else k.panel.mix(0.85, k.panel_3),
+        .hover_background = if (chosen) null else k.panel_2,
         .transition = .{ .duration_ms = 220 },
         .border_width = 2,
         .border_color = if (chosen) k.a else zui.Color.transparent,
-        .pressed_background = k.panel_2.mix(0.5, k.panel),
+        .pressed_background = k.panel_3,
         .height = .fill,
     }, .{ .on_press = kit.act(if (kind == .carrier) A.pick_carrier else A.pick_merchant, 0), .key = zui.key(@tagName(kind)) });
     ui.begin(.{ .width = .{ .px = 58 }, .height = .{ .px = 58 }, .radius = 18, .background = k.accent_soft, .align_items = .center, .justify = .center }, .{});
     kit.icon(ui, d.icon, 32, k.a);
     ui.end();
     ui.begin(.{ .grow = 1, .gap = 4 }, .{});
-    ui.text(L(d.title), .{ .font_size = 17.3, .weight = 700, .color = k.ink });
-    ui.text(L(d.hint), .{ .font_size = 14.4, .color = k.ink_2, .line_height = 1.45 });
+    ui.text(L(d.title), .{ .font_size = 18, .weight = 700, .color = k.ink });
+    ui.text(L(d.hint), .{ .font_size = 14, .color = k.ink_2, .line_height = 1.45 });
     ui.end();
     ui.begin(.{ .width = .{ .px = 26 }, .height = .{ .px = 26 }, .radius = 13, .background = if (chosen) k.a else null, .border_width = 2, .border_color = if (chosen) k.a else k.line, .align_items = .center, .justify = .center }, .{});
     if (chosen) kit.icon(ui, icons.check, 17.6, k.on_accent);
@@ -315,7 +314,7 @@ fn typeCard(ui: *Ui, kind: Kind, chosen: bool) void {
 
 fn form(s: *const S, c: *const Cx, ui: *Ui, kind: Kind) void {
     const k = kit.k;
-    ui.begin(.{ .gap = 17.6, .padding = .all(24), .radius = 28, .background = k.panel }, .{});
+    ui.begin(.{ .gap = 17.6, .padding = .all(24), .radius = 24, .background = k.panel }, .{});
     const saved = kit.width;
     kit.width = saved - 48;
     step(ui, "2", L("onb.step_details"));
@@ -324,8 +323,8 @@ fn form(s: *const S, c: *const Cx, ui: *Ui, kind: Kind) void {
     // The address: the host, then the company's part.
     kit.fieldBegin(ui, L("org.slug"), true);
     ui.begin(.{ .direction = .row, .align_items = .stretch, .no_mirror = true }, .{});
-    ui.begin(.{ .direction = .row, .align_items = .center, .padding = .xy(13.6, 0), .background = k.panel_3, .radius = 16, .max_width = (kit.width) * 0.6 }, .{});
-    ui.text(kit.f(ui, "{s}/o/", .{host()}), .{ .font_size = 14.4, .color = k.ink_2, .max_lines = if (ui.env.width <= 480) 0 else 1 });
+    ui.begin(.{ .direction = .row, .align_items = .center, .padding = .xy(13.6, 0), .background = k.panel_3, .radius = 12, .max_width = (kit.width) * 0.6 }, .{});
+    ui.text(kit.f(ui, "{s}/o/", .{host()}), .{ .font_size = 14, .color = k.ink_2, .max_lines = if (ui.env.width <= 480) 0 else 1 });
     ui.end();
     kit.input(ui, f_slug, .{ .name = "slug", .placeholder = "my-company", .ltr = true, .grow = 1, .height = 50, .size = 16, .max_len = 40, .on_submit = kit.act(A.create, 0) });
     ui.end();
@@ -346,7 +345,7 @@ fn form(s: *const S, c: *const Cx, ui: *Ui, kind: Kind) void {
             .bad => if (s.fail_hint) L("org.slug_hint") else L("org.slug_taken"),
             else => L("org.slug_hint"),
         };
-        ui.text(msg, .{ .font_size = 13.1, .color = color });
+        ui.text(msg, .{ .font_size = 13, .color = color });
         ui.end();
     }
     kit.fieldEnd(ui, "slug", "");
@@ -370,13 +369,13 @@ fn form(s: *const S, c: *const Cx, ui: *Ui, kind: Kind) void {
     ui.end();
     ui.end();
     ui.end();
-    if (c.fieldError("acceptTerms")) |e| ui.text(e, .{ .font_size = 12.5, .weight = 650, .color = k.fatal_ink });
+    if (c.fieldError("acceptTerms")) |e| ui.text(e, .{ .font_size = 13, .weight = 500, .color = k.fatal_ink });
     ui.end();
 
     kit.button(ui, if (kind == .merchant) L("onb.create_merchant") else L("onb.create_carrier"), kit.act(A.create, 0), .{ .variant = .primary, .size = .lg, .block = true, .busy = @intFromEnum(A.create) });
     ui.begin(.{ .direction = .row, .gap = 8, .align_items = .start }, .{});
     kit.icon(ui, icons.shield, 18, k.ink_2);
-    ui.text(L("onb.owner_short"), .{ .font_size = 13.6, .color = k.ink_2, .line_height = 1.5, .grow = 1 });
+    ui.text(L("onb.owner_short"), .{ .font_size = 14, .color = k.ink_2, .line_height = 1.5, .grow = 1 });
     ui.end();
     kit.width = saved;
     ui.end();
@@ -392,12 +391,12 @@ fn preview(c: *const Cx, ui: *Ui, kind: Kind) void {
     ui.begin(.{ .radius = 30, .background = k.panel, .clip = true }, .{});
     ui.begin(.{ .direction = .row, .align_items = .center, .gap = 11.2, .padding = .xy(16, 17.6), .background = k.rail }, .{});
     ui.begin(.{ .width = .{ .px = 38 }, .height = .{ .px = 38 }, .radius = 12, .background = k.panel, .align_items = .center, .justify = .center }, .{});
-    ui.text(firstLetter(ui, lbl), .{ .font_size = 16, .weight = 800, .color = k.a });
+    ui.text(firstLetter(ui, lbl), .{ .font_size = 16, .weight = 700, .color = k.a });
     ui.end();
     ui.begin(.{ .grow = 1, .gap = 1 }, .{});
-    ui.text(lbl, .{ .font_size = 15, .weight = 700, .color = k.rail_ink, .max_lines = 1 });
+    ui.text(lbl, .{ .font_size = 16, .weight = 700, .color = k.rail_ink, .max_lines = 1 });
     ui.begin(.{ .no_mirror = true }, .{});
-    ui.text(kit.f(ui, "/o/{s}", .{if (slug.len > 0) slug else "my-company"}), .{ .font_size = 12.5, .color = k.rail_ink.withAlpha(0.8) });
+    ui.text(kit.f(ui, "/o/{s}", .{if (slug.len > 0) slug else "my-company"}), .{ .font_size = 13, .color = k.rail_ink.withAlpha(0.8) });
     ui.end();
     ui.end();
     ui.end();
@@ -413,7 +412,7 @@ fn preview(c: *const Cx, ui: *Ui, kind: Kind) void {
     for (def(kind).perks) |p| {
         ui.begin(.{ .direction = .row, .gap = 8.8, .align_items = .start }, .{});
         kit.icon(ui, icons.check, 20, k.ok_ink);
-        ui.text(L(p), .{ .font_size = 15, .color = k.ink_2, .line_height = 1.45, .grow = 1 });
+        ui.text(L(p), .{ .font_size = 16, .color = k.ink_2, .line_height = 1.45, .grow = 1 });
         ui.end();
     }
     ui.end();

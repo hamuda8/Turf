@@ -586,7 +586,7 @@ fn coverage(s: *const S, c: *const Cx, ui: *Ui) void {
         any = true;
         const slot = f_areas + 2 * @as(u16, @intCast(i));
         const open = i < 64 and (s.areas_open >> @intCast(i)) & 1 == 1;
-        ui.begin(.{ .padding = .xy(14.4, 11.2), .radius = 16, .background = k.panel_2, .gap = 12 }, .{ .key = zui.key(code) });
+        ui.begin(.{ .padding = .xy(14.4, 11.2), .radius = 12, .background = k.panel_2, .gap = 12 }, .{ .key = zui.key(code) });
         // <summary>: the governorate and what is limited.
         const n = countCities(c.val(slot));
         const km = c.valNum(slot + 1) orelse 0;
@@ -594,7 +594,7 @@ fn coverage(s: *const S, c: *const Cx, ui: *Ui) void {
         if (n > 0 and km != 0) summary = kit.f(ui, "{s} · {s}", .{ cm.tx(ui, "settings.area_n_cities", .{ .n = n }), cm.tx(ui, "settings.area_km", .{ .n = km }) }) else if (n > 0) summary = cm.tx(ui, "settings.area_n_cities", .{ .n = n }) else if (km != 0) summary = cm.tx(ui, "settings.area_km", .{ .n = km });
         ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center, .pressed_opacity = 0.7 }, .{ .on_press = kit.act(A.area_toggle, @intCast(i)) });
         kit.icon(ui, if (open) icons.expand_less else icons.expand_more, 20.8, k.ink_3);
-        ui.text(json.pick(gv, "", c.lang()), .{ .font_size = 15, .weight = 700, .color = k.ink });
+        ui.text(json.pick(gv, "", c.lang()), .{ .font_size = 16, .weight = 700, .color = k.ink });
         kit.small(ui, summary);
         ui.end();
         if (open) {

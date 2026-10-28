@@ -64,15 +64,15 @@ pub fn dueLabel(ui: *Ui, due_by: []const u8) void {
     ui.begin(.{ .direction = .row, .gap = 4, .align_items = .center }, .{});
     kit.icon(ui, icons.timer, 16, color);
     const time = fmt.time(ui.arena(), due_by);
-    ui.text(if (late) tx(ui, "express.late", .{ .time = time }) else tx(ui, "express.due", .{ .time = time }), .{ .font_size = 15, .weight = 750, .color = color, .max_lines = 1 });
+    ui.text(if (late) tx(ui, "express.late", .{ .time = time }) else tx(ui, "express.due", .{ .time = time }), .{ .font_size = 16, .weight = 700, .color = color, .max_lines = 1 });
     ui.end();
 }
 
 /// A bullet line (`<li>`).
 pub fn bullet(ui: *Ui, s: []const u8) void {
     ui.begin(.{ .direction = .row, .gap = 8, .align_items = .start }, .{});
-    ui.text("\u{2022}", .{ .font_size = 15, .color = kit.k.ink_2 });
-    ui.text(s, .{ .font_size = 15, .color = kit.k.ink, .grow = 1 });
+    ui.text("\u{2022}", .{ .font_size = 16, .color = kit.k.ink_2 });
+    ui.text(s, .{ .font_size = 16, .color = kit.k.ink, .grow = 1 });
     ui.end();
 }
 

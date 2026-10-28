@@ -200,7 +200,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.selectField(ui, L("scan.hub"), f_hub, opts.items, .{ .required = true, .name = "hub" });
     ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center, .pressed_opacity = 0.6, .align_self = .start }, .{ .on_press = kit.act(A.inside, 0) });
     kit.icon(ui, icons.package_2, 18, k.a);
-    ui.text(L("hub.whats_inside"), .{ .font_size = 15, .weight = 600, .color = k.a });
+    ui.text(L("hub.whats_inside"), .{ .font_size = 16, .weight = 500, .color = k.a });
     ui.end();
     kit.fieldBegin(ui, L("scan.tracking_number"), true);
     kit.input(ui, f_code, .{ .kind = .code, .placeholder = "TRF…", .ltr = true, .mono = true, .size = 20, .on_submit = kit.act(A.submit, 0), .name = "trackingNumber" });
@@ -209,13 +209,13 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     kit.button(ui, if (s.camera == .off) L("scan.camera") else L("scan.stop_camera"), kit.act(A.camera, 0), .{ .icon = icons.photo_camera, .disabled = s.camera == .starting });
     ui.end();
     // `.scan-video`: the camera's picture while it reads labels.
-    if (s.camera == .on) ui.video(s.scanner, .{ .cover = true }, .{ .width = .fill, .height = .{ .px = @min(ui.env.height * 0.5, 420) }, .radius = 22, .background = k.c, .clip = true }, zui.key("scan-video"));
+    if (s.camera == .on) ui.video(s.scanner, .{ .cover = true }, .{ .width = .fill, .height = .{ .px = @min(ui.env.height * 0.5, 420) }, .radius = 18, .background = k.c, .clip = true }, zui.key("scan-video"));
     if (s.camera_error.len > 0) kit.notice(ui, .err, s.camera_error);
     kit.endCard(ui, .{});
     kit.h2(ui, L("scan.log"));
     ui.begin(.{ .gap = 6.4 }, .{});
     for (s.log.items) |x| {
-        ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center, .padding = .xy(12.8, 8.8), .radius = 22, .background = k.panel, .shadow = kit.shadow1() }, .{ .key = zui.key(x.seq) });
+        ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center, .padding = .xy(12.8, 8.8), .radius = 18, .background = k.panel }, .{ .key = zui.key(x.seq) });
         if (x.sending) {
             kit.mono(ui, x.tn, .{});
             kit.spinner(ui, 16, k.ink_3);

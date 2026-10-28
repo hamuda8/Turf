@@ -189,8 +189,7 @@ pub fn form(ui: *Ui, f: *const Search, o: FormOpts) void {
         .gap = 8,
         .padding = .{ .top = if (o.hero) 8 else 6.4, .bottom = if (o.hero) 8 else 6.4, .start = if (o.hero) 19.2 else 16, .end = if (o.hero) 8 else 6.4 },
         .background = k.panel,
-        .radius = 28,
-        .shadow = kit.shadow2(),
+        .radius = 12,
         .border_width = if (has_err) 2 else if (k.dark) 1 else 0,
         .border_color = if (has_err) k.f else k.line,
     }, .{});
@@ -206,13 +205,18 @@ pub fn form(ui: *Ui, f: *const Search, o: FormOpts) void {
         .bare = true,
         .on_submit = .{ .act = .{ .id = f.act } },
     });
-    kit.button(ui, L("lookup.track"), .{ .act = .{ .id = f.act } }, .{ .variant = .primary, .icon = icons.search, .size = if (o.hero) .lg else .md, .busy = o.busy });
+    // Phones: the button is the search icon alone (its label for screen readers), so the field
+    // keeps room for the number.
+    if (ui.env.width <= 480)
+        kit.iconButton(ui, icons.search, .{ .act = .{ .id = f.act } }, .{ .variant = .primary, .size = if (o.hero) .lg else .md, .busy = o.busy, .label = L("lookup.track") })
+    else
+        kit.button(ui, L("lookup.track"), .{ .act = .{ .id = f.act } }, .{ .variant = .primary, .icon = icons.search, .size = if (o.hero) .lg else .md, .busy = o.busy });
     ui.end();
     ui.begin(.{ .padding = .xy(17.6, 0) }, .{});
     if (has_err)
-        ui.text(f.err, .{ .font_size = 12.8, .weight = 650, .color = if (o.on_rail) k.rail_ink else k.fatal_ink })
+        ui.text(f.err, .{ .font_size = 13, .weight = 500, .color = if (o.on_rail) k.rail_ink else k.fatal_ink })
     else
-        ui.text(ui.tf(labels.english("lookup.hint") orelse "{n}", .{ .n = max_numbers }), .{ .font_size = 12.8, .color = if (o.on_rail) k.rail_ink_2 else k.ink_3 });
+        ui.text(ui.tf(labels.english("lookup.hint") orelse "{n}", .{ .n = max_numbers }), .{ .font_size = 13, .color = if (o.on_rail) k.rail_ink_2 else k.ink_3 });
     ui.end();
     ui.end();
 }
@@ -279,7 +283,7 @@ pub fn results(ui: *Ui, c: *const Cx, r: *const Results, o: ResultsOpts) void {
 
 /// A card with a 4-point coloured edge on top (`border-top: 4px solid var(--st)`).
 fn topCardBegin(ui: *Ui, edge: Color, key: u64) void {
-    ui.begin(.{ .radius = 22, .background = kit.k.panel, .shadow = kit.shadow1(), .borders = .{ .top = .{ .width = 4, .color = edge } } }, .{ .key = key });
+    ui.begin(.{ .radius = 18, .background = kit.k.panel, .borders = .{ .top = .{ .width = 4, .color = edge } } }, .{ .key = key });
     ui.begin(.{ .padding = .{ .top = 16, .bottom = 20, .start = 20, .end = 20 }, .gap = 13.6 }, .{});
 }
 
@@ -332,10 +336,10 @@ fn resultCard(ui: *Ui, c: *const Cx, r: *const Results, x: V, i: u32, open_link:
     ui.begin(.{ .direction = .row, .align_items = .start, .justify = .space_between, .gap = 12 }, .{});
     ui.begin(.{ .grow = 1, .gap = 2.4 }, .{});
     ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center }, .{});
-    ui.text(tn, .{ .font_size = 14.4, .mono = true, .color = k.ink_2 });
+    ui.text(tn, .{ .font_size = 14, .mono = true, .color = k.ink_2 });
     if (eq(json.str(x, "service"), "express")) kit.expressBadge(ui);
     ui.end();
-    ui.text(json.str(x, if (c.ar()) "statusTextAr" else "statusTextEn"), .{ .font_size = if (ui.env.width < 600) 21.6 else 27.2, .weight = 850, .line_height = 1.1, .color = st orelse k.ink });
+    ui.text(json.str(x, if (c.ar()) "statusTextAr" else "statusTextEn"), .{ .font_size = if (ui.env.width < 600) 21.6 else 27.2, .weight = 700, .line_height = 1.1, .color = st orelse k.ink });
     ui.end();
     ui.begin(.{ .direction = .row, .gap = 6.4 }, .{});
     kit.copyButton(ui, tn, null);
@@ -346,7 +350,7 @@ fn resultCard(ui: *Ui, c: *const Cx, r: *const Results, x: V, i: u32, open_link:
     if (eta.len > 0) {
         ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center }, .{});
         kit.icon(ui, if (eq(status, "delivered")) icons.check else icons.schedule, 20, st orelse k.a);
-        ui.text(eta, .{ .font_size = 15, .weight = 650, .color = k.ink, .grow = 1 });
+        ui.text(eta, .{ .font_size = 16, .weight = 500, .color = k.ink, .grow = 1 });
         ui.end();
     }
     if (!is_stopped) {
@@ -356,7 +360,7 @@ fn resultCard(ui: *Ui, c: *const Cx, r: *const Results, x: V, i: u32, open_link:
             for (steps, 0..) |s, j| {
                 const on = @as(i32, @intCast(j)) <= step;
                 ui.begin(.{ .width = .fill }, .{});
-                ui.text(labels.of("lookup.step_", s), .{ .font_size = 11.2, .line_height = 1.25, .weight = if (on) 650 else 400, .color = if (on) k.ink_2 else k.ink_3 });
+                ui.text(labels.of("lookup.step_", s), .{ .font_size = 12, .line_height = 1.25, .weight = if (on) 500 else 400, .color = if (on) k.ink_2 else k.ink_3 });
                 ui.end();
             }
             ui.end();
@@ -366,7 +370,7 @@ fn resultCard(ui: *Ui, c: *const Cx, r: *const Results, x: V, i: u32, open_link:
     const from = place(ui, c, json.obj(x, "from"));
     const to = place(ui, c, json.obj(x, "to"));
     if (from.len > 0 or to.len > 0) {
-        ui.begin(.{ .padding = .xy(13.6, 9.6), .background = k.panel_2, .radius = 16 }, .{});
+        ui.begin(.{ .padding = .xy(13.6, 9.6), .background = k.panel_2, .radius = 12 }, .{});
         var w = kit.Wrap.begin(ui, kit.width - 40 - 27.2, 9.6);
         const fs = if (from.len > 0) from else "—";
         const ts = if (to.len > 0) to else "—";
@@ -397,9 +401,9 @@ fn resultCard(ui: *Ui, c: *const Cx, r: *const Results, x: V, i: u32, open_link:
         const is_open = i < 32 and (r.open >> @intCast(i)) & 1 == 1;
         kit.line(ui, k.line_soft);
         ui.begin(.{ .direction = .row, .align_items = .center, .gap = 9.6, .pressed_opacity = 0.7 }, .{ .on_press = .{ .act = .{ .id = r.act_history, .arg = i } } });
-        ui.text(json.str(latest, if (c.ar()) "textAr" else "textEn"), .{ .font_size = 15, .weight = 650, .color = k.ink, .grow = 1 });
-        ui.text(fmt.relative(ui.arena(), json.str(latest, "at")), .{ .font_size = 13.6, .color = k.ink_2, .max_lines = 1 });
-        if (events.len > 1 and !is_open) ui.text(ui.tf(labels.english("lookup.all_updates") orelse "{n}", .{ .n = events.len }), .{ .font_size = 13.6, .weight = 700, .color = k.a, .max_lines = 1 });
+        ui.text(json.str(latest, if (c.ar()) "textAr" else "textEn"), .{ .font_size = 16, .weight = 500, .color = k.ink, .grow = 1 });
+        ui.text(fmt.relative(ui.arena(), json.str(latest, "at")), .{ .font_size = 14, .color = k.ink_2, .max_lines = 1 });
+        if (events.len > 1 and !is_open) ui.text(ui.tf(labels.english("lookup.all_updates") orelse "{n}", .{ .n = events.len }), .{ .font_size = 14, .weight = 700, .color = k.a, .max_lines = 1 });
         ui.end();
         if (is_open) {
             ui.begin(.{ .padding = .{ .top = 4 } }, .{});
@@ -415,7 +419,7 @@ fn resultCard(ui: *Ui, c: *const Cx, r: *const Results, x: V, i: u32, open_link:
 
     ui.begin(.{ .direction = .row, .gap = 5.6, .align_items = .start }, .{});
     kit.icon(ui, icons.lock, 16, k.ink_2);
-    ui.text(L("lookup.link_hint"), .{ .font_size = 13.6, .color = k.ink_2, .grow = 1 });
+    ui.text(L("lookup.link_hint"), .{ .font_size = 14, .color = k.ink_2, .grow = 1 });
     ui.end();
     topCardEnd(ui);
 }
@@ -423,7 +427,7 @@ fn resultCard(ui: *Ui, c: *const Cx, r: *const Results, x: V, i: u32, open_link:
 fn placePart(ui: *Ui, ic: zui.Icon, s: []const u8) void {
     ui.begin(.{ .direction = .row, .gap = 4, .align_items = .center }, .{});
     kit.icon(ui, ic, 18, kit.k.ink_3);
-    ui.text(s, .{ .font_size = 15, .weight = 600, .color = kit.k.ink });
+    ui.text(s, .{ .font_size = 16, .weight = 500, .color = kit.k.ink });
     ui.end();
 }
 
@@ -433,7 +437,7 @@ fn notFoundCard(ui: *Ui, x: V, i: usize) void {
     ui.begin(.{ .direction = .row, .gap = 12, .align_items = .start }, .{});
     kit.avatar(ui, icons.search);
     ui.begin(.{ .grow = 1, .gap = 3.2 }, .{});
-    ui.text(json.str(x, "query"), .{ .font_size = 14.4, .weight = 700, .mono = true, .color = k.ink_2 });
+    ui.text(json.str(x, "query"), .{ .font_size = 14, .weight = 700, .mono = true, .color = k.ink_2 });
     kit.text(ui, L("lookup.not_found"), .{});
     kit.small(ui, L("lookup.not_found_hint"));
     ui.end();

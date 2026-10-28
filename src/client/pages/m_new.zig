@@ -437,9 +437,10 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         cg.endCell();
     }
     cg.end();
-    ui.begin(.{ .direction = .row, .gap = 12, .align_items = .center }, .{});
+    // Phones: the hint goes under the button (next to it, it would run past the edge).
+    ui.begin(.{ .direction = if (kit.phone) .column else .row, .gap = 12, .align_items = if (kit.phone) .start else .center }, .{});
     kit.button(ui, L("new.compare"), kit.act(A.compare, 0), .{ .icon = icons.list, .busy = @intFromEnum(A.compare) });
-    ui.begin(.{ .grow = 1 }, .{});
+    ui.begin(.{ .grow = if (kit.phone) 0 else 1, .width = if (kit.phone) .fill else .auto }, .{});
     kit.small(ui, L("new.compare_hint"));
     ui.end();
     ui.end();
@@ -459,10 +460,10 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
 
 fn morePanel(s: *const S, ui: *Ui) void {
     const k = kit.k;
-    ui.begin(.{ .padding = .xy(14.4, 11.2), .radius = 16, .background = k.panel_2, .gap = 12 }, .{});
+    ui.begin(.{ .padding = .xy(14.4, 11.2), .radius = 12, .background = k.panel_2, .gap = 12 }, .{});
     ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center, .pressed_opacity = 0.7 }, .{ .on_press = kit.act(A.toggle_more, 0) });
     kit.icon(ui, if (s.more) icons.expand_less else icons.expand_more, 20.8, k.ink_3);
-    ui.text(L("new.more_options"), .{ .font_size = 15, .weight = 600, .color = k.ink });
+    ui.text(L("new.more_options"), .{ .font_size = 16, .weight = 500, .color = k.ink });
     ui.end();
     if (s.more) {
         const w = kit.width;
@@ -535,7 +536,7 @@ fn optionCard(s: *const S, c: *const Cx, ui: *Ui, o: V, i: usize) void {
     if (chain) {
         for (legs, 0..) |l, j| {
             if (j > 0) kit.iconFlip(ui, icons.arrow_forward, 17.6, k.ink_3);
-            ui.text(json.str(l, "carrier.name"), .{ .font_size = 13.6, .weight = 700, .color = k.ink });
+            ui.text(json.str(l, "carrier.name"), .{ .font_size = 14, .weight = 700, .color = k.ink });
         }
     } else kit.strong(ui, json.str(o, "carrier.name"));
     if (std.mem.eql(u8, json.str(o, "service"), "express")) kit.expressBadge(ui);
@@ -555,7 +556,7 @@ fn optionCard(s: *const S, c: *const Cx, ui: *Ui, o: V, i: usize) void {
     }
     kit.small(ui, line.items);
     ui.end();
-    ui.text(fmt.money(a, json.num(o, "price.amount"), json.str(o, "price.currency")), .{ .font_size = 18.4, .weight = 850, .color = k.ink, .max_lines = 1 });
+    ui.text(fmt.money(a, json.num(o, "price.amount"), json.str(o, "price.currency")), .{ .font_size = 18, .weight = 700, .color = k.ink, .max_lines = 1 });
     kit.button(ui, L("dispatch.choose"), kit.act(A.choose_option, @intCast(i)), .{ .size = .sm, .variant = if (i == 0) .primary else .normal });
     ui.end();
     if (chain) {

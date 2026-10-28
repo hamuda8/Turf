@@ -236,7 +236,7 @@ fn period(s: *const S, ui: *Ui) void {
     ui.end();
     ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center, .grow = 1, .padding = .{ .bottom = if (wide) 13 else 0 } }, .{});
     kit.icon(ui, icons.info, 16, kit.k.ink_2);
-    ui.text(L("reports.period_hint"), .{ .font_size = 13.6, .color = kit.k.ink_2, .grow = 1 });
+    ui.text(L("reports.period_hint"), .{ .font_size = 14, .color = kit.k.ink_2, .grow = 1 });
     ui.end();
     ui.end();
     kit.endCard(ui, .{});
@@ -424,7 +424,7 @@ fn dayChart(ui: *Ui, days: []const V, tip: u32) void {
         ui.end();
         const day = json.str(d, "day");
         if (ticks and day.len >= 10) {
-            ui.text(day[8..10], .{ .position = .absolute, .inset = .{ .bottom = -17.6, .start = colw / 2 - 10 }, .width = .{ .px = 20 }, .text_align = .center, .font_size = 10.4, .color = k.ink_3 });
+            ui.text(day[8..10], .{ .position = .absolute, .inset = .{ .bottom = -17.6, .start = colw / 2 - 10 }, .width = .{ .px = 20 }, .text_align = .center, .font_size = 12, .color = k.ink_3 });
         }
         ui.end();
     }

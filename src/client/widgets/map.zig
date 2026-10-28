@@ -224,7 +224,7 @@ fn marker(ui: *Ui, p: Pin, x: f32, y: f32, key: u64) void {
             if (p.icon) |ic| ui.icon(ic, 21.6, ink, .{}, 0);
             ui.end();
             if (p.label.len > 0) {
-                ui.text(p.label, .{ .position = .absolute, .inset = .{ .start = x - 60, .top = y + size / 2 + 2 }, .width = .{ .px = 120 }, .text_align = .center, .font_size = 11, .weight = 700, .color = k.ink, .max_lines = 1 });
+                ui.text(p.label, .{ .position = .absolute, .inset = .{ .start = x - 60, .top = y + size / 2 + 2 }, .width = .{ .px = 120 }, .text_align = .center, .font_size = 12, .weight = 700, .color = k.ink, .max_lines = 1 });
             }
         },
     }

@@ -362,7 +362,7 @@ fn searchResults(s: *const S, c: *const Cx, ui: *Ui) void {
     if (c.slot(d_found).state != .ok or s.results_hidden) return;
     const list = json.arr(c.data(d_found), "results");
     if (c.focused == f_search) core.keys.escape = kit.act(A.search_submit, 1);
-    ui.begin(.{ .padding = .all(5.6), .radius = 16, .background = k.panel_2, .gap = 2 }, .{});
+    ui.begin(.{ .padding = .all(5.6), .radius = 18, .background = k.panel_2, .gap = 2 }, .{});
     if (s.search_failed) {
         ui.begin(.{ .padding = .xy(11.2, 9.6) }, .{});
         kit.small(ui, L("address.search_unavailable"));
@@ -378,8 +378,8 @@ fn searchResults(s: *const S, c: *const Cx, ui: *Ui) void {
         ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center, .padding = .xy(11.2, 9.6), .radius = 12, .pressed_background = k.accent_soft }, .{ .on_press = kit.act(A.choose, @intCast(i)), .key = zui.key(i + 300) });
         kit.icon(ui, icons.location_on, 18, k.ink_3);
         ui.begin(.{ .grow = 1, .gap = 1.6 }, .{});
-        ui.text(name, .{ .font_size = 15, .color = k.ink, .max_lines = 1 });
-        if (label.len > 0 and !eq(u8, label, name)) ui.text(label, .{ .font_size = 13.6, .color = k.ink_2, .max_lines = 1 });
+        ui.text(name, .{ .font_size = 16, .color = k.ink, .max_lines = 1 });
+        if (label.len > 0 and !eq(u8, label, name)) ui.text(label, .{ .font_size = 14, .color = k.ink_2, .max_lines = 1 });
         ui.end();
         ui.end();
     }

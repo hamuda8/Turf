@@ -563,11 +563,11 @@ pub const Address = struct {
         }
         a.drawMap(ui, c, w);
         // The summary.
-        ui.begin(.{ .direction = .row, .gap = 8.8, .align_items = .start, .padding = .xy(12.8, 9.6), .radius = 16, .background = if (a.point != null) k.accent_soft else k.panel_2 }, .{});
+        ui.begin(.{ .direction = .row, .gap = 8.8, .align_items = .start, .padding = .xy(12.8, 9.6), .radius = 12, .background = if (a.point != null) k.accent_soft else k.panel_2 }, .{});
         kit.icon(ui, if (a.point != null) icons.location_on else icons.info, 20, k.a);
-        ui.text(a.summary(c, ui.arena()), .{ .font_size = 14.1, .color = if (a.point != null) k.ink else k.ink_2, .grow = 1 });
+        ui.text(a.summary(c, ui.arena()), .{ .font_size = 14, .color = if (a.point != null) k.ink else k.ink_2, .grow = 1 });
         ui.end();
-        if (c.fieldError(a.name(ui, "location"))) |err| ui.text(err, .{ .font_size = 12.5, .weight = 650, .color = k.fatal_ink });
+        if (c.fieldError(a.name(ui, "location"))) |err| ui.text(err, .{ .font_size = 13, .weight = 500, .color = k.fatal_ink });
         ui.end();
 
         // Phone and name.
@@ -581,10 +581,10 @@ pub const Address = struct {
         g.end();
 
         // More details (a closed panel unless there is a street or details).
-        ui.begin(.{ .padding = .xy(14.4, 11.2), .radius = 16, .background = k.panel_2, .gap = 12 }, .{});
+        ui.begin(.{ .padding = .xy(14.4, 11.2), .radius = 12, .background = k.panel_2, .gap = 12 }, .{});
         ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center, .pressed_opacity = 0.7 }, .{ .on_press = .{ .act = .{ .id = a.act(a_more) } } });
         kit.icon(ui, if (a.more_open) icons.expand_less else icons.expand_more, 20.8, k.ink_3);
-        ui.text(L("address.more_details"), .{ .font_size = 14.1, .weight = 600, .color = k.ink_2 });
+        ui.text(L("address.more_details"), .{ .font_size = 14, .weight = 500, .color = k.ink_2 });
         ui.end();
         if (a.more_open) {
             var opts: std.ArrayList(core.Opt) = .empty;
@@ -611,7 +611,7 @@ pub const Address = struct {
 
     fn results(a: *const Address, ui: *Ui) void {
         const k = kit.k;
-        ui.begin(.{ .padding = .all(5.6), .radius = 16, .background = k.panel, .border_width = 1, .border_color = k.line_soft, .gap = 2 }, .{});
+        ui.begin(.{ .padding = .all(5.6), .radius = 18, .background = k.panel, .border_width = 1, .border_color = k.line_soft, .gap = 2 }, .{});
         if (a.search_failed) {
             ui.begin(.{ .padding = .xy(11.2, 9.6) }, .{});
             kit.small(ui, L("address.search_unavailable"));
@@ -625,8 +625,8 @@ pub const Address = struct {
             ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center, .padding = .xy(11.2, 9.6), .radius = 12, .background = if (on) k.accent_soft else null, .pressed_background = k.accent_soft }, .{ .on_press = .{ .act = .{ .id = a.act(a_choose), .arg = @intCast(i) } }, .key = zui.key(i + 1) });
             kit.icon(ui, icons.location_on, 18, k.ink_3);
             ui.begin(.{ .grow = 1, .gap = 1.6 }, .{});
-            ui.text(if (p.name.len > 0) p.name else p.label, .{ .font_size = 15, .color = if (on) k.a else k.ink, .max_lines = 1 });
-            if (p.label.len > 0 and !std.mem.eql(u8, p.label, p.name)) ui.text(p.label, .{ .font_size = 13.6, .color = k.ink_2, .max_lines = 1 });
+            ui.text(if (p.name.len > 0) p.name else p.label, .{ .font_size = 16, .color = if (on) k.a else k.ink, .max_lines = 1 });
+            if (p.label.len > 0 and !std.mem.eql(u8, p.label, p.name)) ui.text(p.label, .{ .font_size = 14, .color = k.ink_2, .max_lines = 1 });
             ui.end();
             ui.end();
         }
@@ -649,7 +649,7 @@ pub const Address = struct {
         var st = a.m.st;
         st.setViewport(w, h);
         if (st.moving()) ui.requestFrame(.frame);
-        ui.begin(.{ .width = .{ .px = w }, .height = .{ .px = h }, .radius = 22, .clip = true, .background = k.panel_3, .no_mirror = true }, .{ .key = zui.key(a.cfg.prefix) +% 11 });
+        ui.begin(.{ .width = .{ .px = w }, .height = .{ .px = h }, .radius = 18, .clip = true, .background = k.panel_3, .no_mirror = true }, .{ .key = zui.key(a.cfg.prefix) +% 11 });
         map.draw(core.Msg, ui, &st, .{ .tile_url = mapw.tile_url, .on_pointer = pointer_fns[a.cfg.tag] });
         // While dragged, the pin follows the finger.
         const shown: ?LatLng = if (st.drag) |d| d.at else a.point;

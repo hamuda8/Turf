@@ -137,8 +137,8 @@ pub fn update(c: *Cx, s: core.Shell) void {
 // ---- The Wufour account menu ------------------------------------------------------------------
 //
 // The profile picture at the end of the top bar opens zui.account's menu: the Wufour account
-// (devices, sign out), then Turf's own items (the language, all companies), then the person's
-// apps from the Wufour start page.
+// (manage, sign out, the person's apps from the Wufour start page), then Turf's own items (the
+// language, all companies).
 
 /// Turf's own items, in this order (`account` maps a press back by its index).
 const Own = enum { lang, all_companies };
@@ -254,9 +254,9 @@ pub fn view(c: *const Cx, ui: *Ui) void {
     const k = kit.k;
     const w = ui.env.width;
     kit.phone = w <= 900;
-    ui.setBackground(k.canvas);
-    // The body's faint glows of the action and variant colours at the top (radial in the CSS).
-    ui.begin(.{ .width = .fill, .height = .fill, .background = k.canvas, .gradient = zui.Gradient.linear(180, &.{ .{ .color = k.a.mix(0.10, k.canvas), .at = 0 }, .{ .color = k.canvas, .at = 0.45 } }) }, .{});
+    ui.setBackground(k.sheet);
+    // The page: a flat canvas (the one gradient of a screen is the rail's).
+    ui.begin(.{ .width = .fill, .height = .fill, .background = k.canvas }, .{});
 
     switch (c.mode) {
         .starting => {
@@ -309,7 +309,7 @@ fn console(c: *const Cx, ui: *Ui) void {
         ui.begin(.{ .direction = .row, .width = .fill, .height = .fill, .padding = .all(12), .gap = 12 }, .{});
         rail(c, ui, items);
         // The workspace sheet.
-        ui.begin(.{ .grow = 1, .height = .fill, .radius = 28, .background = k.sheet, .shadow = kit.shadow1(), .clip = true }, .{});
+        ui.begin(.{ .grow = 1, .height = .fill, .radius = 24, .background = k.sheet, .clip = true }, .{});
         topBar(c, ui, false);
         banner(c, ui);
         const pad = sidePad(w);
@@ -364,7 +364,7 @@ fn banner(c: *const Cx, ui: *Ui) void {
     if (text.len == 0) return;
     ui.begin(.{ .padding = .{ .top = 12, .start = 16, .end = 16 } }, .{});
     kit.noticeBegin(ui, if (std.mem.eql(u8, json.str(a, "level"), "warn")) .warn else .info, icons.notifications);
-    ui.text(text, .{ .font_size = 15, .color = kit.k.ink });
+    ui.text(text, .{ .font_size = 16, .color = kit.k.ink });
     kit.noticeEnd(ui);
     ui.end();
 }
@@ -378,16 +378,20 @@ fn topBar(c: *const Cx, ui: *Ui, phone: bool) void {
         .gap = 12,
         .min_height = if (phone) 64 else 76,
         .padding = if (phone) .{ .top = 12, .bottom = 8, .start = 16, .end = 16 } else .{ .top = 14.4, .bottom = 9.6, .start = sidePad(w), .end = sidePad(w) },
-        .background = if (phone) k.canvas.withAlpha(0.8) else null,
+        .background = if (phone) k.sheet.withAlpha(0.85) else null,
     }, .{});
     if (phone) {
         ui.begin(.{}, .{ .on_press = .{ .go = "/" } });
         kit.logo(ui, c.brand(), 34, 10);
         ui.end();
     }
-    ui.text(pageTitle(c), .{ .letter_spacing = if (phone) -0.7 else -0.84, .font_size = if (phone) 20 else 24, .weight = 800, .color = k.ink, .max_lines = 1, .grow = 1, .line_height = 1.15 });
-    ui.begin(.{ .direction = .row, .gap = 6.4, .align_items = .center }, .{});
+    ui.text(pageTitle(c), .{ .letter_spacing = if (phone) -0.7 else -0.84, .font_size = if (phone) 20 else 24, .weight = 700, .color = k.ink, .max_lines = 1, .grow = 1, .line_height = 1.15 });
+    // Phones: the page's buttons are their icons alone (the label stays for screen readers), so
+    // the title, the buttons and the account picture fit 360 points with 12 between them.
+    ui.begin(.{ .direction = .row, .gap = if (phone) 12 else 6.4, .align_items = .center }, .{});
+    kit.bar_compact = phone;
     pageActions(c, ui);
+    kit.bar_compact = false;
     ui.end();
     accountPicture(c, ui);
     ui.end();
@@ -395,16 +399,16 @@ fn topBar(c: *const Cx, ui: *Ui, phone: bool) void {
 
 fn rail(c: *const Cx, ui: *Ui, items: []const NavItem) void {
     const k = kit.k;
-    // The rail: the chrome colour with a glow of the action colour in its top corner (the CSS has
-    // two radial glows; zui draws one linear gradient).
-    ui.begin(.{ .width = .{ .px = 264 }, .height = .fill, .radius = 28, .background = k.rail, .gradient = zui.Gradient.linear(160, &.{ .{ .color = k.a.mix(0.30, k.rail), .at = 0 }, .{ .color = k.rail, .at = 0.45 } }), .shadow = kit.shadow2(), .clip = true }, .{});
+    // The rail: the chrome colour with a glow of the action colour in its top corner, the one
+    // gradient of the console (the action colour at two opacities over the chrome).
+    ui.begin(.{ .width = .{ .px = 264 }, .height = .fill, .radius = 24, .background = k.rail, .gradient = zui.Gradient.linear(160, &.{ .{ .color = k.a.withAlpha(0.30), .at = 0 }, .{ .color = k.a.withAlpha(0), .at = 0.45 } }), .clip = true }, .{});
     // The brand.
     ui.begin(.{ .direction = .row, .align_items = .center, .gap = 12, .padding = .{ .top = 20, .bottom = 16, .start = 19.2, .end = 19.2 }, .pressed_opacity = 0.8 }, .{ .on_press = .{ .go = "/" } });
     kit.logoPanel(ui, c.brand(), 44, 14);
     ui.begin(.{ .grow = 1, .gap = 1 }, .{});
-    ui.text(c.appName(), .{ .font_size = 16.8, .weight = 700, .color = k.rail_ink, .max_lines = 1, .line_height = 1.2 });
+    ui.text(c.appName(), .{ .font_size = 16, .weight = 700, .color = k.rail_ink, .max_lines = 1, .line_height = 1.2 });
     const sub = subtitle(c);
-    if (sub.len > 0) ui.text(sub, .{ .font_size = 11.8, .color = k.rail_ink_2, .max_lines = 1 });
+    if (sub.len > 0) ui.text(sub, .{ .font_size = 12, .color = k.rail_ink_2, .max_lines = 1 });
     ui.end();
     ui.end();
     // The pages.
@@ -413,7 +417,7 @@ fn rail(c: *const Cx, ui: *Ui, items: []const NavItem) void {
     for (items) |it| {
         if (it.section) {
             ui.begin(.{ .padding = .{ .top = 17.6, .bottom = 5.6, .start = 14.4, .end = 14.4 } }, .{});
-            ui.text(it.label, .{ .font_size = 10.2, .weight = 800, .color = k.rail_ink_2, .uppercase = true, .letter_spacing = 1.43 });
+            ui.text(it.label, .{ .font_size = 12, .weight = 700, .color = k.rail_ink_2, .uppercase = true, .letter_spacing = 1.43 });
             ui.end();
             continue;
         }
@@ -442,18 +446,15 @@ fn navLink(c: *const Cx, ui: *Ui, it: NavItem, active: bool, where: Where) void 
         .align_items = .center,
         .gap = 12,
         .padding = .xy(14.4, 10.6),
-        .radius = 14,
+        .radius = 12,
         .background = bg,
-        // The active rail item: linear-gradient(135deg, a 92% + b, a 70%, v) and its glow.
-        .gradient = if (active and where == .rail) zui.Gradient.linear(135, &.{ .{ .color = k.a.mix(0.92, k.b), .at = 0 }, .{ .color = k.a, .at = 0.7 }, .{ .color = k.v, .at = 1 } }) else null,
-        .shadow = if (active and where == .rail) kit.glow() else null,
         .pressed_background = if (where == .rail) k.rail_hover else k.panel_2,
         .hover_background = if (active) null else if (where == .rail) k.rail_hover else k.panel_2,
         .transition = .{ .duration_ms = 220 },
     }, .{ .on_press = .{ .go = it.path }, .key = zui.key(it.path) });
     const filled = if (active) it.fill else it.icon;
     kit.icon(ui, filled, 22.4, ink);
-    ui.text(it.label, .{ .font_size = 14.7, .weight = if (active) 700 else 600, .color = ink, .grow = 1, .max_lines = 1 });
+    ui.text(it.label, .{ .font_size = 16, .weight = if (active) 700 else 500, .color = ink, .grow = 1, .max_lines = 1 });
     if (std.mem.eql(u8, it.path, "/alerts") and c.alerts_open > 0) count(ui, c.alerts_open, active and where == .rail);
     ui.end();
 }
@@ -463,7 +464,7 @@ fn count(ui: *Ui, n: u32, on_accent: bool) void {
     var buf: [8]u8 = undefined;
     const s = if (n > 99) "99+" else std.fmt.bufPrint(&buf, "{d}", .{n}) catch "";
     ui.begin(.{ .min_width = 20.8, .padding = .xy(7.2, 0), .radius = 999, .background = if (on_accent) k.on_accent else k.f, .align_items = .center }, .{});
-    ui.text(ui.arena().dupe(u8, s) catch "", .{ .font_size = 10.9, .weight = 800, .color = if (on_accent) k.a else k.c, .line_height = 1.9 });
+    ui.text(ui.arena().dupe(u8, s) catch "", .{ .font_size = 12, .weight = 700, .color = if (on_accent) k.a else k.c, .line_height = 1.9 });
     ui.end();
 }
 
@@ -475,22 +476,25 @@ fn bottomBar(c: *const Cx, ui: *Ui, items: []const NavItem) void {
         .inset = .{ .start = 12, .end = 12, .bottom = 12 },
         .height = .{ .px = 68 },
         .direction = .row,
+        .gap = 4,
         .padding = .xy(6.4, 5.6),
         .radius = 24,
-        .background = k.panel.withAlpha(0.94),
+        .background = k.sheet.withAlpha(0.94),
         .border_width = 1,
         .border_color = k.line_soft,
         .shadow = kit.shadow3(),
     }, .{});
+    // Small phones: three pages and More, so the labels keep whole words and do not touch.
+    const max_shown: usize = if (ui.env.width < 400) 3 else 4;
     var shown: usize = 0;
     for (items) |it| {
-        if (it.section or shown == 4) continue;
+        if (it.section or shown == max_shown) continue;
         shown += 1;
         const on = std.mem.eql(u8, it.path, active);
-        ui.begin(.{ .width = .fill, .align_items = .center, .justify = .center, .gap = 2.4, .radius = 18, .background = if (on) k.a else null, .gradient = if (on) kit.accentGradient() else null, .shadow = if (on) kit.glow() else null, .pressed_opacity = 0.7, .transition = .{ .duration_ms = 220 } }, .{ .on_press = .{ .go = it.path }, .key = zui.key(it.path) });
+        ui.begin(.{ .width = .fill, .align_items = .center, .justify = .center, .gap = 2.4, .radius = 12, .background = if (on) k.a else null, .pressed_opacity = 0.7, .transition = .{ .duration_ms = 220 } }, .{ .on_press = .{ .go = it.path }, .key = zui.key(it.path) });
         const ink = if (on) k.on_accent else k.ink_3;
         kit.icon(ui, if (on) it.fill else it.icon, 24, ink);
-        ui.text(it.label, .{ .font_size = 10.2, .weight = 700, .color = ink, .max_lines = 1 });
+        ui.text(it.label, .{ .font_size = 12, .weight = 700, .color = ink, .max_lines = 1 });
         if (std.mem.eql(u8, it.path, "/alerts") and c.alerts_open > 0) {
             ui.begin(.{ .position = .absolute, .inset = .{ .top = 2.4, .end = 12 } }, .{});
             count(ui, c.alerts_open, false);
@@ -502,7 +506,7 @@ fn bottomBar(c: *const Cx, ui: *Ui, items: []const NavItem) void {
     ui.begin(.{ .width = .fill, .align_items = .center, .justify = .center, .gap = 2.4, .radius = 18, .pressed_opacity = 0.7 }, .{ .on_press = .{ .shell = .menu } });
     const ink = if (c.menu_open) k.ink else k.ink_3;
     kit.icon(ui, if (c.menu_open) icons.close else icons.menu, 24, ink);
-    ui.text(if (c.menu_open) L("common.close") else L("nav.more"), .{ .font_size = 10.2, .weight = 700, .color = ink, .max_lines = 1 });
+    ui.text(if (c.menu_open) L("common.close") else L("nav.more"), .{ .font_size = 12, .weight = 700, .color = ink, .max_lines = 1 });
     ui.end();
     ui.end();
 }
@@ -521,7 +525,7 @@ fn menuPanel(c: *const Cx, ui: *Ui) void {
     }, zui.key("menu-panel"));
     ui.begin(.{ .width = .{ .px = @min(ui.env.width - 32, 640) }, .gap = 3.2 }, .{});
     ui.begin(.{ .padding = .{ .start = 14.4, .end = 14.4, .bottom = 8 } }, .{});
-    ui.text(c.appName(), .{ .font_size = 18.4, .weight = 800, .color = k.ink });
+    ui.text(c.appName(), .{ .font_size = 20, .weight = 700, .color = k.ink });
     ui.end();
     for (items) |it| {
         if (it.section) {
@@ -538,7 +542,7 @@ fn menuPanel(c: *const Cx, ui: *Ui) void {
 
 fn sheetSection(ui: *Ui, s: []const u8) void {
     ui.begin(.{ .padding = .{ .top = 14.4, .bottom = 4.8, .start = 14.4, .end = 14.4 } }, .{});
-    ui.text(s, .{ .font_size = 10.2, .weight = 800, .color = kit.k.ink_3, .uppercase = true, .letter_spacing = 1.43 });
+    ui.text(s, .{ .font_size = 12, .weight = 700, .color = kit.k.ink_3, .uppercase = true, .letter_spacing = 1.43 });
     ui.end();
 }
 
@@ -575,9 +579,9 @@ pub fn modalBegin(ui: *Ui, o: ModalOpts) void {
     ui.begin(.{
         .width = .{ .px = width },
         .max_height = ui.env.height - (if (sheet) @as(f32, 48) else 32),
-        .radius = if (sheet) 0 else 28,
-        .corners = if (sheet) .{ .top_start = 26, .top_end = 26 } else null,
-        .background = k.panel,
+        .radius = if (sheet) 0 else 24,
+        .corners = if (sheet) .{ .top_start = 24, .top_end = 24 } else null,
+        .background = k.sheet,
         .shadow = kit.shadow3(),
         .clip = true,
     }, .{ .on_press = .frame, .key = o.key });
@@ -588,7 +592,7 @@ pub fn modalBegin(ui: *Ui, o: ModalOpts) void {
         ui.end();
     }
     ui.begin(.{ .direction = .row, .align_items = .center, .justify = .space_between, .gap = 8, .padding = .{ .top = if (sheet) 10 else 17.6, .bottom = 9.6, .start = 20, .end = 12 } }, .{});
-    ui.text(o.title, .{ .font_size = 18.4, .weight = 800, .color = k.ink, .grow = 1 });
+    ui.text(o.title, .{ .font_size = 20, .weight = 700, .color = k.ink, .grow = 1 });
     kit.iconButton(ui, icons.close, o.close, .{ .variant = .ghost, .label = L("common.close") });
     ui.end();
     ui.beginScroll(.{ .height = .fill, .padding = .{ .top = 5.6, .bottom = 20, .start = 20, .end = 20 }, .gap = 16, .max_height = ui.env.height - 180 }, o.key +% 3);
@@ -618,7 +622,7 @@ pub fn modalButton(ui: *Ui, lbl: []const u8, msg: Msg, o: kit.ButtonOpts) void {
 
 fn confirmDialog(ui: *Ui, x: core.Confirm) void {
     modalBegin(ui, .{ .title = x.title, .close = .{ .shell = .confirm_no }, .key = zui.key("confirm") });
-    ui.text(x.text, .{ .font_size = 15, .color = kit.k.ink });
+    ui.text(x.text, .{ .font_size = 16, .color = kit.k.ink });
     modalFoot(ui);
     modalButton(ui, L("common.cancel"), .{ .shell = .confirm_no }, .{});
     modalButton(ui, x.label, .{ .shell = .confirm_yes }, .{ .variant = if (x.danger) .danger else .primary });
@@ -633,14 +637,14 @@ fn toasts(c: *const Cx, ui: *Ui) void {
     const lift: f32 = if (driver) 88 else if (kit.phone and !isBare(c)) 68 + 24 else 16;
     ui.begin(.{ .position = .absolute, .inset = .{ .start = 16, .end = 16, .bottom = lift }, .align_items = .center, .gap = 8 }, .{});
     for (c.toasts.items) |x| {
-        ui.begin(.{ .direction = .row, .align_items = .center, .gap = 8.8, .padding = .xy(18.4, 12), .radius = 999, .background = k.c, .shadow = kit.shadow3(), .max_width = @min(520, ui.env.width - 32) }, .{ .on_press = .{ .shell = .{ .toast_tap = x.id } }, .key = zui.key(x.id) });
+        ui.begin(.{ .direction = .row, .align_items = .center, .gap = 8.8, .padding = .xy(18.4, 12), .radius = 18, .background = k.c, .shadow = kit.shadow3(), .max_width = @min(520, ui.env.width - 32) }, .{ .on_press = .{ .shell = .{ .toast_tap = x.id } }, .key = zui.key(x.id) });
         ui.begin(.{ .width = .{ .px = 8 }, .height = .{ .px = 8 }, .radius = 4, .background = switch (x.kind) {
             .info => k.a,
             .ok => k.o,
             .err => k.f,
         } }, .{});
         ui.end();
-        ui.text(x.text, .{ .font_size = 14.4, .weight = 600, .color = k.b });
+        ui.text(x.text, .{ .font_size = 14, .weight = 500, .color = k.b });
         ui.end();
     }
     ui.end();

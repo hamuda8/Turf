@@ -190,7 +190,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     ui.end();
     for (s.feed[0..s.feed_len]) |x| {
         ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});
-        ui.text(fmt.time(a, x.when), .{ .font_size = 13.6, .color = k.ink_3 });
+        ui.text(fmt.time(a, x.when), .{ .font_size = 14, .color = k.ink_3 });
         if (x.status.len > 0) kit.statusBadge(ui, x.status);
         if (x.id.len > 0)
             kit.link(ui, x.text, .{ .go = kit.f(ui, "/shipments/{s}", .{x.id}) }, .{})

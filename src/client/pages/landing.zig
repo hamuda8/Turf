@@ -66,14 +66,21 @@ pub fn nav(ui: *Ui, c: *const Cx, docs: bool) void {
     const w = ui.env.width;
     ui.begin(.{ .width = .fill, .align_items = .center }, .{});
     ui.begin(.{ .direction = .row, .align_items = .center, .gap = 12, .width = .{ .px = @min(w, 1120) }, .padding = .xy(clampVw(ui, 16, 3, 24), 16) }, .{});
-    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 8.8, .pressed_opacity = 0.7 }, .{ .on_press = .{ .link = "/" } });
+    // The wordmark never wraps when the bar is tight (a row shrinks its auto-width children).
+    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 8.8, .min_width = 36 + 8.8 + kit.estimate("Turf", 20) * 1.12, .pressed_opacity = 0.7 }, .{ .on_press = .{ .link = "/" } });
     ui.begin(.{ .width = .{ .px = 36 }, .height = .{ .px = 36 }, .radius = 10, .clip = true }, .{});
     ui.image(c.asset(ui.arena(), "/img/icon-192.png"), .{ .width = .{ .px = 36 }, .height = .{ .px = 36 } }, 0);
     ui.end();
-    ui.text("Turf", .{ .font_size = 19.2, .weight = 800, .color = k.ink });
+    ui.text("Turf", .{ .font_size = 20, .weight = 700, .color = k.ink, .max_lines = 1 });
     ui.end();
     kit.spacer(ui);
-    kit.button(ui, if (c.ar()) "English" else "العربية", .{ .shell = .lang }, .{ .variant = .ghost, .icon = icons.language, .size = if (w <= 420) .sm else .md });
+    // On small phones the language switch is the globe alone (its name as the label), so the
+    // bar keeps the wordmark, the switch and Sign in with 12 points between them.
+    const lang_name = if (c.ar()) "English" else "العربية";
+    if (w <= 420)
+        kit.iconButton(ui, icons.language, .{ .shell = .lang }, .{ .variant = .ghost, .label = lang_name })
+    else
+        kit.button(ui, lang_name, .{ .shell = .lang }, .{ .variant = .ghost, .icon = icons.language });
     // The API documentation hides on phones (max-width: 560px).
     if (docs and w > 560) kit.button(ui, L("nav.api_docs"), .{ .open = serverUrl(ui, "/developers") }, .{ .variant = .ghost });
     kit.button(ui, L("landing.sign_in"), .{ .link = "/app" }, .{ .variant = .primary, .size = if (w <= 420) .sm else .md });
@@ -87,9 +94,9 @@ pub fn footer(ui: *Ui) void {
     kit.line(ui, k.line_soft);
     ui.begin(.{ .direction = .row, .justify = .center, .align_items = .center, .gap = 4, .padding = .xy(16, 32) }, .{});
     const year = fmt.civil(fmt.now()).y;
-    ui.text(kit.f(ui, "© {d} Turf · ", .{year}), .{ .font_size = 13.6, .color = k.ink_3 });
+    ui.text(kit.f(ui, "© {d} Turf · ", .{year}), .{ .font_size = 14, .color = k.ink_3 });
     kit.link(ui, L("legal.terms"), .{ .open = serverUrl(ui, "/terms") }, .{ .size = 13.6, .color = k.ink_3, .weight = 500 });
-    ui.text(" · ", .{ .font_size = 13.6, .color = k.ink_3 });
+    ui.text(" · ", .{ .font_size = 14, .color = k.ink_3 });
     kit.link(ui, L("legal.privacy"), .{ .open = serverUrl(ui, "/privacy") }, .{ .size = 13.6, .color = k.ink_3, .weight = 500 });
     ui.end();
 }
@@ -182,8 +189,8 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
 
 fn bullet(ui: *Ui, s: []const u8) void {
     ui.begin(.{ .direction = .row, .gap = 8, .align_items = .start, .padding = .{ .start = 4 } }, .{});
-    ui.text("\u{2022}", .{ .font_size = 15, .color = kit.k.ink_2 });
-    ui.text(s, .{ .font_size = 15, .color = kit.k.ink_2, .grow = 1 });
+    ui.text("\u{2022}", .{ .font_size = 16, .color = kit.k.ink_2 });
+    ui.text(s, .{ .font_size = 16, .color = kit.k.ink_2, .grow = 1 });
     ui.end();
 }
 
@@ -191,8 +198,8 @@ fn heroText(ui: *Ui, c: *const Cx) void {
     const k = kit.k;
     const h1 = clampVw(ui, 32, 5, 54.4);
     ui.begin(.{ .gap = 20 }, .{});
-    ui.text(L("landing.title"), .{ .font_size = h1, .weight = 850, .line_height = 1.05, .letter_spacing = -0.045 * h1, .color = k.ink, .max_width = h1 * 18 * 0.6 });
-    ui.text(L("landing.subtitle"), .{ .font_size = 18.4, .color = k.ink_2, .line_height = 1.5 });
+    ui.text(L("landing.title"), .{ .font_size = h1, .weight = 700, .line_height = 1.05, .letter_spacing = -0.045 * h1, .color = k.ink, .max_width = h1 * 18 * 0.6 });
+    ui.text(L("landing.subtitle"), .{ .font_size = 18, .color = k.ink_2, .line_height = 1.5 });
     var w = kit.Wrap.begin(ui, kit.width, 9.6);
     const ctas = [_]struct { []const u8, zui.Icon, []const u8, bool }{
         .{ L("landing.cta_carrier"), icons.local_shipping, "/app?start=carrier", true },
@@ -212,24 +219,24 @@ fn heroText(ui: *Ui, c: *const Cx) void {
 fn trackPanel(ui: *Ui, s: *const S) void {
     const k = kit.k;
     const pad = clampVw(ui, 20, 3, 28);
-    ui.begin(.{ .gap = 13.6, .padding = .all(pad), .radius = 28, .background = k.rail, .gradient = zui.Gradient.linear(225, &.{ .{ .color = k.a.mix(0.28, k.rail), .at = 0 }, .{ .color = k.rail, .at = 0.55 } }), .shadow = kit.shadow3() }, .{});
+    ui.begin(.{ .gap = 13.6, .padding = .all(pad), .radius = 24, .background = k.rail, .gradient = zui.Gradient.linear(225, &.{ .{ .color = k.a.withAlpha(0.28), .at = 0 }, .{ .color = k.a.withAlpha(0), .at = 0.55 } }) }, .{});
     const saved = kit.width;
     kit.width = saved - 2 * pad;
     ui.begin(.{ .direction = .row, .gap = 9.6, .align_items = .center }, .{});
     ui.begin(.{ .width = .{ .px = 40 }, .height = .{ .px = 40 }, .radius = 12, .background = k.rail_ink.withAlpha(0.12), .align_items = .center, .justify = .center }, .{});
     kit.icon(ui, icons.search, 22.4, k.rail_ink);
     ui.end();
-    ui.text(L("lookup.title"), .{ .font_size = clampVw(ui, 20.8, 2.6, 25.6), .weight = 850, .color = k.rail_ink, .grow = 1, .line_height = 1.15 });
+    ui.text(L("lookup.title"), .{ .font_size = clampVw(ui, 20.8, 2.6, 25.6), .weight = 700, .color = k.rail_ink, .grow = 1, .line_height = 1.15 });
     ui.end();
-    ui.text(L("lookup.intro"), .{ .font_size = 15.7, .color = k.rail_ink_2 });
+    ui.text(L("lookup.intro"), .{ .font_size = 16, .color = k.rail_ink_2 });
     lookup.form(ui, &s.search, .{ .hero = true, .on_rail = true });
     ui.begin(.{ .direction = .row, .wrap = true, .gap = 16, .align_items = .center, .justify = .space_between }, .{});
     ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center }, .{});
     kit.icon(ui, icons.qr_code_2, 17, k.rail_ink_2);
-    ui.text(L("lookup.where_number"), .{ .font_size = 13.1, .color = k.rail_ink_2 });
+    ui.text(L("lookup.where_number"), .{ .font_size = 13, .color = k.rail_ink_2 });
     ui.end();
     ui.begin(.{ .direction = .row, .gap = 3.2, .align_items = .center, .pressed_opacity = 0.6 }, .{ .on_press = .{ .link = "/track" } });
-    ui.text(L("lookup.open_page"), .{ .font_size = 13.1, .weight = 700, .color = k.rail_ink });
+    ui.text(L("lookup.open_page"), .{ .font_size = 13, .weight = 700, .color = k.rail_ink });
     kit.iconFlip(ui, icons.arrow_forward, 17, k.rail_ink);
     ui.end();
     ui.end();

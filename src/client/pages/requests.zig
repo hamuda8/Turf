@@ -141,7 +141,7 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
         if (json.boolean(r, "parcel.fragile")) line.print(a, " · {s}", .{L("shipment.fragile")}) catch {};
         if (json.str(r, "parcel.description").len > 0) line.print(a, " · {s}", .{json.str(r, "parcel.description")}) catch {};
         kit.small(ui, line.items);
-        if (json.obj(r, "cod")) |cod| ui.text(cm.tx(ui, "requests.cod", .{ .amount = fmt.money(a, json.num(cod, "amount"), json.str(cod, "currency")) }), .{ .font_size = 13.6, .color = k.ink });
+        if (json.obj(r, "cod")) |cod| ui.text(cm.tx(ui, "requests.cod", .{ .amount = fmt.money(a, json.num(cod, "amount"), json.str(cod, "currency")) }), .{ .font_size = 14, .color = k.ink });
         if (json.str(r, "notes").len > 0) kit.notice(ui, .info, json.str(r, "notes"));
         kit.rowBetween(ui);
         kit.strong(ui, fmt.money(a, json.num(r, "price.amount"), json.str(r, "price.currency")));

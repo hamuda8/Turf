@@ -538,7 +538,7 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
             for (assignable(c, ui.arena())) |r| opts.append(ui.arena(), .{ .value = cm.docId(r), .label = json.str(r, "name") }) catch {};
             kit.selectField(ui, L("team.role"), f_role, opts.items, .{ .required = true, .name = "roleId" });
             if (isCourierRole(c, c.val(f_role))) {
-                ui.begin(.{ .gap = 12, .padding = .all(16), .radius = 16, .border_width = 1, .border_color = kit.k.line }, .{});
+                ui.begin(.{ .gap = 12, .padding = .all(16), .radius = 18, .border_width = 1, .border_color = kit.k.line }, .{});
                 kit.h3(ui, L("team.courier_details"));
                 courierFields(c, ui, kit.act(A.invite, 0));
                 ui.end();
@@ -553,7 +553,7 @@ pub fn overlay(s: *const S, c: *const Cx, ui: *Ui) void {
             const link = json.str(inv, "link");
             shell.modalBegin(ui, .{ .title = L("team.invite_ready"), .close = close, .key = zui.key("invite-ready") });
             kit.text(ui, cm.tx(ui, "team.invite_share", .{ .email = json.str(inv, "email") }), .{});
-            ui.begin(.{ .padding = .xy(16, 12), .radius = 16, .background = kit.k.panel_3, .no_mirror = true }, .{});
+            ui.begin(.{ .padding = .xy(16, 12), .radius = 12, .background = kit.k.panel_3, .no_mirror = true }, .{});
             kit.mono(ui, link, .{});
             ui.end();
             ui.begin(.{ .direction = .row, .gap = 12 }, .{});
@@ -609,8 +609,8 @@ fn roleDialog(s: *const S, c: *const Cx, ui: *Ui) void {
                 ui.begin(.{ .direction = .row, .gap = 9.6, .align_items = .start, .opacity = 0.5 }, .{});
                 kit.box(ui, s.perms.has(key));
                 ui.begin(.{ .grow = 1 }, .{});
-                ui.text(labels.of("perm.", key), .{ .font_size = 15, .color = k.ink_2 });
-                ui.text(L("team.cannot_grant"), .{ .font_size = 12.2, .color = k.ink_3 });
+                ui.text(labels.of("perm.", key), .{ .font_size = 16, .color = k.ink_2 });
+                ui.text(L("team.cannot_grant"), .{ .font_size = 12, .color = k.ink_3 });
                 ui.end();
                 ui.end();
             }

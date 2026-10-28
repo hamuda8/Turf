@@ -141,10 +141,10 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
                 ui.begin(.{ .direction = .row, .gap = 8, .align_items = .start, .justify = .space_between }, .{});
                 ui.begin(.{ .direction = .row, .gap = 4.8, .align_items = .center, .grow = 1 }, .{});
                 kit.link(ui, json.str(x, "trackingNumber"), .{ .go = kit.f(ui, "/shipments/{s}", .{json.str(x, "shipmentId")}) }, .{ .mono = true });
-                ui.text("·", .{ .font_size = 15, .color = k.ink_3 });
+                ui.text("·", .{ .font_size = 16, .color = k.ink_3 });
                 kit.strong(ui, labels.of("claims.type.", json.str(x, "type")));
-                ui.text("·", .{ .font_size = 15, .color = k.ink_3 });
-                ui.text(json.str(x, if (carrier) "merchantName" else "carrierName"), .{ .font_size = 15, .color = k.ink, .grow = 1 });
+                ui.text("·", .{ .font_size = 16, .color = k.ink_3 });
+                ui.text(json.str(x, if (carrier) "merchantName" else "carrierName"), .{ .font_size = 16, .color = k.ink, .grow = 1 });
                 ui.end();
                 kit.badge(ui, labels.of("claims.status.", st), statusTone(st));
                 ui.end();

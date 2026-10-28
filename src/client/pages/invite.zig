@@ -78,7 +78,7 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
     }
     center(ui, ui.tf(labels.english("invite.heading") orelse "{org}", .{ .org = json.str(inv, "org.name") }), true);
     center(ui, ui.tf(labels.english("invite.role") orelse "{role}", .{ .role = json.str(inv, "role") }), false);
-    if (json.obj(inv, "courier")) |cr| ui.text(ui.tf(labels.english("invite.courier") orelse "{vehicle}", .{ .vehicle = labels.vehicle(json.str(cr, "vehicle")) }), .{ .font_size = 15, .color = k.ink_2, .text_align = .center });
+    if (json.obj(inv, "courier")) |cr| ui.text(ui.tf(labels.english("invite.courier") orelse "{vehicle}", .{ .vehicle = labels.vehicle(json.str(cr, "vehicle")) }), .{ .font_size = 16, .color = k.ink_2, .text_align = .center });
 
     if (!json.boolean(inv, "emailMatches")) {
         ui.begin(.{ .width = .fill }, .{});
@@ -110,9 +110,9 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
 
 fn center(ui: *Ui, s: []const u8, heading: bool) void {
     if (heading)
-        ui.text(s, .{ .font_size = 17.9, .weight = 800, .color = kit.k.ink, .text_align = .center, .line_height = 1.15 })
+        ui.text(s, .{ .font_size = 18, .weight = 700, .color = kit.k.ink, .text_align = .center, .line_height = 1.15 })
     else
-        ui.text(s, .{ .font_size = 15, .color = kit.k.ink, .text_align = .center });
+        ui.text(s, .{ .font_size = 16, .color = kit.k.ink, .text_align = .center });
 }
 
 // ---- Tests --------------------------------------------------------------------------------

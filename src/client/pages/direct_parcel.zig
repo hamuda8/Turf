@@ -78,7 +78,7 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
     ui.begin(.{ .gap = 16, .width = .{ .px = kit.width } }, .{});
     kit.card(ui, .{ .gap = 8.8 });
     kit.rowBetween(ui);
-    ui.text(json.str(s, "trackingNumber"), .{ .font_size = 15, .weight = 700, .color = k.ink, .mono = true });
+    ui.text(json.str(s, "trackingNumber"), .{ .font_size = 16, .weight = 700, .color = k.ink, .mono = true });
     kit.statusBadge(ui, status);
     ui.end();
     if (waiting and json.has(s, "offer")) {
@@ -97,7 +97,7 @@ pub fn view(_: *const S, c: *const Cx, ui: *Ui) void {
     const code = json.str(s, "deliveryCode");
     if (code.len > 0) {
         kit.kvBegin(ui, L("shipment.delivery_code"), false);
-        ui.text(code, .{ .font_size = 15, .weight = 700, .color = k.ink, .mono = true });
+        ui.text(code, .{ .font_size = 16, .weight = 700, .color = k.ink, .mono = true });
         kit.kvEnd(ui, false);
     }
     // The sender tells the recipient themselves (Turf never messages people).

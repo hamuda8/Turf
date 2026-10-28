@@ -300,7 +300,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         if (zui.Color.parseHex(json.str(v, "carrier.primaryColor"))) |x| b.primary = x else |_| {}
         if (zui.Color.parseHex(json.str(v, "carrier.onPrimary"))) |x| b.on_primary = x else |_| {}
         kit.k = theme.colors(ui.env.dark, b);
-        ui.setBackground(kit.k.canvas);
+        ui.setBackground(kit.k.sheet);
     }
     const k = kit.k;
     const pad: f32 = if (s.embed) 8 else 16;
@@ -317,7 +317,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         ui.begin(.{ .width = .{ .px = 64 }, .height = .{ .px = 64 }, .radius = 20, .background = k.accent_soft, .align_items = .center, .justify = .center }, .{});
         kit.icon(ui, icons.search, 32, k.a);
         ui.end();
-        ui.text(if (sl.status == 404) L("track.not_found") else L("error.generic"), .{ .font_size = 15, .color = k.ink_2, .text_align = .center });
+        ui.text(if (sl.status == 404) L("track.not_found") else L("error.generic"), .{ .font_size = 16, .color = k.ink_2, .text_align = .center });
         ui.end();
         kit.endCard(ui, .{});
     } else page(s, c, ui, v.?);
@@ -331,11 +331,11 @@ fn page(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     const failed = inList(status, &.{ "cancelled", "returned", "returning" });
 
     // The head: the carrier on the chrome colour, the language.
-    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 12, .background = k.rail, .gradient = zui.Gradient.linear(225, &.{ .{ .color = k.a.mix(0.28, k.rail), .at = 0 }, .{ .color = k.rail, .at = 0.5 } }), .shadow = kit.shadow2(), .radius = if (s.embed) 16 else 22, .padding = if (s.embed) .xy(12.8, 9.6) else .xy(17.6, 16) }, .{});
+    ui.begin(.{ .direction = .row, .align_items = .center, .gap = 12, .background = k.rail, .gradient = zui.Gradient.linear(225, &.{ .{ .color = k.a.withAlpha(0.28), .at = 0 }, .{ .color = k.a.withAlpha(0), .at = 0.5 } }), .radius = if (s.embed) 12 else 18, .padding = if (s.embed) .xy(12.8, 9.6) else .xy(17.6, 16) }, .{});
     kit.logoPanel(ui, json.obj(v, "carrier"), 46, 12);
     ui.begin(.{ .grow = 1, .gap = 1 }, .{});
-    ui.text(json.str(v, "carrier.name"), .{ .font_size = 16.8, .weight = 700, .color = k.rail_ink });
-    ui.text(ui.tf(labels.english("track.order_from") orelse "{merchant}", .{ .merchant = json.str(v, "merchant.name") }), .{ .font_size = 13.6, .color = k.rail_ink_2 });
+    ui.text(json.str(v, "carrier.name"), .{ .font_size = 16, .weight = 700, .color = k.rail_ink });
+    ui.text(ui.tf(labels.english("track.order_from") orelse "{merchant}", .{ .merchant = json.str(v, "merchant.name") }), .{ .font_size = 14, .color = k.rail_ink_2 });
     ui.end();
     kit.button(ui, if (c.ar()) "EN" else "ع", kit.act(A.lang, 0), .{ .size = .sm, .on_rail = true });
     ui.end();
@@ -346,12 +346,12 @@ fn page(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     // The status.
     kit.card(ui, .{ .gap = 5.6 });
     ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});
-    ui.text(json.str(v, "trackingNumber"), .{ .font_size = 13.6, .mono = true, .color = k.ink_2 });
+    ui.text(json.str(v, "trackingNumber"), .{ .font_size = 14, .mono = true, .color = k.ink_2 });
     if (eq(json.str(v, "service"), "express")) kit.expressBadge(ui);
     ui.end();
-    ui.text(json.str(v, if (c.ar()) "statusTextAr" else "statusTextEn"), .{ .font_size = 27.2, .weight = 850, .line_height = 1.1, .color = k.ink });
+    ui.text(json.str(v, if (c.ar()) "statusTextAr" else "statusTextEn"), .{ .font_size = 28, .weight = 700, .line_height = 1.1, .color = k.ink });
     const eta = etaLine(ui, v);
-    if (eta.len > 0) ui.text(eta, .{ .font_size = 16.8, .color = k.ink });
+    if (eta.len > 0) ui.text(eta, .{ .font_size = 16, .color = k.ink });
     if (!failed) {
         ui.begin(.{ .padding = .{ .top = 8 } }, .{});
         lookup.progress(ui, trackStep(status), k.a);
@@ -371,12 +371,12 @@ fn page(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     const code = json.str(v, "deliveryCode");
     if (code.len > 0 and inList(status, &code_statuses)) {
         // `.code-panel`: a dashed ring over a soft accent glow.
-        kit.card(ui, .{ .gap = 4.8, .ring = k.a, .dashed = true, .align_items = .center, .background = k.accent_soft.mix(0.5, k.panel) });
+        kit.card(ui, .{ .gap = 4.8, .ring = k.a, .dashed = true, .align_items = .center, .background = k.a.withAlpha(0.08) });
         kit.text(ui, L("track.your_code"), .{ .@"align" = .center });
         ui.begin(.{ .no_mirror = true }, .{});
-        ui.text(code, .{ .font_size = 38.4, .weight = 850, .mono = true, .letter_spacing = 13.4, .color = k.ink, .text_align = .center });
+        ui.text(code, .{ .font_size = 38.4, .weight = 700, .mono = true, .letter_spacing = 13.4, .color = k.ink, .text_align = .center });
         ui.end();
-        ui.text(L("track.code_hint"), .{ .font_size = 13.6, .color = k.ink_2, .text_align = .center });
+        ui.text(L("track.code_hint"), .{ .font_size = 14, .color = k.ink_2, .text_align = .center });
         kit.endCard(ui, .{});
     }
 
@@ -392,11 +392,11 @@ fn page(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     if (json.obj(v, "courier")) |cr| {
         ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});
         kit.icon(ui, icons.navigation, 18, k.ink);
-        ui.text(json.strOr(cr, "name", L("track.courier")), .{ .font_size = 13.6, .weight = 700, .color = k.ink });
-        ui.text(labels.vehicle(json.str(cr, "vehicle")), .{ .font_size = 13.6, .color = k.ink_2 });
-        if (json.str(cr, "updatedAt").len > 0) ui.text(fmt.relative(ui.arena(), json.str(cr, "updatedAt")), .{ .font_size = 13.6, .color = k.ink_2 });
+        ui.text(json.strOr(cr, "name", L("track.courier")), .{ .font_size = 14, .weight = 700, .color = k.ink });
+        ui.text(labels.vehicle(json.str(cr, "vehicle")), .{ .font_size = 14, .color = k.ink_2 });
+        if (json.str(cr, "updatedAt").len > 0) ui.text(fmt.relative(ui.arena(), json.str(cr, "updatedAt")), .{ .font_size = 14, .color = k.ink_2 });
         ui.end();
-    } else ui.text(L("track.no_live_courier"), .{ .font_size = 13.6, .color = k.ink_2 });
+    } else ui.text(L("track.no_live_courier"), .{ .font_size = 14, .color = k.ink_2 });
     kit.endCard(ui, .{});
 
     if (json.boolean(v, "canSetLocation") and !s.embed) locationCard(s, ui, v);
@@ -420,13 +420,13 @@ fn page(s: *const S, c: *const Cx, ui: *Ui, v: V) void {
     const phone = json.str(v, "carrier.phone");
     if (phone.len > 0 and !s.embed) {
         kit.card(ui, .{ .direction = .row, .align_items = .center, .gap = 12 });
-        ui.text(ui.tf(labels.english("track.questions") orelse "{carrier}", .{ .carrier = json.str(v, "carrier.name") }), .{ .font_size = 15, .color = k.ink, .grow = 1 });
+        ui.text(ui.tf(labels.english("track.questions") orelse "{carrier}", .{ .carrier = json.str(v, "carrier.name") }), .{ .font_size = 16, .color = k.ink, .grow = 1 });
         kit.button(ui, phone, .{ .open = kit.f(ui, "tel:{s}", .{phone}) }, .{ .size = .sm, .icon = icons.call });
         kit.endCard(ui, .{});
     }
 
     ui.begin(.{ .direction = .row, .justify = .center, .gap = 4 }, .{});
-    ui.text(L("track.powered"), .{ .font_size = 12.5, .color = k.ink_3 });
+    ui.text(L("track.powered"), .{ .font_size = 13, .color = k.ink_3 });
     kit.link(ui, "Turf", .{ .open = kit.f(ui, "{s}/", .{core.api_base}) }, .{ .size = 12.5, .color = k.ink_3, .weight = 500 });
     ui.end();
 }
@@ -483,7 +483,7 @@ fn locationCard(s: *const S, ui: *Ui, v: V) void {
             kit.strong(ui, L("track.help_courier"));
             if (s.accuracy > 200) {
                 kit.noticeBegin(ui, .warn, icons.warning);
-                ui.text(ui.tf(labels.english("track.pin_accuracy") orelse "{m}", .{ .m = @as(i64, @intFromFloat(@round(s.accuracy))) }), .{ .font_size = 13.6, .color = k.ink });
+                ui.text(ui.tf(labels.english("track.pin_accuracy") orelse "{m}", .{ .m = @as(i64, @intFromFloat(@round(s.accuracy))) }), .{ .font_size = 14, .color = k.ink });
                 kit.noticeEnd(ui);
             }
             // Drag the pin, or tap the map to move it.

@@ -194,7 +194,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
         if (json.str(pod, "receiverName").len > 0) parts.kv(ui, L("shipment.receiver_name"), json.str(pod, "receiverName"));
         parts.kv(ui, L("common.when"), fmt.dateTime(a, json.str(pod, "at")));
         if (json.boolean(pod, "hasPhoto")) {
-            ui.begin(.{ .radius = 16, .background = kit.k.panel_2, .clip = true, .height = .{ .px = 240 } }, .{});
+            ui.begin(.{ .radius = 18, .background = kit.k.panel_2, .clip = true, .height = .{ .px = 240 } }, .{});
             ui.imageWith(kit.f(ui, "{s}/api/app/orgs/{s}/merchant/shipments/{s}/pod-photo", .{ core.api_base, c.orgId(), json.str(sh, "id") }), .{ .headers = c.headers(ui.arena()) }, .{ .width = .fill, .height = .{ .px = 240 } }, zui.key("pod"));
             ui.end();
         }
@@ -211,7 +211,7 @@ pub fn view(s: *const S, c: *const Cx, ui: *Ui) void {
     if (mapw.ll(sh, "pickup.location")) |p| pins.append(a, .{ .at = p, .icon = mapw.placeIcon("shop"), .kind = .place, .key = zui.key("pickup") }) catch {};
     if (mapw.ll(sh, "dropoff.location")) |p| pins.append(a, .{ .at = p, .icon = mapw.placeIcon("home"), .kind = .place, .key = zui.key("dropoff") }) catch {};
     if (mapw.ll(tr, "courier.location")) |p| pins.append(a, .{ .at = p, .icon = mapw.vehicleIcon(json.str(tr, "courier.vehicle")), .key = zui.key("courier") }) catch {};
-    mapw.draw(ui, &s.m, .{ .width = kit.width - 40, .height = 360, .radius = 16, .pins = pins.items });
+    mapw.draw(ui, &s.m, .{ .width = kit.width - 40, .height = 360, .radius = 18, .pins = pins.items });
     courierLine(ui, json.obj(tr, "courier"));
     kit.endCard(ui, .{});
     var g2 = kit.grid(ui, 2, 2);
@@ -236,7 +236,7 @@ fn courierLine(ui: *Ui, cr: ?V) void {
     const x = cr orelse return kit.small(ui, L("track.no_live_courier"));
     ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});
     kit.icon(ui, icons.navigation, 18, k.ink_2);
-    ui.text(json.str(x, "name"), .{ .font_size = 13.6, .weight = 700, .color = k.ink });
+    ui.text(json.str(x, "name"), .{ .font_size = 14, .weight = 700, .color = k.ink });
     kit.small(ui, labels.vehicle(json.str(x, "vehicle")));
     if (json.num(x, "etaMinutes")) |m| if (m > 0) kit.badge(ui, ui.tf(labels.english("track.eta") orelse "{time}", .{ .time = fmt.duration(a, m) }), .brand);
     if (json.str(x, "updatedAt").len > 0) kit.small(ui, fmt.relative(a, json.str(x, "updatedAt")));
@@ -294,7 +294,7 @@ fn share(ui: *Ui, sh: ?V) void {
     const url = json.str(sh, "trackingUrl");
     kit.card(ui, .{ .gap = 8.8 });
     kit.h2(ui, L("shipment.share_tracking"));
-    ui.begin(.{ .padding = .xy(16, 12), .radius = 16, .background = k.panel_3, .no_mirror = true }, .{});
+    ui.begin(.{ .padding = .xy(16, 12), .radius = 12, .background = k.panel_3, .no_mirror = true }, .{});
     kit.mono(ui, url, .{ .size = 13.6 });
     ui.end();
     ui.begin(.{ .direction = .row, .gap = 12 }, .{});

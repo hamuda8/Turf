@@ -252,11 +252,11 @@ fn bodyView(s: *const S, c: *const Cx, ui: *Ui) void {
 
     // The shift card.
     kit.card(ui, .{ .gap = 12.8, .align_items = .center });
-    ui.text(if (on) L("driver.on_duty") else L("driver.off_duty"), .{ .font_size = 21.6, .weight = 850, .color = k.ink, .text_align = .center });
+    ui.text(if (on) L("driver.on_duty") else L("driver.off_duty"), .{ .font_size = 24, .weight = 700, .color = k.ink, .text_align = .center });
     if (on and json.str(me, "dutySince").len > 0)
         kit.small(ui, ui.tf(labels.english("driver.since") orelse "{when}", .{ .when = fmt.time(a, json.str(me, "dutySince")) }))
     else
-        ui.text(L("driver.off_duty_hint"), .{ .font_size = 13.6, .color = k.ink_2, .text_align = .center });
+        ui.text(L("driver.off_duty_hint"), .{ .font_size = 14, .color = k.ink_2, .text_align = .center });
     kit.button(ui, if (on) L("driver.end_shift") else L("driver.start_shift"), kit.act(A.toggle, 0), .{ .variant = if (on) .normal else .primary, .size = .lg, .block = true, .icon = icons.power_settings_new, .busy = if (s.switching) @intFromEnum(A.duty) else null });
     var w = kit.Wrap.begin(ui, kit.width - 40, 8);
     const vehicle = labels.vehicle(json.str(me, "courier.vehicle"));
@@ -307,8 +307,8 @@ fn workSummary(ui: *Ui, sum: V) void {
     inline for (.{ .{ "driver.today", "today" }, .{ "driver.last_7_days", "week" } }) |x| {
         const p = json.obj(sum, x[1]);
         ui.begin(.{ .direction = .row, .gap = 8, .align_items = .center }, .{});
-        ui.text(L(x[0]), .{ .font_size = 14.4, .weight = 700, .color = k.ink });
-        ui.text(ui.tf(labels.english("driver.work_counts") orelse "{d} {p} {f}", .{ .d = json.int(p, "deliveries"), .p = json.int(p, "pickups"), .f = json.int(p, "failed") }), .{ .font_size = 14.4, .color = k.ink_2, .grow = 1 });
+        ui.text(L(x[0]), .{ .font_size = 14, .weight = 700, .color = k.ink });
+        ui.text(ui.tf(labels.english("driver.work_counts") orelse "{d} {p} {f}", .{ .d = json.int(p, "deliveries"), .p = json.int(p, "pickups"), .f = json.int(p, "failed") }), .{ .font_size = 14, .color = k.ink_2, .grow = 1 });
         if (json.boolean(sum, "paid")) kit.badge(ui, fmt.money(ui.arena(), json.num(p, "pay"), json.str(sum, "currency")), .green);
         ui.end();
     }
@@ -323,7 +323,7 @@ pub fn dueLabel(ui: *Ui, due_by: []const u8) void {
     const color = if (late) k.fatal_ink else k.a;
     ui.begin(.{ .direction = .row, .gap = 4, .align_items = .center }, .{});
     kit.icon(ui, icons.timer, 16.5, color);
-    ui.text(ui.tf(labels.english(if (late) "express.late" else "express.due") orelse "{time}", .{ .time = fmt.time(ui.arena(), due_by) }), .{ .font_size = 15, .weight = 750, .color = color });
+    ui.text(ui.tf(labels.english(if (late) "express.late" else "express.due") orelse "{time}", .{ .time = fmt.time(ui.arena(), due_by) }), .{ .font_size = 16, .weight = 700, .color = color });
     ui.end();
 }
 
@@ -398,7 +398,7 @@ fn routeLine(ui: *Ui, ic: zui.Icon, s: []const u8, flip: bool) void {
     const k = kit.k;
     ui.begin(.{ .direction = .row, .gap = 8, .align_items = .start }, .{});
     if (flip) kit.iconFlip(ui, ic, 20, k.ink_3) else kit.icon(ui, ic, 20, k.ink_3);
-    ui.text(s, .{ .font_size = 15, .color = k.ink, .grow = 1 });
+    ui.text(s, .{ .font_size = 16, .color = k.ink, .grow = 1 });
     ui.end();
 }
 
